@@ -16,9 +16,23 @@ import {
   type WorkoutRuntime,
 } from '../../workout/runner';
 import { useNav } from '../navigation';
-import { AppHeader, Button, Card, ErrorState, LoadingState, NumberField, Screen, SectionHeader, confirmDestructive } from '../components';
+import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, confirmDestructive } from '../components';
+import { Numpad, NumpadField } from '../Numpad';
+import {
+  applyNumpadKey,
+  applyNumpadModifier,
+  isValidNumpadValue,
+  readNumpadField,
+  writeNumpadField,
+  type NumpadField as NumpadFieldKey,
+  type NumpadInput,
+  type NumpadKey,
+  type NumpadModifier,
+} from '../numpadInput';
 
-const toPayload = (step: StepDef, input: { weightKg: string; reps: string; durationS: string; rir: string }): SetPayload => {
+const emptyInputs = (): NumpadInput => ({ weightKg: '', reps: '', durationS: '', rir: '' });
+
+const toPayload = (step: StepDef, input: NumpadInput): SetPayload => {
   const p = step.prescription;
   const w = input.weightKg.trim();
   const r = input.reps.trim();
@@ -33,12 +47,7 @@ const toPayload = (step: StepDef, input: { weightKg: string; reps: string; durat
   };
 };
 
-const validNumber = (s: string): boolean => {
-  const t = s.trim();
-  if (!t) return true;
-  const n = Number(t);
-  return Number.isFinite(n) && n >= 0;
-};
+const validNumber = (s: string): boolean => isValidNumpadValue(s);
 
 export function WorkoutScreen() {
   const { pop, setBackInterceptor } = useNav();
@@ -47,10 +56,8 @@ export function WorkoutScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [completedView, setCompletedView] = useState(false);
-  const [weightKg, setWeightKg] = useState('');
-  const [reps, setReps] = useState('');
-  const [durationS, setDurationS] = useState('');
-  const [rir, setRir] = useState('');
+  const [inputs, setInputs] = useState<NumpadInput>(emptyInputs);
+  const [activeField, setActiveField] = useState<NumpadFieldKey | null>(null);
   const busyRef = useRef(false);
   const rtRef = useRef<WorkoutRuntime | null>(null);
   rtRef.current = rt;
@@ -94,12 +101,19 @@ export function WorkoutScreen() {
   const step = rt && rt.cursor.status === 'active' ? rt.definition.blocks[rt.cursor.blockIndex]?.steps[rt.cursor.stepIndex] : undefined;
   const posKey = rt ? `${rt.cursor.blockIndex}:${rt.cursor.stepIndex}:${rt.cursor.round}:${rt.cursor.setIndex}` : '';
   useEffect(() => {
-    if (!step) return;
+    if (!step) {
+      setInputs(emptyInputs());
+      setActiveField(null);
+      return;
+    }
     const p = step.prescription;
-    setWeightKg(p.targetWeightGrams !== null ? String(gramsToKg(p.targetWeightGrams) ?? '') : '');
-    setReps(p.targetRepsMin !== null ? String(p.targetRepsMin) : '');
-    setDurationS(p.targetDurationMs !== null ? String(Math.round(p.targetDurationMs / 1000)) : '');
-    setRir(p.targetRir !== null ? String(p.targetRir) : '');
+    setInputs({
+      weightKg: p.targetWeightGrams !== null ? String(gramsToKg(p.targetWeightGrams) ?? '') : '',
+      reps: p.targetRepsMin !== null ? String(p.targetRepsMin) : '',
+      durationS: p.targetDurationMs !== null ? String(Math.round(p.targetDurationMs / 1000)) : '',
+      rir: p.targetRir !== null ? String(p.targetRir) : '',
+    });
+    setActiveField('weight');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posKey]);
 
@@ -199,10 +213,28 @@ export function WorkoutScreen() {
     return () => setBackInterceptor(null);
   }, [setBackInterceptor]);
 
+  const { weightKg, reps, durationS, rir } = inputs;
+  const inputsValid =
+    validNumber(weightKg) && validNumber(reps) && validNumber(durationS) && validNumber(rir);
+
+  const onNumpadKey = (key: NumpadKey) => {
+    if (!activeField || busy) return;
+    setInputs((prev) => writeNumpadField(prev, activeField, applyNumpadKey(readNumpadField(prev, activeField), key, activeField)));
+  };
+
+  const onNumpadModifier = (mod: NumpadModifier) => {
+    if (!activeField || busy) return;
+    setInputs((prev) => writeNumpadField(prev, activeField, applyNumpadModifier(readNumpadField(prev, activeField), activeField, mod)));
+  };
+
+  const onNumpadClear = () => {
+    if (!activeField || busy) return;
+    setInputs((prev) => writeNumpadField(prev, activeField, ''));
+  };
+
   const onComplete = () => {
-    if (!step) return;
-    if (!validNumber(weightKg) || !validNumber(reps) || !validNumber(durationS) || !validNumber(rir)) return;
-    void apply({ type: 'COMPLETE_SET', now: Date.now(), set: toPayload(step, { weightKg, reps, durationS, rir }) });
+    if (!step || !inputsValid) return;
+    void apply({ type: 'COMPLETE_SET', now: Date.now(), set: toPayload(step, inputs) });
   };
 
   const onSkip = () => {
@@ -272,7 +304,7 @@ export function WorkoutScreen() {
   const targetSets = Math.max(1, currentStep?.prescription.targetSets ?? 1);
   const canUndo = cursor.status === 'active' && cursor.lastReversible?.kind === 'set';
   const hasTimer = cursor.status === 'active' && cursor.timer !== null;
-  const inputsValid = validNumber(weightKg) && validNumber(reps) && validNumber(durationS) && validNumber(rir);
+  const showNumpad = cursor.status === 'active' && !!currentStep && !hasTimer;
 
   if (completedView || cursor.status === 'completed') {
     return (
@@ -304,7 +336,8 @@ export function WorkoutScreen() {
           <Button label={strings.workout.discard} variant="danger" onPress={onDiscard} className="mr-1 h-10 px-2" />
         }
       />
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+      <View className="flex-1">
+        <ScrollView contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
         <View className="px-4 pt-4">
           <View className="flex-row items-center justify-between">
             <Text className="text-sm text-dim">
@@ -381,12 +414,38 @@ export function WorkoutScreen() {
 
               <SectionHeader title={strings.workout.actual} />
               <View className="flex-row gap-3">
-                <NumberField label={`${strings.routines.prescription.weight} (${strings.workout.weight})`} value={weightKg === '' ? null : Number(weightKg)} onChange={(v) => setWeightKg(v === null ? '' : String(v))} suffix={strings.workout.weight} />
-                <NumberField label={strings.routines.prescription.reps} value={reps === '' ? null : Number(reps)} onChange={(v) => setReps(v === null ? '' : String(v))} />
+                <NumpadField
+                  testID="field-weight"
+                  label={`${strings.routines.prescription.weight} (${strings.workout.weight})`}
+                  display={weightKg}
+                  suffix={strings.workout.weight}
+                  active={activeField === 'weight'}
+                  onPress={() => setActiveField('weight')}
+                />
+                <NumpadField
+                  testID="field-reps"
+                  label={strings.routines.prescription.reps}
+                  display={reps}
+                  active={activeField === 'reps'}
+                  onPress={() => setActiveField('reps')}
+                />
               </View>
               <View className="mt-3 flex-row gap-3">
-                <NumberField label={`${strings.routines.prescription.duration} (${strings.units.seconds})`} value={durationS === '' ? null : Number(durationS)} onChange={(v) => setDurationS(v === null ? '' : String(v))} suffix={strings.units.seconds} />
-                <NumberField label={strings.workout.rir} value={rir === '' ? null : Number(rir)} onChange={(v) => setRir(v === null ? '' : String(v))} />
+                <NumpadField
+                  testID="field-duration"
+                  label={`${strings.routines.prescription.duration} (${strings.units.seconds})`}
+                  display={durationS}
+                  suffix={strings.units.seconds}
+                  active={activeField === 'duration'}
+                  onPress={() => setActiveField('duration')}
+                />
+                <NumpadField
+                  testID="field-rir"
+                  label={strings.workout.rir}
+                  display={rir}
+                  active={activeField === 'rir'}
+                  onPress={() => setActiveField('rir')}
+                />
               </View>
 
               <View className="mt-5">
@@ -416,7 +475,17 @@ export function WorkoutScreen() {
             <Text className="text-sm text-danger">{error}</Text>
           </View>
         ) : null}
-      </ScrollView>
+        </ScrollView>
+        {showNumpad ? (
+          <Numpad
+            field={activeField}
+            onKey={onNumpadKey}
+            onModifier={onNumpadModifier}
+            onClear={onNumpadClear}
+            disabled={busy}
+          />
+        ) : null}
+      </View>
     </Screen>
   );
 }

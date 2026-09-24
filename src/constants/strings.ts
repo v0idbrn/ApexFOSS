@@ -190,6 +190,14 @@ export const strings = {
     seconds: 's',
     minutes: 'min',
   },
+  numpad: {
+    title: 'Athlete numpad',
+    backspace: '⌫',
+    clear: 'Clear',
+    active: 'Editing',
+    tapField: 'Tap a field to edit',
+    modifierPrefix: 'Quick add',
+  },
 } as const;
 
 export type Strings = typeof strings;
