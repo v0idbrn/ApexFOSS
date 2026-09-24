@@ -17,11 +17,12 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#000000"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
     "plugins": [
       "expo-notifications",
+      "@morrowdigital/watermelondb-expo-plugin",
+      "./plugins/withApexSigning",
       [
         "expo-build-properties",
         {

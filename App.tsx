@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import '../global.css';
+import './global.css';
 import { strings } from './src/constants/strings';
 
 export default function App() {

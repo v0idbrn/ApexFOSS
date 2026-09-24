@@ -2,6 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "jsxImportSource": "nativewind",
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "baseUrl": ".",
@@ -9,5 +10,5 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "index.ts", "App.tsx", "jest.setup.ts", "metro.config.js", "babel.config.js", "tailwind.config.js"]
+  "include": ["src", "index.ts", "App.tsx", "jest.setup.ts", "metro.config.js", "babel.config.js", "tailwind.config.js", "nativewind-env.d.ts"]
 }

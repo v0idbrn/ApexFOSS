@@ -13,6 +13,8 @@ ios/
 
 # Tooling installed locally (JDK, Android SDK) — never commit
 .tooling/
+local.properties
+.freebuff/
 
 # Keystores & secrets — NEVER commit
 *.jks
