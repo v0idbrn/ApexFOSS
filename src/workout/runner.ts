@@ -3,7 +3,7 @@ import { dispatch } from '../engine';
 import { makeDbActions } from '../data/actions';
 import { definitionOf, cursorOf, serializeRoutine } from '../data/serialize';
 import { Routine, WorkoutSession } from '../data/models';
-import type { EngineEvent, ExecutionCursor, RoutineDefinition } from '../types/engine';
+import type { EngineEvent, ExecutionCursor, RoutineDefinition, TimerState } from '../types/engine';
 import { scheduleTimerNotification, cancelTimerNotification } from '../notifications';
 
 /**
@@ -24,6 +24,29 @@ const notificationIds = new Map<string, string | null>();
 async function clearSessionNotification(sessionId: string): Promise<void> {
   await cancelTimerNotification(notificationIds.get(sessionId) ?? null);
   notificationIds.set(sessionId, null);
+}
+
+/**
+ * Reconcile the local notification with the canonical cursor timer.
+ * Called on load / app-resume / process-death recovery — never invents timer state.
+ */
+export async function reconcileTimerNotification(
+  sessionId: string,
+  timer: TimerState | null,
+  now: number,
+): Promise<void> {
+  if (!timer || timer.expiresAt <= now) {
+    await clearSessionNotification(sessionId);
+    return;
+  }
+  // Fresh schedule on every reconcile: process death loses the in-memory id map,
+  // and a stale notification for a past expiry must not survive recovery.
+  await cancelTimerNotification(notificationIds.get(sessionId) ?? null);
+  const id = await scheduleTimerNotification(
+    timer.expiresAt,
+    timer.kind === 'rest' ? 'Rest complete' : 'Next',
+  );
+  notificationIds.set(sessionId, id);
 }
 
 /**
@@ -86,7 +109,9 @@ export async function applyWorkoutEvent(
     }
   }
 
+  // Belt-and-suspenders: completion always cancels any leftover rest alert.
   if (cursor.status === 'completed') {
+    await clearSessionNotification(rt.sessionId);
     await actions.completeSession(rt.session, cursor);
   } else {
     await actions.persistCursor(rt.session, cursor);

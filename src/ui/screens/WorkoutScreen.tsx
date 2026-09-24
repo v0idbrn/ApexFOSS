@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, AppState, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { formatCountdown, formatKg, formatTempo, gramsToKg, kgToGrams, secondsToMs } from '../../utils/units';
@@ -11,6 +11,8 @@ import {
   discardWorkout,
   isTimerExpired,
   loadActiveWorkout,
+  loadWorkoutRuntime,
+  reconcileTimerNotification,
   type WorkoutRuntime,
 } from '../../workout/runner';
 import { useNav } from '../navigation';
@@ -80,6 +82,14 @@ export function WorkoutScreen() {
     load();
   }, [load]);
 
+  // Reconcile notification whenever an active timer is loaded (covers process death).
+  useEffect(() => {
+    const c = rt?.cursor;
+    if (!c || c.status !== 'active') return;
+    void reconcileTimerNotification(rt.sessionId, c.timer, Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rt?.sessionId, rt?.cursor.timer?.expiresAt, rt?.cursor.status]);
+
   // Reset actual inputs whenever the target set/step changes.
   const step = rt && rt.cursor.status === 'active' ? rt.definition.blocks[rt.cursor.blockIndex]?.steps[rt.cursor.stepIndex] : undefined;
   const posKey = rt ? `${rt.cursor.blockIndex}:${rt.cursor.stepIndex}:${rt.cursor.round}:${rt.cursor.setIndex}` : '';
@@ -117,6 +127,45 @@ export function WorkoutScreen() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rt?.cursor.timer?.expiresAt, rt?.cursor.timer?.kind, rt?.cursor.status]);
+
+  // Background/resume: re-read persisted cursor (A2–A4). Never trust in-memory UI state.
+  const reloadForResume = useCallback(async () => {
+    const current = rtRef.current;
+    try {
+      const fresh = current ? await loadWorkoutRuntime(database, current.sessionId) : await loadActiveWorkout(database);
+      if (!fresh) return;
+      setRt(fresh);
+      if (fresh.cursor.status === 'completed') {
+        setCompletedView(true);
+        timer.clear();
+        setSession(null, null);
+        return;
+      }
+      await reconcileTimerNotification(fresh.sessionId, fresh.cursor.timer, Date.now());
+      if (isTimerExpired(fresh.cursor, Date.now())) {
+        await applyRef.current({ type: 'TIMER_EXPIRE', now: Date.now() });
+      } else if (fresh.cursor.timer) {
+        timer.setFromCursor(fresh.cursor.timer);
+      }
+    } catch {
+      // keep last known UI; next interaction re-reads
+    }
+  }, [setSession, timer]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' || state === 'background') {
+        // background: refresh remaining from expiresAt (setTimeout may freeze);
+        // active: detect expiration and dispatch through the runner.
+        if (state === 'active') void reloadForResume();
+        else {
+          const c = rtRef.current?.cursor;
+          if (c?.timer) timer.setFromCursor(c.timer);
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [reloadForResume, timer]);
 
   const apply = useCallback(
     async (event: EngineEvent) => {
