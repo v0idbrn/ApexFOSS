@@ -68,7 +68,10 @@ export async function startWorkoutSession(db: Database, routineId: string): Prom
 export async function loadWorkoutRuntime(db: Database, sessionId: string): Promise<WorkoutRuntime | null> {
   try {
     const session = await db.get<WorkoutSession>('workout_sessions').find(sessionId);
-    if (!session) return null;
+    // Soft-deleted (discarded) sessions must not be resumable by id.
+    if (!session || (session as unknown as { _raw?: { _status?: string } })._raw?._status === 'deleted') {
+      return null;
+    }
     return {
       sessionId: session.id,
       session,
