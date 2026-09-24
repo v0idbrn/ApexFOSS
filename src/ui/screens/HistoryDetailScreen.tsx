@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { loadSessionDetail, type HistoryDetail } from '../../data/history';
 import { strings } from '../../constants/strings';
 import { formatKg } from '../../utils/units';
+import { calculateSessionLoad, gramRepsToKgReps, msToSeconds } from '../../analytics/load';
 import { useNav } from '../navigation';
 import { AppHeader, Card, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
 
@@ -94,6 +95,27 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
     load();
   }, [load]);
 
+  const sessionLoad = useMemo(() => {
+    if (!detail) return null;
+    return calculateSessionLoad({
+      sessionId: detail.id,
+      name: detail.name,
+      startedAt: detail.startedAt,
+      endedAt: detail.endedAt,
+      exercises: detail.blocks.map((block) => ({
+        exerciseName: block.steps.map((s) => s.exerciseName).filter(Boolean).join(' / '),
+        sets: block.steps.flatMap((step) =>
+          step.logs.map((log) => ({
+            weightGrams: log.weightGrams,
+            reps: log.reps,
+            durationMs: log.durationMs,
+            isCompleted: true as const,
+          })),
+        ),
+      })),
+    });
+  }, [detail]);
+
   if (loading) {
     return (
       <Screen>
@@ -129,6 +151,24 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
               {strings.history.sets}: {detail.totalCompletedSets}
             </Text>
           </Card>
+
+          {sessionLoad && sessionLoad.completedSetCount > 0 ? (
+            <Card className="mt-3">
+              <Text className="text-xs font-semibold uppercase tracking-wider text-dim">
+                {strings.history.sessionLoad}
+              </Text>
+              <Text className="mt-2 text-lg font-bold text-fg">
+                {gramRepsToKgReps(sessionLoad.resistanceGramReps)} {strings.load.kgReps}
+              </Text>
+              <Text className="mt-0.5 text-sm text-dim">
+                {strings.history.resistanceLoad}: {sessionLoad.resistanceSetCount} {strings.load.sets}
+              </Text>
+              <Text className="mt-0.5 text-sm text-dim">
+                {strings.history.durationWork}: {msToSeconds(sessionLoad.durationMs)} {strings.load.seconds} ·{' '}
+                {sessionLoad.durationSetCount} {strings.load.sets}
+              </Text>
+            </Card>
+          ) : null}
         </View>
 
         {detail.blocks.map((block) => (

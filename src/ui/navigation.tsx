@@ -16,7 +16,10 @@ export type Route =
   | { name: 'history' }
   | { name: 'historyDetail'; sessionId: string }
   | { name: 'portability' }
-  | { name: 'importPreview'; encoded: string };
+  | { name: 'importPreview'; encoded: string }
+  | { name: 'load' }
+  | { name: 'inventory' }
+  | { name: 'readiness' };
 
 interface NavValue {
   route: Route;

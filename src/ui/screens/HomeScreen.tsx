@@ -80,6 +80,31 @@ export function HomeScreen() {
           <Text className="text-lg font-medium text-fg">{strings.home.routines}</Text>
           <Text className="text-xl text-dim">›</Text>
         </Pressable>
+        <SectionHeader title={strings.athleteTools.section} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => push({ name: 'load' })}
+          className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+        >
+          <Text className="text-lg font-medium text-fg">{strings.athleteTools.load}</Text>
+          <Text className="text-xl text-dim">›</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => push({ name: 'inventory' })}
+          className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+        >
+          <Text className="text-lg font-medium text-fg">{strings.athleteTools.inventory}</Text>
+          <Text className="text-xl text-dim">›</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => push({ name: 'readiness' })}
+          className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+        >
+          <Text className="text-lg font-medium text-fg">{strings.athleteTools.readiness}</Text>
+          <Text className="text-xl text-dim">›</Text>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => push({ name: 'history' })}
