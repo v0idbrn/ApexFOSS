@@ -179,8 +179,11 @@ export const strings = {
   export: {
     title: 'Export',
     csv: 'Export CSV',
-    csvHint: 'Sessions and set logs as CSV files',
+    csvHint: 'Sessions and set logs as CSV',
+    json: 'Export JSON',
+    jsonHint: 'Structured sessions as JSON',
     exported: 'Export ready',
+    nothing: 'No completed sessions to export',
   },
   units: {
     kg: 'kg',

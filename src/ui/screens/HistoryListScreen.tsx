@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { Alert, FlatList, Text, View } from 'react-native';
 import { database } from '../../data';
 import { listCompletedSessions, type HistoryListItem } from '../../data/history';
+import { collectCompletedDetails, reportExportError, shareCsvExport, shareJsonExport } from '../../export/share';
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
-import { AppHeader, EmptyState, ErrorState, ListRow, LoadingState, Screen } from '../components';
+import { AppHeader, Button, EmptyState, ErrorState, ListRow, LoadingState, Screen } from '../components';
 
 function formatWhen(startedAt: number): string {
   try {
@@ -37,6 +38,7 @@ export function HistoryListScreen() {
   const [rows, setRows] = useState<HistoryListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -49,6 +51,24 @@ export function HistoryListScreen() {
       setLoading(false);
     }
   }, []);
+
+  const onExport = useCallback(async (kind: 'csv' | 'json') => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const details = await collectCompletedDetails(database);
+      if (details.length === 0) {
+        Alert.alert(strings.export.title, strings.export.nothing);
+        return;
+      }
+      if (kind === 'csv') await shareCsvExport(database);
+      else await shareJsonExport(database);
+    } catch (e) {
+      reportExportError(e);
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting]);
 
   useEffect(() => {
     reload();
@@ -79,9 +99,25 @@ export function HistoryListScreen() {
       )}
       {rows.length > 0 && !loading && !error ? (
         <View className="border-t border-line px-4 py-2">
-          <Text className="text-xs text-dim">
+          <Text className="mb-2 text-xs text-dim">
             {rows.length} {strings.history.completed.toLowerCase()}
           </Text>
+          <View className="flex-row gap-2">
+            <Button
+              label={exporting ? strings.common.loading : strings.export.csv}
+              variant="secondary"
+              disabled={exporting}
+              onPress={() => void onExport('csv')}
+              className="flex-1"
+            />
+            <Button
+              label={strings.export.json}
+              variant="secondary"
+              disabled={exporting}
+              onPress={() => void onExport('json')}
+              className="flex-1"
+            />
+          </View>
         </View>
       ) : null}
     </Screen>
