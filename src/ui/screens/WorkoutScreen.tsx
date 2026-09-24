@@ -15,9 +15,20 @@ import {
   reconcileTimerNotification,
   type WorkoutRuntime,
 } from '../../workout/runner';
+import {
+  cancelTempo,
+  hasActiveTempo,
+  idleTempoRuntime,
+  startTempo,
+  tickTempo,
+  type TempoEffect,
+  type TempoRuntime,
+} from '../../tempo/tempoTrainer';
+import { activateTempoKeepAwake, pulseTempoHaptic, releaseTempoKeepAwake } from '../../tempo/feedback';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, confirmDestructive } from '../components';
 import { Numpad, NumpadField } from '../Numpad';
+import { TempoActiveCard, TempoReadyCard } from '../TempoTrainer';
 import {
   applyNumpadKey,
   applyNumpadModifier,
@@ -31,6 +42,9 @@ import {
 } from '../numpadInput';
 
 const emptyInputs = (): NumpadInput => ({ weightKg: '', reps: '', durationS: '', rir: '' });
+
+/** Visual refresh for tempo countdown only — not a second authoritative timer. */
+const TEMPO_UI_TICK_MS = 100;
 
 const toPayload = (step: StepDef, input: NumpadInput): SetPayload => {
   const p = step.prescription;
@@ -49,6 +63,10 @@ const toPayload = (step: StepDef, input: NumpadInput): SetPayload => {
 
 const validNumber = (s: string): boolean => isValidNumpadValue(s);
 
+const fireTempoEffects = (effects: TempoEffect[]) => {
+  for (const e of effects) pulseTempoHaptic(e);
+};
+
 export function WorkoutScreen() {
   const { pop, setBackInterceptor } = useNav();
   const [rt, setRt] = useState<WorkoutRuntime | null>(null);
@@ -58,9 +76,14 @@ export function WorkoutScreen() {
   const [completedView, setCompletedView] = useState(false);
   const [inputs, setInputs] = useState<NumpadInput>(emptyInputs);
   const [activeField, setActiveField] = useState<NumpadFieldKey | null>(null);
+  // Ephemeral tempo trainer (intra-set aid) — never persisted, never engine-owned.
+  const [tempo, setTempo] = useState<TempoRuntime>(idleTempoRuntime);
+  const [tempoNow, setTempoNow] = useState(() => Date.now());
   const busyRef = useRef(false);
   const rtRef = useRef<WorkoutRuntime | null>(null);
   rtRef.current = rt;
+  const tempoRef = useRef<TempoRuntime>(tempo);
+  tempoRef.current = tempo;
 
   const timer = useTimerStore();
   const setSession = useActiveSessionStore((s) => s.setSession);
@@ -114,8 +137,71 @@ export function WorkoutScreen() {
       rir: p.targetRir !== null ? String(p.targetRir) : '',
     });
     setActiveField('weight');
+    // New set/step: discard any in-flight tempo (no stale phase timestamps).
+    setTempo(idleTempoRuntime());
+    releaseTempoKeepAwake();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posKey]);
+
+  // Tempo trainer: timestamp-based; UI tick derives remaining; engine never sees it.
+  const applyTempoTick = useCallback((now: number) => {
+    const current = tempoRef.current;
+    if (current.status !== 'running') {
+      setTempoNow(now);
+      return;
+    }
+    const step = tickTempo(current, now);
+    tempoRef.current = step.runtime;
+    setTempo(step.runtime);
+    setTempoNow(now);
+    fireTempoEffects(step.effects);
+    if (step.runtime.status === 'running') activateTempoKeepAwake();
+    else releaseTempoKeepAwake();
+  }, []);
+
+  useEffect(() => {
+    if (tempo.status !== 'running') return;
+    activateTempoKeepAwake();
+    const id = setInterval(() => applyTempoTick(Date.now()), TEMPO_UI_TICK_MS);
+    return () => clearInterval(id);
+  }, [tempo.status, applyTempoTick]);
+
+  // Background/resume: re-derive phase from absolute timestamps (no drift, no blind restart).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') applyTempoTick(Date.now());
+    });
+    return () => sub.remove();
+  }, [applyTempoTick]);
+
+  // Unmount: never leak keep-awake or leave a running tempo reference.
+  useEffect(() => {
+    return () => {
+      releaseTempoKeepAwake();
+    };
+  }, []);
+
+  const onStartTempo = () => {
+    if (!step) return;
+    const now = Date.now();
+    const result = startTempo(step.prescription.tempo, now);
+    tempoRef.current = result.runtime;
+    setTempo(result.runtime);
+    setTempoNow(now);
+    fireTempoEffects(result.effects);
+    if (result.runtime.status === 'running') activateTempoKeepAwake();
+  };
+
+  const onCancelTempo = () => {
+    tempoRef.current = cancelTempo();
+    setTempo(cancelTempo());
+    setTempoNow(Date.now());
+    releaseTempoKeepAwake();
+  };
+
+  const onRestartTempo = () => {
+    onStartTempo();
+  };
 
   // Timer: truth is cursor.timer.expiresAt. setTimeout only drives UI refresh / expiry event.
   const applyRef = useRef<(event: EngineEvent) => Promise<void>>(async () => {});
@@ -189,6 +275,12 @@ export function WorkoutScreen() {
       busyRef.current = true;
       setBusy(true);
       try {
+        // Completing a set / advancing while tempo runs: stop the aid first.
+        if (tempoRef.current.status === 'running') {
+          tempoRef.current = cancelTempo();
+          setTempo(cancelTempo());
+          releaseTempoKeepAwake();
+        }
         const next = await applyWorkoutEvent(database, current, event);
         setRt(next);
         if (next.cursor.status === 'completed') {
@@ -260,6 +352,9 @@ export function WorkoutScreen() {
         const current = rtRef.current;
         if (!current) return;
         try {
+          tempoRef.current = cancelTempo();
+          setTempo(cancelTempo());
+          releaseTempoKeepAwake();
           await discardWorkout(database, current);
           setSession(null, null);
           timer.clear();
@@ -270,6 +365,18 @@ export function WorkoutScreen() {
       })();
     });
   };
+
+  // Rest timer / completed session takes precedence: never overlap tempo with REST.
+  // Declared with other hooks (before early returns) to keep hook order stable.
+  const restActive = !!rt && rt.cursor.status === 'active' && rt.cursor.timer !== null;
+  const sessionDone = !!rt && (completedView || rt.cursor.status === 'completed');
+  useEffect(() => {
+    if ((restActive || sessionDone || !rt) && tempoRef.current.status !== 'idle') {
+      tempoRef.current = cancelTempo();
+      setTempo(cancelTempo());
+      releaseTempoKeepAwake();
+    }
+  }, [restActive, sessionDone, rt]);
 
   if (loading) {
     return (
@@ -305,6 +412,11 @@ export function WorkoutScreen() {
   const canUndo = cursor.status === 'active' && cursor.lastReversible?.kind === 'set';
   const hasTimer = cursor.status === 'active' && cursor.timer !== null;
   const showNumpad = cursor.status === 'active' && !!currentStep && !hasTimer;
+  const showTempo =
+    cursor.status === 'active' &&
+    !!currentStep &&
+    !hasTimer &&
+    hasActiveTempo(currentStep.prescription.tempo);
 
   if (completedView || cursor.status === 'completed') {
     return (
@@ -411,6 +523,27 @@ export function WorkoutScreen() {
                   {strings.workout.tempo}: {formatTempo(currentStep.prescription.tempo)}
                 </Text>
               </View>
+
+              {showTempo ? (
+                <View className="mt-4">
+                  {tempo.status === 'idle' ? (
+                    <TempoReadyCard
+                      tempo={currentStep.prescription.tempo}
+                      onStart={onStartTempo}
+                      disabled={busy}
+                    />
+                  ) : (
+                    <TempoActiveCard
+                      tempo={currentStep.prescription.tempo}
+                      runtime={tempo}
+                      now={tempoNow}
+                      onCancel={onCancelTempo}
+                      onRestart={onRestartTempo}
+                      busy={busy}
+                    />
+                  )}
+                </View>
+              ) : null}
 
               <SectionHeader title={strings.workout.actual} />
               <View className="flex-row gap-3">
