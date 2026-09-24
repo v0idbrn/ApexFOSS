@@ -132,3 +132,40 @@ via `persistCursor` / `completeSession`.
   `src/workout/workout.test.ts`.
 - Timer / notification effects remain outside the DB writer (runner side
   effects); nested `db.write` deadlock risk is unchanged (still forbidden).
+
+---
+
+## D-005 — Android timer notifications: date-trigger accuracy + cancel-all fallback (Day 4, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Day 4 schedules local rest/block-timer notifications via
+`expo-notifications` `scheduleAsync({ trigger: { type: 'date', value } })`.
+Permission is requested lazily on first schedule (not at startup) to avoid a
+cold-start prompt. After process death the in-memory notification id map is
+gone, so recovery cannot rely on remembered ids alone.
+
+**Decision.**
+
+1. **Reconcile on every runtime load / AppState resume.** The runner exposes
+   `reconcileTimerNotification(sessionId, timer, now)`: if the persisted
+   cursor timer is null or already expired ? cancel only; if live ? cancel any
+   prior notification then schedule a fresh one. Fresh schedule produces a new
+   OS id, so stale alarms from previous lives are superseded or cancelled by
+   `cancelAllScheduledNotificationsAsync` when the prior id is unknown.
+2. **Cancel falls back to `cancelAllScheduledNotificationsAsync`** when the
+   in-memory id is missing (post-death) — safe because the app only ever
+   schedules timer notifications for a single active session.
+3. **Date-trigger inexactness accepted:** Android may batch/delay exact date
+   triggers (and battery optimizations can worsen this). The notification is
+   never the source of truth: UI and `TIMER_EXPIRE` dispatch always recompute
+   from `cursor.timer.expiresAt`.
+
+**Consequences.**
+
+- No false dual-timer system; notification drift cannot desync state.
+- User may see the rest notification slightly late on some OEMs (Samsung
+  included) without `SCHEDULE_EXACT_ALARM` — deferred to a later day if
+  field reports show material delay.
+- Device validation for notification delivery was **not** performed (device
+  PIN-locked); Day 5 must not claim on-device notification verification.
