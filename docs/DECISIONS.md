@@ -169,3 +169,68 @@ gone, so recovery cannot rely on remembered ids alone.
   field reports show material delay.
 - Device validation for notification delivery was **not** performed (device
   PIN-locked); Day 5 must not claim on-device notification verification.
+
+---
+
+## D-006 — Soft-deleted (discarded) sessions must not load by id (Day 5, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** `discardWorkout` soft-deletes the `workout_sessions` row via
+`markAsDeleted`. WatermelonDB `Model.find(id)` still returns records with
+`_raw._status === 'deleted'`, so `loadWorkoutRuntime(sessionId)` could hand a
+discarded session back to the UI after discard (covered by Day 5 edge-case
+tests).
+
+**Decision.** `loadWorkoutRuntime` returns `null` when the row's raw status is
+`deleted` (or `find` throws). Queries that already exclude deleted rows
+(`getActiveSession`, History) are unchanged.
+
+**Consequences.**
+
+- Discarded sessions cannot be resumed or shown by id; `loadActiveWorkout`
+  remains the only active-session entry point.
+- No schema change; pure application-layer guard.
+
+---
+
+## D-007 — Offline CSV/JSON export via React Native Share (Day 5, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** v0.1 needs export without cloud dependencies. `expo-sharing` is
+not installed; `Share.share` is built into React Native and opens the Android
+share sheet offline.
+
+**Decision.**
+
+- Pure builders in `src/export/export.ts` (RFC 4180 CSV, structured JSON with
+  raw integer units + display kg/s in CSV).
+- UI on History list calls `shareCsvExport` / `shareJsonExport`
+  (`src/export/share.ts`), which load completed sessions only and pass the
+  payload to `Share.share`. No filesystem write, no network, no DB mutation.
+
+**Consequences.**
+
+- Zero-activity history ? header-only CSV / empty JSON sessions array (no fake rows).
+- Future file-based share can swap the transport without touching builders.
+
+---
+
+## D-006 — Discarded sessions are not resumable by id (Day 5, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** WatermelonDB soft-deletes (`markAsDeleted`) keep the row readable
+via `find(id)` with `_status: deleted`. `loadWorkoutRuntime` therefore returned
+a discarded session as if it were live, so a stale id could resurrect a
+discarded workout in tests (and theoretically after UI races).
+
+**Decision.** `loadWorkoutRuntime` returns `null` when the raw row status is
+`deleted` (or `find` throws). Active-session queries still use
+`session_status='active'` and never see discarded rows.
+
+**Consequences.**
+
+- Discard is final for resume-by-id; History only shows `completed` sessions.
+- Covered by `src/workout/day5.test.ts` ("discard active session…").
