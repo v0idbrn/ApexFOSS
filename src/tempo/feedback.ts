@@ -1,64 +1,69 @@
 /**
- * Side-effect adapters for the tempo trainer (haptics + keep-awake).
- * Never required for correctness — all calls are fail-soft.
- * Dynamic requires keep Jest/node free of native module resolution.
+ * Fail-soft haptic cues for tempo + interval trainers.
+ * Never required for correctness. Dynamic-safe under Jest (Vibration mocked/absent).
  */
 
 import { Platform, Vibration } from 'react-native';
-import type { TempoEffect } from './tempoTrainer';
+import type { TempoEffect } from '../tempo/tempoTrainer';
+import type { IntervalEffect } from '../interval/intervalEngine';
 
-const KEEP_AWAKE_TAG = 'apexfoss-tempo';
-let keepAwakeActive = false;
-
-/** Restrained single pulse at phase boundaries / completion. */
-export function pulseTempoHaptic(effect: TempoEffect): void {
+function pulse(ms: number): void {
   try {
     if (Platform.OS === 'web') return;
     if (typeof Vibration?.vibrate !== 'function') return;
-    if (effect.kind === 'TEMPO_COMPLETE') {
-      Vibration.vibrate(35);
-    } else {
-      Vibration.vibrate(15);
-    }
+    Vibration.vibrate(ms);
   } catch {
     // haptics unavailable — never break the trainer
   }
 }
 
-/** Hold screen awake while tempo is running. Fail-soft. */
-export function activateTempoKeepAwake(): void {
-  try {
-    if (keepAwakeActive) return;
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const keepAwake = require('expo-keep-awake');
-    if (typeof keepAwake.activateKeepAwake === 'function') {
-      keepAwake.activateKeepAwake(KEEP_AWAKE_TAG);
-      keepAwakeActive = true;
-    }
-  } catch {
-    // library missing / unsupported — document limitation, continue
+export function pulseTempoHaptic(effect: TempoEffect): void {
+  if (effect.kind === 'TEMPO_COMPLETE') pulse(35);
+  else pulse(15);
+}
+
+/**
+ * Interval cues (restrained):
+ * PREP short · WORK distinct · REST medium · ROUND short · COMPLETE long.
+ * Multi-boundary catch-up only emits landed effects (engine already collapses).
+ */
+export function pulseIntervalHaptic(effect: IntervalEffect): void {
+  switch (effect.kind) {
+    case 'INTERVAL_COMPLETE':
+      pulse(40);
+      break;
+    case 'ROUND_START':
+      pulse(20);
+      break;
+    case 'PHASE_START':
+      if (effect.phase === 'work') pulse(25);
+      else if (effect.phase === 'rest') pulse(18);
+      else pulse(12); // prep
+      break;
+    default:
+      break;
   }
 }
 
-export function releaseTempoKeepAwake(): void {
-  try {
-    if (!keepAwakeActive) return;
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const keepAwake = require('expo-keep-awake');
-    if (typeof keepAwake.deactivateKeepAwake === 'function') {
-      keepAwake.deactivateKeepAwake(KEEP_AWAKE_TAG);
-    }
-    keepAwakeActive = false;
-  } catch {
-    // ignore
-  }
-}
+import {
+  activateTempoKeepAwake,
+  releaseTempoKeepAwake,
+  activateIntervalKeepAwake,
+  releaseIntervalKeepAwake,
+  __keepAwakeHeldTagsForTests,
+  __resetKeepAwakeForTests,
+} from '../ui/keepAwake';
 
-/** Test hook: inspect / reset keep-awake latch. */
+export {
+  activateTempoKeepAwake,
+  releaseTempoKeepAwake,
+  activateIntervalKeepAwake,
+  releaseIntervalKeepAwake,
+  __keepAwakeHeldTagsForTests,
+  __resetKeepAwakeForTests as __resetTempoFeedbackForTests,
+};
+
+/** Back-compat test helper: true when tempo tag is held. */
 export function __tempoKeepAwakeStateForTests(): boolean {
-  return keepAwakeActive;
-}
-
-export function __resetTempoFeedbackForTests(): void {
-  keepAwakeActive = false;
+  return __keepAwakeHeldTagsForTests().includes('apexfoss-tempo');
 }
