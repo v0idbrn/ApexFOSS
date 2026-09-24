@@ -135,7 +135,7 @@ via `persistCursor` / `completeSession`.
 
 ---
 
-## D-005 � Android timer notifications: date-trigger accuracy + cancel-all fallback (Day 4, 2026-09-24)
+## D-005 � Android timer notifications: date-trigger accuracy + cancel-all fallback (Day 4, 2026-09-24)
 
 **Status:** Accepted
 
@@ -154,7 +154,7 @@ gone, so recovery cannot rely on remembered ids alone.
    OS id, so stale alarms from previous lives are superseded or cancelled by
    `cancelAllScheduledNotificationsAsync` when the prior id is unknown.
 2. **Cancel falls back to `cancelAllScheduledNotificationsAsync`** when the
-   in-memory id is missing (post-death) � safe because the app only ever
+   in-memory id is missing (post-death) � safe because the app only ever
    schedules timer notifications for a single active session.
 3. **Date-trigger inexactness accepted:** Android may batch/delay exact date
    triggers (and battery optimizations can worsen this). The notification is
@@ -165,14 +165,14 @@ gone, so recovery cannot rely on remembered ids alone.
 
 - No false dual-timer system; notification drift cannot desync state.
 - User may see the rest notification slightly late on some OEMs (Samsung
-  included) without `SCHEDULE_EXACT_ALARM` � deferred to a later day if
+  included) without `SCHEDULE_EXACT_ALARM` � deferred to a later day if
   field reports show material delay.
 - Device validation for notification delivery was **not** performed (device
   PIN-locked); Day 5 must not claim on-device notification verification.
 
 ---
 
-## D-006 � Soft-deleted (discarded) sessions must not load by id (Day 5, 2026-09-24)
+## D-006 � Soft-deleted (discarded) sessions must not load by id (Day 5, 2026-09-24)
 
 **Status:** Accepted
 
@@ -194,7 +194,7 @@ tests).
 
 ---
 
-## D-007 � Offline CSV/JSON export via React Native Share (Day 5, 2026-09-24)
+## D-007 � Offline CSV/JSON export via React Native Share (Day 5, 2026-09-24)
 
 **Status:** Accepted
 
@@ -217,7 +217,7 @@ share sheet offline.
 
 ---
 
-## D-006 � Discarded sessions are not resumable by id (Day 5, 2026-09-24)
+## D-006 � Discarded sessions are not resumable by id (Day 5, 2026-09-24)
 
 **Status:** Accepted
 
@@ -233,7 +233,7 @@ discarded workout in tests (and theoretically after UI races).
 **Consequences.**
 
 - Discard is final for resume-by-id; History only shows `completed` sessions.
-- Covered by `src/workout/day5.test.ts` ("discard active session�").
+- Covered by `src/workout/day5.test.ts` ("discard active session�").
 
 ---
 
@@ -379,3 +379,158 @@ on any feedback adapter.
 - *expo-audio now* — disproportionate native surface for optional cues.
 - *Speech synthesis* — non-deterministic, larger dependency, accessibility
   noise.
+
+---
+
+## D-012 — Portable routine format `apexfoss-routine` v1 (Phase 2D, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Offline portability requires a versioned, deterministic,
+checksummed routine interchange that is independent of Watermelon IDs and
+schema internals.
+
+**Decision.** Ship format `apexfoss-routine` / `formatVersion: 1` with:
+canonical JSON (sorted keys, integers only), semantic checksum
+`sha256(canonical({routine, exercises}))` excluding `exportedAt`/`producer`
+metadata, package-local exercise keys `e1,e2…` assigned by first-use order
+across blocks/steps, and strict untrusted validation before any DB write.
+Transport: base64url of the package JSON; deep link
+`apexfoss://import?d=<payload>`; ceiling `MAX_PORTABLE_PAYLOAD_BYTES = 2000`.
+
+**Consequences.**
+
+- Same logical routine always yields the same checksum on any device.
+- Checksum detects corruption only — not authentication (documented).
+- Import always creates a NEW routine; name collisions get
+  `Name (imported)` / `Name (imported 2)`.
+
+**Rejected alternatives.**
+
+- *Raw Watermelon dump* — couples portable files to schema/ids.
+- *SQLite file copy* — not logical, not portable across schema versions.
+
+---
+
+## D-013 — Exercise identity on import (Phase 2D, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Imported packages reference exercises that may or may not exist
+locally.
+
+**Decision.** Match key =
+`name.trim().toLowerCase().replace(/\s+/g,' ')|category|equipment|metricFlags`.
+Reuse the first local match; otherwise create a new exercise. Preview shows
+matched vs new counts before confirm.
+
+**Consequences.**
+
+- No accidental duplicates for equivalent exercises.
+- Deliberately different equipment/category create distinct rows.
+
+---
+
+## D-014 — Backup format `apexfoss-backup` v1 (Phase 2D, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Full-device offline backup/restore without shipping SQLite files.
+
+**Decision.** Logical backup `apexfoss-backup` / `formatVersion: 1` containing
+`exercises`, `routines` (portable blocks), `sessions` (definitionJson +
+cursorJson as-is), `sessionExercises`, `setLogs`, plus `schemaVersion ≤ current`
+and `checksum = sha256(canonical(data))`. Restore policy is FULL REPLACE after
+complete validation and explicit UI confirmation. Compensating snapshot
+rollback restores pre-restore rows if any mid-restore write fails (LokiJS
+tests and SQLite).
+
+**Consequences.**
+
+- Active sessions restore with definition/cursor intact (resume works).
+- Restore never runs without confirmation; never without checksum verify.
+- Internal Watermelon metadata is never exported.
+
+---
+
+## D-015 — QR capacity vs deep-link size (Phase 2D, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Pure-TS QR encoder implements byte mode EC level M versions 1–10
+(max ≈213 data bytes). Deep-link transport allows up to 2000 bytes.
+
+**Decision.** QR is best-effort for small payloads only. When
+`fitsQr(deepLink)` is false, UI shows "Too large for QR — use Share instead"
+and the user shares the JSON / deep link via the system share sheet. No
+in-app camera; system camera scan of an apexfoss:// QR opens the app via the
+registered scheme.
+
+**Consequences.**
+
+- Realistic multi-block routines often exceed QR capacity — Share remains the
+  primary transfer path.
+- No camera permission, no QR decode dependency.
+
+**Rejected alternatives.**
+
+- *Versions 11–40 encoder* — large correctness risk for MVP; cut order puts
+  QR polish after core formats.
+- *Compressed QR payload* — deferred with backup compression cut item.
+
+---
+
+## D-016 — Deep-link safety (Phase 2D, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** `apexfoss://import?d=…` can arrive from camera scans, links, or
+intents. Payloads are untrusted.
+
+**Decision.** Parse is data-transport only (`parseImportDeepLink`). Payload is
+stashed in a module pending slot; PortabilityScreen fills the paste field;
+user must Preview → Confirm before `importRoutinePackage` runs. No auto-import
+on cold start or `url` event. No eval, no dynamic modules, no network.
+
+**Consequences.**
+
+- Malicious/corrupt links cannot mutate the DB without explicit confirm.
+- Validation still rejects wrong format/version/checksum/dangling refs.
+
+---
+
+## D-017 — Checksum is integrity, not auth (Phase 2D, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Portable packages and backups carry `sha256` hex digests.
+
+**Decision.** Checksums detect accidental corruption and accidental edits.
+They are **not** signatures, MACs, or proof of origin. No key material, no
+asymmetric crypto in MVP.
+
+**Consequences.**
+
+- Documented clearly in UI/decisions; do not claim authenticity.
+- A future phase may add signatures if trust models require it.
+
+---
+
+## D-018 — Scope cuts for Phase 2D (Phase 2D, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Phase 2D scope risk: QR high versions, file associations,
+compression, conflict UX.
+
+**Decision.** Cut order applied: (1) QR limited to v1–10 with Share fallback,
+(2) deep-link native scheme registered via `app.json` `"scheme": "apexfoss"`
++ prebuild (no manual AndroidManifest edits), (3) UI is functional not
+polished, (4) backup stays uncompressed JSON, (5) duplicate routine policy is
+deterministic suffix — no interactive merge UI. **Never cut:** format
+versioning, validation, atomicity/rollback, checksum, tests.
+
+**Consequences.**
+
+- `.apexroutine` / `.apexbackup` file association deferred (documented).
+- Interactive exercise-conflict merge deferred; suffix rename only.
