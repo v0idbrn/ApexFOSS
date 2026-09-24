@@ -8,6 +8,9 @@ export default function App() {
   const [result, setResult] = useState<SmokeResult | null>(null);
 
   useEffect(() => {
+    // On-device DB smoke is a development tool only. Production releases must NOT
+    // run it automatically — it is gated behind __DEV__ (see docs/DECISIONS.md).
+    if (!__DEV__) return;
     const t = setTimeout(() => {
       runDbSmoke().then(setResult);
     }, 300);
@@ -15,21 +18,31 @@ export default function App() {
   }, []);
 
   return (
-    <View className={`flex-1 ${result && !result.ok ? 'bg-danger/10' : 'bg-bg'}`}>
+    <View className={`flex-1 ${__DEV__ && result && !result.ok ? 'bg-danger/10' : 'bg-bg'}`}>
       <ScrollView contentContainerClassName="flex-grow items-center justify-center px-4">
         <Text className="text-2xl font-bold text-fg">{strings.common.appName}</Text>
-        <Text className={`mt-2 ${result ? (result.ok ? 'text-success' : 'text-danger') : 'text-dim'}`}>
-          {!result ? 'DB smoke: running…' : result.ok ? 'DB smoke: ALL PASS ✅ (JSI + SQLite real)' : 'DB smoke: FAILED ❌'}
-        </Text>
-        {result && !result.ok && (
-          <View className="mt-4 w-full rounded-lg border border-line bg-surface p-3">
-            {result.lines.map((line, i) => (
-              <Text key={i} className="font-mono text-xs text-dim">
-                {line}
-              </Text>
-            ))}
-            <Text className="mt-2 text-xs text-dim">Full details in logcat: [SMOKE]</Text>
-          </View>
+        {__DEV__ ? (
+          <>
+            <Text className={`mt-2 ${result ? (result.ok ? 'text-success' : 'text-danger') : 'text-dim'}`}>
+              {!result
+                ? 'DB smoke: running…'
+                : result.ok
+                  ? 'DB smoke: ALL PASS ✅ (JSI + SQLite real)'
+                  : 'DB smoke: FAILED ❌'}
+            </Text>
+            {result && !result.ok && (
+              <View className="mt-4 w-full rounded-lg border border-line bg-surface p-3">
+                {result.lines.map((line, i) => (
+                  <Text key={i} className="font-mono text-xs text-dim">
+                    {line}
+                  </Text>
+                ))}
+                <Text className="mt-2 text-xs text-dim">Full details in logcat: [SMOKE]</Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <Text className="mt-2 text-dim">Day 1 gates — foundation OK</Text>
         )}
       </ScrollView>
     </View>
