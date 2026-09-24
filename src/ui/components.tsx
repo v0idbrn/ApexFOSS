@@ -231,6 +231,34 @@ export function ListRow({
   );
 }
 
+export function PressableRow({
+  label,
+  value,
+  placeholder,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  placeholder?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <View>
+      <FieldLabel text={label} />
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        className="min-h-12 flex-row items-center justify-between rounded-lg border border-line bg-surface-2 px-3 py-2"
+      >
+        <Text numberOfLines={1} className={`flex-1 text-base ${placeholder ? 'text-dim' : 'text-fg'}`}>
+          {value}
+        </Text>
+        <Text className="ml-2 text-accent">›</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <View className={`rounded-xl border border-line bg-surface p-4 ${className}`}>{children}</View>;
 }

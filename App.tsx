@@ -9,6 +9,8 @@ import { Navigator, type Route } from './src/ui/navigation';
 import { HomeScreen } from './src/ui/screens/HomeScreen';
 import { ExerciseListScreen } from './src/ui/screens/ExerciseListScreen';
 import { ExerciseEditorScreen } from './src/ui/screens/ExerciseEditorScreen';
+import { RoutineListScreen } from './src/ui/screens/RoutineListScreen';
+import { RoutineEditorScreen } from './src/ui/screens/RoutineEditorScreen';
 
 function renderRoute(route: Route) {
   switch (route.name) {
@@ -18,6 +20,10 @@ function renderRoute(route: Route) {
       return <ExerciseListScreen />;
     case 'exerciseEditor':
       return <ExerciseEditorScreen exerciseId={route.exerciseId} />;
+    case 'routines':
+      return <RoutineListScreen />;
+    case 'routineEditor':
+      return <RoutineEditorScreen routineId={route.routineId} />;
     default:
       return <HomeScreen />;
   }

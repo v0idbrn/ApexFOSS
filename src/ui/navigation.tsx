@@ -11,14 +11,15 @@ export type Route =
   | { name: 'exercises' }
   | { name: 'exerciseEditor'; exerciseId: string | null }
   | { name: 'routines' }
-  | { name: 'routineEditor'; routineId: string }
-  | { name: 'exercisePicker'; onPick: (exerciseId: string, exerciseName: string) => void };
+  | { name: 'routineEditor'; routineId: string | null };
 
 interface NavValue {
   route: Route;
   depth: number;
   push: (route: Route) => void;
   pop: () => void;
+  /** Screens register a handler to intercept Android/system back. Return true = handled. */
+  setBackInterceptor: (fn: (() => boolean) | null) => void;
 }
 
 const NavContext = createContext<NavValue | null>(null);
@@ -36,12 +37,17 @@ export function Navigator({ children }: { children: (route: Route) => ReactNode 
   const [stack, setStack] = useState(() => [entry({ name: 'home' as const })]);
   const stackRef = useRef(stack);
   stackRef.current = stack;
+  const interceptorRef = useRef<(() => boolean) | null>(null);
 
   const push = useCallback((route: Route) => setStack((s) => [...s, entry(route)]), []);
   const pop = useCallback(() => setStack((s) => (s.length <= 1 ? s : s.slice(0, -1))), []);
+  const setBackInterceptor = useCallback((fn: (() => boolean) | null) => {
+    interceptorRef.current = fn;
+  }, []);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (interceptorRef.current && interceptorRef.current()) return true;
       if (stackRef.current.length <= 1) return false; // let the OS handle it (exit app)
       setStack((s) => (s.length <= 1 ? s : s.slice(0, -1)));
       return true;
@@ -51,8 +57,8 @@ export function Navigator({ children }: { children: (route: Route) => ReactNode 
 
   const top = stack[stack.length - 1];
   const value = useMemo<NavValue>(
-    () => ({ route: top.route, depth: stack.length, push, pop }),
-    [top.route, stack.length, push, pop],
+    () => ({ route: top.route, depth: stack.length, push, pop, setBackInterceptor }),
+    [top.route, stack.length, push, pop, setBackInterceptor],
   );
 
   return <NavContext.Provider value={value}>{children(top.route)}</NavContext.Provider>;

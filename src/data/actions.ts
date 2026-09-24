@@ -1,5 +1,6 @@
 import { Database, Q } from '@nozbe/watermelondb';
-import { RoutineDefinition, ExecutionCursor, Effect, StepDef, BlockDef } from '../types/engine';
+import { RoutineDefinition, ExecutionCursor, Effect, StepDef, BlockDef, TransitionType } from '../types/engine';
+import { RoutineDraft, emptyPrescription } from '../types/draft';
 import { initialCursor } from '../engine/cursor';
 import {
   Exercise,
@@ -7,6 +8,7 @@ import {
   RoutineBlock,
   RoutineBlockStep,
   Prescription,
+  BlockTransition,
   WorkoutSession,
   SetLog,
 } from './models';
@@ -15,6 +17,77 @@ import { SEED_EXERCISES } from '../../scripts/seed-exercises';
 /** DB writer actions — the de-facto repository layer (no extra repository tier). */
 
 const now = () => Date.now();
+
+let draftIdCounter = 0;
+export const newLocalId = (prefix: string) => `${prefix}_${++draftIdCounter}_${Date.now().toString(36)}`;
+
+async function loadDraft(db: Database, routineId: string): Promise<RoutineDraft> {
+  const routine = await db.get<Routine>('routines').find(routineId);
+  const blocks = await db.get<RoutineBlock>('routine_blocks').query(Q.where('routine_id', routineId)).fetch();
+  blocks.sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const draftBlocks = [];
+  for (const block of blocks) {
+    const steps = await db.get<RoutineBlockStep>('routine_block_steps').query(Q.where('block_id', block.id)).fetch();
+    steps.sort((a, b) => a.sortOrder - b.sortOrder);
+
+    const transitions = await db.get<BlockTransition>('block_transitions').query(Q.where('block_id', block.id)).fetch();
+    const transitionByFrom = new Map(transitions.map((t) => [t.fromStepId, t]));
+
+    const draftSteps = [];
+    for (const step of steps) {
+      const prescriptions = await db
+        .get<Prescription>('routine_exercise_prescriptions')
+        .query(Q.where('step_id', step.id))
+        .fetch();
+      const p = prescriptions[0];
+      let exerciseName = '';
+      if (step.exerciseId) {
+        try {
+          exerciseName = (await db.get<Exercise>('exercises').find(step.exerciseId)).name;
+        } catch {
+          exerciseName = '';
+        }
+      }
+      const t = transitionByFrom.get(step.id);
+      draftSteps.push({
+        localId: step.id,
+        exerciseId: step.exerciseId,
+        exerciseName,
+        prescription: p
+          ? {
+              targetSets: p.targetSets,
+              targetRepsMin: p.targetRepsMin,
+              targetRepsMax: p.targetRepsMax,
+              targetDurationMs: p.targetDurationMs,
+              targetWeightGrams: p.targetWeightGrams,
+              targetRir: p.targetRir,
+              tempo: {
+                eccentricMs: p.tempoEccentricMs,
+                pauseBottomMs: p.tempoPauseBottomMs,
+                concentricMs: p.tempoConcentricMs,
+                pauseTopMs: p.tempoPauseTopMs,
+              },
+            }
+          : emptyPrescription(),
+        transition: {
+          type: (t?.transitionType as TransitionType) ?? 'immediate',
+          delayMs: t?.delayMs ?? 0,
+        },
+      });
+    }
+
+    draftBlocks.push({
+      localId: block.id,
+      name: block.name,
+      kind: block.blockKind as RoutineDraft['blocks'][number]['kind'],
+      rounds: block.rounds,
+      steps: draftSteps,
+    });
+  }
+
+  return { id: routine.id, name: routine.name, blocks: draftBlocks };
+}
 
 export interface DbActions {
   seedExercisesIfEmpty(): Promise<number>;
@@ -27,6 +100,11 @@ export interface DbActions {
   listExercises(): Promise<Exercise[]>;
 
   createRoutine(name: string): Promise<string>;
+  updateRoutineName(id: string, name: string): Promise<void>;
+  deleteRoutine(id: string): Promise<void>;
+  listRoutinesWithCounts(): Promise<Array<{ id: string; name: string; blockCount: number; stepCount: number }>>;
+  loadRoutineDraft(routineId: string): Promise<RoutineDraft>;
+  saveRoutineDraft(draft: RoutineDraft): Promise<string>;
   createBlock(routineId: string, input: { name: string; kind: string; rounds: number }): Promise<string>;
   createStep(blockId: string, exerciseId: string | null, exerciseName: string): Promise<string>;
   upsertPrescription(stepId: string, p: {
@@ -118,6 +196,154 @@ export function makeDbActions(db: Database): DbActions {
           rec.updatedAt = now();
         });
         return r.id;
+      });
+    },
+
+    async updateRoutineName(id, name) {
+      await db.write(async () => {
+        const r = await db.get<Routine>('routines').find(id);
+        await r.update((rec) => {
+          rec.name = name;
+          rec.updatedAt = now();
+        });
+      });
+    },
+
+    async deleteRoutine(id) {
+      await db.write(async () => {
+        const blocks = await db.get<RoutineBlock>('routine_blocks').query(Q.where('routine_id', id)).fetch();
+        for (const block of blocks) {
+          const steps = await db.get<RoutineBlockStep>('routine_block_steps').query(Q.where('block_id', block.id)).fetch();
+          for (const step of steps) {
+            const prescriptions = await db
+              .get<Prescription>('routine_exercise_prescriptions')
+              .query(Q.where('step_id', step.id))
+              .fetch();
+            for (const p of prescriptions) await p.markAsDeleted();
+            await step.markAsDeleted();
+          }
+          const transitions = await db.get<BlockTransition>('block_transitions').query(Q.where('block_id', block.id)).fetch();
+          for (const t of transitions) await t.markAsDeleted();
+          await block.markAsDeleted();
+        }
+        const routine = await db.get<Routine>('routines').find(id);
+        await routine.markAsDeleted();
+      });
+    },
+
+    async listRoutinesWithCounts() {
+      const routines = await db.get<Routine>('routines').query(Q.sortBy('updated_at', 'desc')).fetch();
+      const blocks = await db.get<RoutineBlock>('routine_blocks').query().fetch();
+      const steps = await db.get<RoutineBlockStep>('routine_block_steps').query().fetch();
+      const blockCountByRoutine = new Map<string, number>();
+      const blockIdsByRoutine = new Map<string, Set<string>>();
+      for (const b of blocks) {
+        blockCountByRoutine.set(b.routineId, (blockCountByRoutine.get(b.routineId) ?? 0) + 1);
+        if (!blockIdsByRoutine.has(b.routineId)) blockIdsByRoutine.set(b.routineId, new Set());
+        blockIdsByRoutine.get(b.routineId)!.add(b.id);
+      }
+      const stepCountByRoutine = new Map<string, number>();
+      for (const s of steps) {
+        for (const [routineId, blockIds] of blockIdsByRoutine) {
+          if (blockIds.has(s.blockId)) {
+            stepCountByRoutine.set(routineId, (stepCountByRoutine.get(routineId) ?? 0) + 1);
+            break;
+          }
+        }
+      }
+      return routines.map((r) => ({
+        id: r.id,
+        name: r.name,
+        blockCount: blockCountByRoutine.get(r.id) ?? 0,
+        stepCount: stepCountByRoutine.get(r.id) ?? 0,
+      }));
+    },
+
+    async loadRoutineDraft(routineId) {
+      return loadDraft(db, routineId);
+    },
+
+    async saveRoutineDraft(draft) {
+      return db.write(async () => {
+        const ts = now();
+        const name = draft.name.trim();
+        let routineId = draft.id;
+        if (routineId) {
+          const r = await db.get<Routine>('routines').find(routineId);
+          await r.update((rec) => {
+            rec.name = name;
+            rec.updatedAt = ts;
+          });
+        } else {
+          const r = await db.get<Routine>('routines').create((rec) => {
+            rec.name = name;
+            rec.createdAt = ts;
+            rec.updatedAt = ts;
+          });
+          routineId = r.id;
+        }
+
+        // Replace-children strategy: sessions only reference routine_id and frozen
+        // definition_json snapshots, so recreating steps is safe and keeps ordering trivial.
+        const oldBlocks = await db.get<RoutineBlock>('routine_blocks').query(Q.where('routine_id', routineId)).fetch();
+        for (const block of oldBlocks) {
+          const oldSteps = await db.get<RoutineBlockStep>('routine_block_steps').query(Q.where('block_id', block.id)).fetch();
+          for (const step of oldSteps) {
+            const ps = await db.get<Prescription>('routine_exercise_prescriptions').query(Q.where('step_id', step.id)).fetch();
+            for (const p of ps) await p.markAsDeleted();
+            await step.markAsDeleted();
+          }
+          const ts2 = await db.get<BlockTransition>('block_transitions').query(Q.where('block_id', block.id)).fetch();
+          for (const t of ts2) await t.markAsDeleted();
+          await block.markAsDeleted();
+        }
+
+        for (const [bi, b] of draft.blocks.entries()) {
+          const block = await db.get<RoutineBlock>('routine_blocks').create((rec) => {
+            rec.routineId = routineId!;
+            rec.name = b.name.trim() || `Block ${bi + 1}`;
+            rec.blockKind = b.kind;
+            rec.sortOrder = bi;
+            rec.rounds = Math.max(1, Math.round(b.rounds || 1));
+            rec.createdAt = ts;
+            rec.updatedAt = ts;
+          });
+          for (const [si, s] of b.steps.entries()) {
+            const step = await db.get<RoutineBlockStep>('routine_block_steps').create((rec) => {
+              rec.blockId = block.id;
+              rec.sortOrder = si;
+              rec.stepRole = 'work';
+              rec.exerciseId = s.exerciseId;
+              rec.createdAt = ts;
+              rec.updatedAt = ts;
+            });
+            await db.get<Prescription>('routine_exercise_prescriptions').create((rec) => {
+              rec.stepId = step.id;
+              rec.targetSets = s.prescription.targetSets;
+              rec.targetRepsMin = s.prescription.targetRepsMin;
+              rec.targetRepsMax = s.prescription.targetRepsMax;
+              rec.targetDurationMs = s.prescription.targetDurationMs;
+              rec.targetWeightGrams = s.prescription.targetWeightGrams;
+              rec.targetRir = s.prescription.targetRir;
+              rec.tempoEccentricMs = s.prescription.tempo.eccentricMs;
+              rec.tempoPauseBottomMs = s.prescription.tempo.pauseBottomMs;
+              rec.tempoConcentricMs = s.prescription.tempo.concentricMs;
+              rec.tempoPauseTopMs = s.prescription.tempo.pauseTopMs;
+              rec.createdAt = ts;
+              rec.updatedAt = ts;
+            });
+            await db.get<BlockTransition>('block_transitions').create((rec) => {
+              rec.blockId = block.id;
+              rec.fromStepId = step.id;
+              rec.toStepId = null; // implicit forward/loop target (engine positional advance)
+              rec.delayMs = s.transition.type === 'immediate' ? 0 : Math.max(0, Math.round(s.transition.delayMs));
+              rec.transitionType = s.transition.type;
+              rec.createdAt = ts;
+              rec.updatedAt = ts;
+            });
+          }
+        }
+        return routineId!;
       });
     },
 
