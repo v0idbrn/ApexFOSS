@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, ScrollView, Text, View } from 'react-native';
+import { Alert, AppState, Pressable, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { formatCountdown, formatKg, formatTempo, gramsToKg, kgToGrams, secondsToMs } from '../../utils/units';
@@ -15,6 +15,12 @@ import {
   reconcileTimerNotification,
   type WorkoutRuntime,
 } from '../../workout/runner';
+import {
+  recommendNextLoad,
+  DEFAULT_AUTOREG_CONFIG,
+  type AutoregConfig,
+  type AutoregRecommendation,
+} from '../../analytics/autoregulation';
 import {
   cancelTempo,
   hasActiveTempo,
@@ -144,6 +150,12 @@ export function WorkoutScreen() {
   intervalRef.current = intervalRt;
   const persistIntervalRef = useRef<(next: IntervalRuntime) => void>(() => {});
 
+  // RIR autoregulation — runtime ephemeral only (never mutates definition/snapshots).
+  const [autoregEnabled, setAutoregEnabled] = useState(false);
+  const [autoregConfig, setAutoregConfig] = useState<AutoregConfig>(DEFAULT_AUTOREG_CONFIG);
+  const [autoregSuggestion, setAutoregSuggestion] = useState<AutoregRecommendation | null>(null);
+  const pendingAutoregRef = useRef<{ posKey: string; rec: AutoregRecommendation } | null>(null);
+
   const timer = useTimerStore();
   const setSession = useActiveSessionStore((s) => s.setSession);
 
@@ -186,15 +198,30 @@ export function WorkoutScreen() {
     if (!step) {
       setInputs(emptyInputs());
       setActiveField(null);
+      setAutoregSuggestion(null);
       return;
     }
     const p = step.prescription;
+    const pending = pendingAutoregRef.current;
+    const suggestionApplies = pending !== null && pending.posKey === posKey;
     setInputs({
-      weightKg: p.targetWeightGrams !== null ? String(gramsToKg(p.targetWeightGrams) ?? '') : '',
+      weightKg:
+        suggestionApplies && pending.rec.recommendedWeightGrams > 0
+          ? String(gramsToKg(pending.rec.recommendedWeightGrams) ?? '')
+          : p.targetWeightGrams !== null
+            ? String(gramsToKg(p.targetWeightGrams) ?? '')
+            : '',
       reps: p.targetRepsMin !== null ? String(p.targetRepsMin) : '',
       durationS: p.targetDurationMs !== null ? String(Math.round(p.targetDurationMs / 1000)) : '',
       rir: p.targetRir !== null ? String(p.targetRir) : '',
     });
+    if (suggestionApplies) {
+      setAutoregSuggestion(pending.rec);
+      pendingAutoregRef.current = null;
+    } else {
+      setAutoregSuggestion(null);
+      pendingAutoregRef.current = null;
+    }
     setActiveField('weight');
     // New set/step: discard any in-flight tempo/interval (no stale phase timestamps).
     setTempo(idleTempoRuntime());
@@ -543,7 +570,25 @@ export function WorkoutScreen() {
   };
 
   const onComplete = () => {
-    if (!step || !inputsValid) return;
+    if (!step || !inputsValid || !rt) return;
+    // Opt-in RIR autoregulation: recommend next-set load from this set's actual RIR.
+    if (autoregEnabled && step.prescription.targetRir !== null && autoregConfig.enabled) {
+      const currentWeight =
+        inputs.weightKg.trim() !== '' && Number.isFinite(Number(inputs.weightKg))
+          ? kgToGrams(Number(inputs.weightKg))
+          : step.prescription.targetWeightGrams;
+      const actualRir = inputs.rir.trim() !== '' && Number.isFinite(Number(inputs.rir)) ? Math.round(Number(inputs.rir)) : null;
+      const rec = recommendNextLoad(currentWeight, actualRir, {
+        ...autoregConfig,
+        enabled: true,
+        targetRir: step.prescription.targetRir,
+      });
+      const c = rt.cursor;
+      pendingAutoregRef.current = {
+        posKey: `${c.blockIndex}:${c.stepIndex}:${c.round}:${c.setIndex + 1}`,
+        rec,
+      };
+    }
     void apply({ type: 'COMPLETE_SET', now: Date.now(), set: toPayload(step, inputs) });
   };
 
@@ -781,6 +826,45 @@ export function WorkoutScreen() {
                   {strings.workout.tempo}: {formatTempo(currentStep.prescription.tempo)}
                 </Text>
               </View>
+
+              {currentStep.prescription.targetRir !== null ? (
+                <View className="mt-3 flex-row items-center justify-between rounded-lg border border-line bg-surface-2 px-3 py-2">
+                  <Text className="text-sm text-dim">{strings.autoreg.title}</Text>
+                  <Pressable
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: autoregEnabled }}
+                    onPress={() => setAutoregEnabled((v) => !v)}
+                    className={`min-h-8 rounded-full border px-3 ${
+                      autoregEnabled ? 'border-accent bg-accent/20' : 'border-line bg-surface'
+                    }`}
+                  >
+                    <Text className={`text-xs font-semibold ${autoregEnabled ? 'text-accent' : 'text-dim'}`}>
+                      {autoregEnabled ? 'ON' : 'OFF'}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {autoregEnabled && autoregSuggestion ? (
+                <View className="mt-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-2">
+                  <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+                    {strings.autoreg.recommendation}
+                  </Text>
+                  <Text className="mt-0.5 text-sm text-fg">
+                    {autoregSuggestion.direction === 'increase'
+                      ? strings.autoreg.increase
+                      : autoregSuggestion.direction === 'decrease'
+                        ? strings.autoreg.decrease
+                        : strings.autoreg.hold}
+                    {autoregSuggestion.deltaGrams !== 0
+                      ? ` · ${Math.abs(autoregSuggestion.deltaGrams) / 1000} ${strings.workout.weight}`
+                      : ''}
+                    {autoregSuggestion.recommendedWeightGrams > 0
+                      ? ` → ${gramsToKg(autoregSuggestion.recommendedWeightGrams)} ${strings.workout.weight}`
+                      : ''}
+                  </Text>
+                </View>
+              ) : null}
 
               {showTempo ? (
                 <View className="mt-4">
