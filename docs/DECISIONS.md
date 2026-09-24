@@ -234,3 +234,50 @@ discarded workout in tests (and theoretically after UI races).
 
 - Discard is final for resume-by-id; History only shows `completed` sessions.
 - Covered by `src/workout/day5.test.ts` ("discard active session�").
+
+---
+
+## D-008 — Tempo Trainer: ephemeral, timestamp-based, outside the workout engine (Phase 2B, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Prescriptions already store four integer tempo phases
+(`tempo_eccentric_ms`, `pause_bottom`, `concentric`, `pause_top` →
+`TempoSpec` on the definition snapshot). Phase 2B turns that data into an
+execution aid without becoming a second session engine.
+
+**Decision.**
+
+1. **Ephemeral runtime.** `TempoRuntime` lives only in WorkoutScreen React
+   state (`src/tempo/tempoTrainer.ts`). Process death or navigation cancels
+   the aid; the workout `cursor_json` is untouched. No schema change, no
+   second persistence system.
+2. **Timestamp authority.** Phases are derived from `startedAt` +
+   integer-ms offsets; remaining is always `phaseEndsAt - Date.now()`.
+   Background/resume re-samples absolute time (no drift, no blind restart).
+   A 100ms interval only refreshes the visual countdown.
+3. **Separate from engine/runner.** Tempo never dispatches `EngineEvent`,
+   never writes `set_logs`, never advances blocks/steps/rounds. REST and
+   AUTO_ADVANCE remain the only persistent timers with OS notifications.
+   Rest timer starting cancels any active tempo.
+4. **Feedback adapters.** Haptics use React Native `Vibration` (no
+   `expo-haptics` dependency); keep-awake uses transitive `expo-keep-awake`
+   via dynamic require. Both are fail-soft. Audio deferred (no local cue
+   assets / `expo-av` in the stack yet).
+
+**Consequences.**
+
+- Athlete intentionally starts tempo from the set card; completion returns
+  control so COMPLETE SET still uses the existing `LOG_SET` path.
+- Zero-duration phases are skipped; all-zero tempo never starts.
+- Future Interval Engine (EMOM/HIIT) must remain a third system: it would
+  own work/rest cycles and auto-logging, not tempo phases and not REST
+  transitions — only the pure "timestamp phase list → tick" pattern is
+  reusable.
+
+**Rejected alternatives.**
+
+- *Persist tempo in `cursor_json`* — intra-set aid is not workout truth;
+  recovering it after process death adds complexity with no athlete value.
+- *expo-haptics / expo-audio* — unnecessary native surface for restrained
+  pulses and optional cues in this phase.
