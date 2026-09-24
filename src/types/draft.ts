@@ -1,4 +1,4 @@
-import type { BlockKind, TempoSpec, TransitionType } from './engine';
+import type { BlockKind, IntervalSpec, TempoSpec, TransitionType } from './engine';
 
 /** Editor draft model — UI working copy of a routine structure (persisted via DbActions.saveRoutineDraft). */
 
@@ -27,6 +27,8 @@ export interface DraftBlock {
   kind: BlockKind;
   rounds: number;
   steps: DraftStep[];
+  /** Required when kind === 'interval'. */
+  interval?: IntervalSpec | null;
 }
 
 export interface RoutineDraft {
@@ -46,3 +48,12 @@ export const emptyPrescription = (): DraftPrescription => ({
 });
 
 export const emptyDraft = (): RoutineDraft => ({ id: null, name: '', blocks: [] });
+
+export const defaultIntervalSpec = (): IntervalSpec => ({
+  mode: 'hiit',
+  workMs: 30_000,
+  restMs: 15_000,
+  rounds: 8,
+  periodMs: null,
+  preparationMs: 0,
+});

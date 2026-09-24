@@ -1,6 +1,6 @@
 /** Canonical engine + definition types. Pure TypeScript, no runtime deps (frozen architecture). */
 
-export type BlockKind = 'normal' | 'superset' | 'contrast' | 'circuit';
+export type BlockKind = 'normal' | 'superset' | 'contrast' | 'circuit' | 'interval';
 export type TransitionType = 'immediate' | 'rest' | 'auto_advance';
 export type StepRole = 'work' | 'rest';
 
@@ -9,6 +9,16 @@ export interface TempoSpec {
   pauseBottomMs: number | null;
   concentricMs: number | null;
   pauseTopMs: number | null;
+}
+
+/** Interval programming on a block (Phase 2C). Integer ms only. */
+export interface IntervalSpec {
+  mode: 'hiit' | 'emom' | 'glycolytic';
+  workMs: number;
+  restMs: number;
+  rounds: number;
+  periodMs: number | null;
+  preparationMs: number;
 }
 
 export interface Prescription {
@@ -44,6 +54,8 @@ export interface BlockDef {
   rounds: number;
   steps: StepDef[];
   transitions: TransitionDef[];
+  /** Present iff kind === 'interval'. Serialized into definition_json. */
+  interval?: IntervalSpec | null;
 }
 
 export interface RoutineDefinition {
@@ -78,11 +90,35 @@ export interface ReversibleSet {
 }
 
 /** Canonical execution state — serialized into workout_sessions.cursor_json. */
+/** Optional active interval runtime embedded in cursor_json (process-death recovery). */
+export interface PersistedInterval {
+  status: 'running';
+  config: {
+    mode: 'hiit' | 'emom' | 'glycolytic';
+    workMs: number;
+    restMs: number;
+    rounds: number;
+    periodMs: number | null;
+    preparationMs: number;
+    emomWorkMs: number;
+    emomRestMs: number;
+    totalMs: number;
+  };
+  startedAt: number;
+  round: number;
+  phase: 'prep' | 'work' | 'rest' | null;
+  phaseStartsAt: number;
+  phaseEndsAt: number;
+  workDoneEarly: boolean;
+}
+
 export interface ExecutionCursor extends CursorPosition {
   status: 'active' | 'completed';
   timer: TimerState | null;
   lastReversible: ReversibleSet | null;
   startedAt: number;
+  /** Interval trainer state while on an interval block; absent/cleared otherwise. */
+  interval?: PersistedInterval | null;
 }
 
 export interface SetPayload {
