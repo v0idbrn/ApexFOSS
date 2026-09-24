@@ -106,3 +106,29 @@ the full tree from the draft with fresh `sort_order` indexes.
   (implicit forward/loop target), so no cross-save step-id edges exist.
 - Cost: child row ids change on every save — acceptable until Day 3+ shows a
   need for stable step ids (e.g., per-step notes).
+
+---
+
+## D-004 — Application layer fills `lastReversible.setLogId` after LOG_SET (Day 3, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** The pure engine emits `LOG_SET` with `setLogId: null` on the
+cursor's `lastReversible` (the engine must not know about WatermelonDB ids).
+`UNDO_LAST` later emits `VOID_LAST_SET` carrying `lastReversible.setLogId`, so
+the id must be attached between those two events.
+
+**Decision.** `DbActions.applyEffects` returns the (possibly patched) cursor:
+after creating a `set_logs` row for a `LOG_SET` whose coordinates match
+`cursor.lastReversible`, it writes the real row id into `lastReversible.setLogId`
+and returns that cursor. `src/workout/runner.ts` persists the returned cursor
+via `persistCursor` / `completeSession`.
+
+**Consequences.**
+
+- UNDO can void the correct log without an event-sourcing log of ids.
+- Callers of `applyEffects` must use its return value (not the pre-call cursor)
+  when persisting — enforced by the Day 3 runner and covered by
+  `src/workout/workout.test.ts`.
+- Timer / notification effects remain outside the DB writer (runner side
+  effects); nested `db.write` deadlock risk is unchanged (still forbidden).
