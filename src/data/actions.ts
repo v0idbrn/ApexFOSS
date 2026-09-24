@@ -83,6 +83,7 @@ async function loadDraft(db: Database, routineId: string): Promise<RoutineDraft>
       kind: block.blockKind as RoutineDraft['blocks'][number]['kind'],
       rounds: block.rounds,
       steps: draftSteps,
+      interval: block.intervalJson ? (JSON.parse(block.intervalJson) as RoutineDraft['blocks'][number]['interval']) : null,
     });
   }
 
@@ -305,7 +306,9 @@ export function makeDbActions(db: Database): DbActions {
             rec.name = b.name.trim() || `Block ${bi + 1}`;
             rec.blockKind = b.kind;
             rec.sortOrder = bi;
-            rec.rounds = Math.max(1, Math.round(b.rounds || 1));
+            rec.rounds = b.kind === 'interval' ? 1 : Math.max(1, Math.round(b.rounds || 1));
+            rec.intervalJson =
+              b.kind === 'interval' && b.interval ? JSON.stringify(b.interval) : null;
             rec.createdAt = ts;
             rec.updatedAt = ts;
           });

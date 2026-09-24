@@ -40,6 +40,8 @@ export class RoutineBlock extends Model {
   @text('block_kind') blockKind!: string;
   @field('sort_order') sortOrder!: number;
   @field('rounds') rounds!: number;
+  /** JSON IntervalSpec when block_kind === 'interval'; null otherwise. */
+  @text('interval_json') intervalJson!: string | null;
   @field('created_at') createdAt!: number;
   @field('updated_at') updatedAt!: number;
   @children('routine_block_steps') steps!: any;

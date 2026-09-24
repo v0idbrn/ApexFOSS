@@ -1,11 +1,20 @@
-import { schemaMigrations } from '@nozbe/watermelondb/Schema/migrations';
+import { schemaMigrations, addColumns } from '@nozbe/watermelondb/Schema/migrations';
 
 /**
- * v1 is the initial (and only) release schema for v0.1.0.
- * Migration list stays empty on purpose: Day 5 does not invent a v2.
- * Future schema changes append `{ from: 1, to: 2, ... }` here — infrastructure is tested
- * in src/data/migration.test.ts.
+ * v1 → v2 (Phase 2C): optional interval_json on routine_blocks for interval
+ * block programming. No other tables change; cursor_json gains an optional
+ * runtime field without a further schema migration.
  */
 export const migrations = schemaMigrations({
-  migrations: [],
+  migrations: [
+    {
+      toVersion: 2,
+      steps: [
+        addColumns({
+          table: 'routine_blocks',
+          columns: [{ name: 'interval_json', type: 'string', isOptional: true }],
+        }),
+      ],
+    },
+  ],
 });

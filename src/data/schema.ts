@@ -1,11 +1,12 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 /**
- * ApexFOSS schema v1. Units: grams / milliseconds / millimeters (integers only).
+ * ApexFOSS schema. Units: grams / milliseconds / millimeters (integers only).
  * Canonical execution state: workout_sessions.cursor_json (+ definition_json snapshot).
  * session_status / timer_expires_at / current_* are derived caches only (cursor_json wins).
+ * v2 (Phase 2C): optional routine_blocks.interval_json for interval block programming.
  */
-export const schemaVersion = 1;
+export const schemaVersion = 2;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -37,6 +38,7 @@ export const schema = appSchema({
         { name: 'block_kind', type: 'string' },
         { name: 'sort_order', type: 'number' },
         { name: 'rounds', type: 'number' },
+        { name: 'interval_json', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

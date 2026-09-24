@@ -1,7 +1,25 @@
 import { Database, Q } from '@nozbe/watermelondb';
 import { Routine, RoutineBlock, RoutineBlockStep, Prescription, BlockTransition, WorkoutSession } from './models';
-import { RoutineDefinition, ExecutionCursor } from '../types/engine';
+import { RoutineDefinition, ExecutionCursor, IntervalSpec } from '../types/engine';
 import { parseCursor } from '../engine/cursor';
+
+function parseIntervalJson(raw: string | null): IntervalSpec | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as IntervalSpec;
+    if (!v || typeof v !== 'object' || typeof v.mode !== 'string') return null;
+    return {
+      mode: v.mode === 'emom' || v.mode === 'glycolytic' ? v.mode : 'hiit',
+      workMs: Number(v.workMs) || 0,
+      restMs: Number(v.restMs) || 0,
+      rounds: Number(v.rounds) || 1,
+      periodMs: v.periodMs === null || v.periodMs === undefined ? null : Number(v.periodMs) || 0,
+      preparationMs: Number(v.preparationMs) || 0,
+    };
+  } catch {
+    return null;
+  }
+}
 
 /** Snapshot (§11): the executed definition is frozen at session start. */
 
@@ -83,6 +101,7 @@ export async function serializeRoutine(db: Database, routine: Routine): Promise<
         delayMs: t.delayMs,
         type: t.transitionType as any,
       })),
+      interval: block.blockKind === 'interval' ? parseIntervalJson(block.intervalJson) : null,
     });
   }
 

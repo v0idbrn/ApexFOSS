@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { makeDbActions, newLocalId } from '../../data/actions';
-import type { BlockKind, TransitionType } from '../../types/engine';
-import { emptyDraft, emptyPrescription, type RoutineDraft } from '../../types/draft';
+import type { BlockKind, IntervalSpec, TransitionType } from '../../types/engine';
+import { emptyDraft, emptyPrescription, defaultIntervalSpec, type RoutineDraft } from '../../types/draft';
 import { strings } from '../../constants/strings';
 import { gramsToKg, kgToGrams, msToSeconds, secondsToMs, formatTempo } from '../../utils/units';
 import { useNav } from '../navigation';
@@ -23,7 +23,7 @@ import {
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-const BLOCK_KINDS: BlockKind[] = ['normal', 'superset', 'contrast', 'circuit'];
+const BLOCK_KINDS: BlockKind[] = ['normal', 'superset', 'contrast', 'circuit', 'interval'];
 const TRANSITIONS: { type: TransitionType; label: string }[] = [
   { type: 'immediate', label: strings.routines.transition.immediate },
   { type: 'rest', label: strings.routines.transition.rest },
@@ -118,6 +118,7 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
           kind: 'normal',
           rounds: 1,
           steps: [],
+          interval: null,
         },
       ],
     }));
@@ -264,7 +265,15 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
                     key={k}
                     label={strings.routines.blockKind[k]}
                     active={block.kind === k}
-                    onPress={() => patchBlock(bi, (b) => { b.kind = k; })}
+                    onPress={() =>
+                      patchBlock(bi, (b) => {
+                        b.kind = k;
+                        if (k === 'interval') {
+                          b.rounds = 1;
+                          if (!b.interval) b.interval = defaultIntervalSpec();
+                        }
+                      })
+                    }
                   />
                 ))}
               </View>
@@ -274,9 +283,122 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
               <NumberField
                 label={strings.routines.rounds}
                 value={block.rounds}
-                onChange={(v) => patchBlock(bi, (b) => { b.rounds = Math.max(1, Math.round(v ?? 1)); })}
+                onChange={(v) =>
+                  patchBlock(bi, (b) => {
+                    if (b.kind === 'interval') return;
+                    b.rounds = Math.max(1, Math.round(v ?? 1));
+                  })
+                }
               />
             </View>
+
+            {block.kind === 'interval' ? (
+              <View className="mt-3 rounded-lg border border-line bg-surface-2 p-3">
+                <SectionHeader title={strings.interval.title} />
+                <View className="mb-2 flex-row flex-wrap gap-2">
+                  {(['hiit', 'emom', 'glycolytic'] as const).map((m) => (
+                    <Chip
+                      key={m}
+                      label={strings.interval.modes[m]}
+                      active={(block.interval?.mode ?? 'hiit') === m}
+                      onPress={() =>
+                        patchBlock(bi, (b) => {
+                          const base = b.interval ?? defaultIntervalSpec();
+                          b.interval = {
+                            ...base,
+                            mode: m,
+                            periodMs: m === 'emom' ? base.periodMs ?? 60_000 : null,
+                          } satisfies IntervalSpec;
+                        })
+                      }
+                    />
+                  ))}
+                </View>
+                <View className="flex-row flex-wrap gap-2">
+                  <View className="w-24">
+                    <NumberField
+                      label={strings.interval.editor.rounds}
+                      value={block.interval?.rounds ?? 8}
+                      onChange={(v) =>
+                        patchBlock(bi, (b) => {
+                          b.interval = {
+                            ...(b.interval ?? defaultIntervalSpec()),
+                            rounds: Math.max(1, Math.round(v ?? 1)),
+                          };
+                        })
+                      }
+                    />
+                  </View>
+                  <View className="w-24">
+                    <NumberField
+                      label={strings.interval.editor.work}
+                      value={Math.round((block.interval?.workMs ?? 30_000) / 1000)}
+                      onChange={(v) =>
+                        patchBlock(bi, (b) => {
+                          b.interval = {
+                            ...(b.interval ?? defaultIntervalSpec()),
+                            workMs: Math.max(0, Math.round((v ?? 0) * 1000)),
+                          };
+                        })
+                      }
+                    />
+                  </View>
+                  {block.interval?.mode !== 'emom' ? (
+                    <View className="w-24">
+                      <NumberField
+                        label={strings.interval.editor.rest}
+                        value={Math.round((block.interval?.restMs ?? 15_000) / 1000)}
+                        onChange={(v) =>
+                          patchBlock(bi, (b) => {
+                            b.interval = {
+                              ...(b.interval ?? defaultIntervalSpec()),
+                              restMs: Math.max(0, Math.round((v ?? 0) * 1000)),
+                            };
+                          })
+                        }
+                      />
+                    </View>
+                  ) : (
+                    <View className="w-24">
+                      <NumberField
+                        label={strings.interval.editor.period}
+                        value={Math.round((block.interval?.periodMs ?? 60_000) / 1000)}
+                        onChange={(v) =>
+                          patchBlock(bi, (b) => {
+                            b.interval = {
+                              ...(b.interval ?? defaultIntervalSpec()),
+                              periodMs: Math.max(1, Math.round((v ?? 60) * 1000)),
+                            };
+                          })
+                        }
+                      />
+                    </View>
+                  )}
+                  <View className="w-24">
+                    <NumberField
+                      label={strings.interval.editor.prep}
+                      value={Math.round((block.interval?.preparationMs ?? 0) / 1000)}
+                      onChange={(v) =>
+                        patchBlock(bi, (b) => {
+                          b.interval = {
+                            ...(b.interval ?? defaultIntervalSpec()),
+                            preparationMs: Math.max(0, Math.round((v ?? 0) * 1000)),
+                          };
+                        })
+                      }
+                    />
+                  </View>
+                </View>
+                <Text className="mt-2 text-xs text-dim">
+                  {block.interval?.mode === 'emom'
+                    ? strings.interval.editor.periodHint
+                    : `${strings.interval.modes[block.interval?.mode ?? 'hiit']} · ${Math.round((block.interval?.workMs ?? 0) / 1000)}s / ${Math.round((block.interval?.restMs ?? 0) / 1000)}s × ${block.interval?.rounds ?? 1}`}
+                </Text>
+                {block.interval?.mode === 'emom' ? (
+                  <Text className="mt-1 text-xs text-dim">{strings.interval.editor.workHint}</Text>
+                ) : null}
+              </View>
+            ) : null}
 
             <SectionHeader title={strings.routines.steps} />
 

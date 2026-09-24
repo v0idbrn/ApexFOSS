@@ -2,18 +2,18 @@ import { schemaVersion, schema } from './schema';
 import { migrations } from './migrations';
 
 /**
- * Migration / data-version sanity for the Day 5 release.
- * Goal: prove the installed schema is v1, migrations infrastructure is wired,
- * and a future v1→v2 path can be added without redesign — no v2 invented today.
+ * Migration / data-version sanity for Phase 2C.
+ * Goal: prove the installed schema is v2, migrations infrastructure is wired,
+ * and routine_blocks carries the optional interval_json column.
  *
  * WatermelonDB shape: schema.tables is a name→table map;
  * schemaMigrations() returns { sortedMigrations, minVersion, maxVersion, validated }.
  */
 
 describe('migration / data version sanity', () => {
-  it('schemaVersion is 1 (initial release schema)', () => {
-    expect(schemaVersion).toBe(1);
-    expect(schema.version).toBe(1);
+  it('schemaVersion is 2 (Phase 2C interval programming)', () => {
+    expect(schemaVersion).toBe(2);
+    expect(schema.version).toBe(2);
   });
 
   it('all nine release tables are present with expected names', () => {
@@ -34,12 +34,20 @@ describe('migration / data version sanity', () => {
     expect(names).toHaveLength(9);
   });
 
-  it('migrations infrastructure is validated; empty list = fresh v1 install only', () => {
+  it('migrations infrastructure is validated; one v1→v2 step', () => {
     expect(migrations.validated).toBe(true);
     expect(migrations.minVersion).toBe(1);
-    expect(migrations.maxVersion).toBe(1);
-    // Day 5 deliberately does NOT invent a v2 schema — migration steps stay empty for v1.
-    expect(migrations.sortedMigrations).toHaveLength(0);
+    expect(migrations.maxVersion).toBe(2);
+    expect(migrations.sortedMigrations).toHaveLength(1);
+    expect(migrations.sortedMigrations[0].toVersion).toBe(2);
+  });
+
+  it('routine_blocks has optional interval_json', () => {
+    const t = schema.tables['routine_blocks'];
+    expect(t).toBeDefined();
+    const byName = new Map(t.columnArray.map((c) => [c.name, c]));
+    expect(byName.get('interval_json')?.isOptional).toBe(true);
+    expect(byName.get('interval_json')?.type).toBe('string');
   });
 
   it('critical columns exist on workout_sessions (cursor is authoritative)', () => {
