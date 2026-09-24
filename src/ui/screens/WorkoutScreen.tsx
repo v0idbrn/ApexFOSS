@@ -5,7 +5,7 @@ import { strings } from '../../constants/strings';
 import { formatCountdown, formatKg, formatTempo, gramsToKg, kgToGrams, secondsToMs } from '../../utils/units';
 import { useTimerStore } from '../../state/timerStore';
 import { useActiveSessionStore } from '../../state/activeSessionStore';
-import type { EngineEvent, SetPayload, StepDef } from '../../types/engine';
+import type { BlockDef, EngineEvent, IntervalSpec, PersistedInterval, SetPayload, StepDef } from '../../types/engine';
 import {
   applyWorkoutEvent,
   discardWorkout,
@@ -24,11 +24,32 @@ import {
   type TempoEffect,
   type TempoRuntime,
 } from '../../tempo/tempoTrainer';
-import { activateTempoKeepAwake, pulseTempoHaptic, releaseTempoKeepAwake } from '../../tempo/feedback';
+import {
+  cancelInterval,
+  completeWorkPhase,
+  hasActiveInterval,
+  idleIntervalRuntime,
+  resumeInterval,
+  restartInterval,
+  skipPhase,
+  startInterval,
+  tickInterval,
+  type IntervalEffect,
+  type IntervalRuntime,
+} from '../../interval/intervalEngine';
+import {
+  activateIntervalKeepAwake,
+  activateTempoKeepAwake,
+  pulseIntervalHaptic,
+  pulseTempoHaptic,
+  releaseIntervalKeepAwake,
+  releaseTempoKeepAwake,
+} from '../../tempo/feedback';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, confirmDestructive } from '../components';
 import { Numpad, NumpadField } from '../Numpad';
 import { TempoActiveCard, TempoReadyCard } from '../TempoTrainer';
+import { IntervalActiveCard, IntervalReadyCard } from '../IntervalTrainer';
 import {
   applyNumpadKey,
   applyNumpadModifier,
@@ -67,6 +88,38 @@ const fireTempoEffects = (effects: TempoEffect[]) => {
   for (const e of effects) pulseTempoHaptic(e);
 };
 
+const fireIntervalEffects = (effects: IntervalEffect[]) => {
+  for (const e of effects) pulseIntervalHaptic(e);
+};
+
+function intervalRuntimeFromPersisted(p: PersistedInterval | null | undefined): IntervalRuntime {
+  if (!p || p.status !== 'running' || !p.config) return idleIntervalRuntime();
+  return {
+    status: 'running',
+    config: p.config,
+    startedAt: p.startedAt,
+    round: p.round,
+    phase: p.phase,
+    phaseStartsAt: p.phaseStartsAt,
+    phaseEndsAt: p.phaseEndsAt,
+    workDoneEarly: !!p.workDoneEarly,
+  };
+}
+
+function toPersistedInterval(rt: IntervalRuntime): PersistedInterval | null {
+  if (rt.status !== 'running' || !rt.config) return null;
+  return {
+    status: 'running',
+    config: rt.config,
+    startedAt: rt.startedAt,
+    round: rt.round,
+    phase: rt.phase,
+    phaseStartsAt: rt.phaseStartsAt,
+    phaseEndsAt: rt.phaseEndsAt,
+    workDoneEarly: rt.workDoneEarly,
+  };
+}
+
 export function WorkoutScreen() {
   const { pop, setBackInterceptor } = useNav();
   const [rt, setRt] = useState<WorkoutRuntime | null>(null);
@@ -79,11 +132,17 @@ export function WorkoutScreen() {
   // Ephemeral tempo trainer (intra-set aid) — never persisted, never engine-owned.
   const [tempo, setTempo] = useState<TempoRuntime>(idleTempoRuntime);
   const [tempoNow, setTempoNow] = useState(() => Date.now());
+  // Interval trainer — runtime derived from timestamps; optional cursor.interval for recovery.
+  const [intervalRt, setIntervalRt] = useState<IntervalRuntime>(idleIntervalRuntime);
+  const [intervalNow, setIntervalNow] = useState(() => Date.now());
   const busyRef = useRef(false);
   const rtRef = useRef<WorkoutRuntime | null>(null);
   rtRef.current = rt;
   const tempoRef = useRef<TempoRuntime>(tempo);
   tempoRef.current = tempo;
+  const intervalRef = useRef<IntervalRuntime>(intervalRt);
+  intervalRef.current = intervalRt;
+  const persistIntervalRef = useRef<(next: IntervalRuntime) => void>(() => {});
 
   const timer = useTimerStore();
   const setSession = useActiveSessionStore((s) => s.setSession);
@@ -137,11 +196,38 @@ export function WorkoutScreen() {
       rir: p.targetRir !== null ? String(p.targetRir) : '',
     });
     setActiveField('weight');
-    // New set/step: discard any in-flight tempo (no stale phase timestamps).
+    // New set/step: discard any in-flight tempo/interval (no stale phase timestamps).
     setTempo(idleTempoRuntime());
     releaseTempoKeepAwake();
+    setIntervalRt(idleIntervalRuntime());
+    releaseIntervalKeepAwake();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posKey]);
+
+  // Load persisted interval runtime when landing on an interval block (process death recovery).
+  useEffect(() => {
+    const c = rt?.cursor;
+    if (!c || c.status !== 'active') return;
+    const block = rt?.definition.blocks[c.blockIndex];
+    if (!block || block.kind !== 'interval') {
+      if (intervalRef.current.status !== 'idle') {
+        intervalRef.current = cancelInterval();
+        setIntervalRt(cancelInterval());
+        releaseIntervalKeepAwake();
+      }
+      return;
+    }
+    if (c.interval) {
+      const resumed = resumeInterval(intervalRuntimeFromPersisted(c.interval), Date.now());
+      intervalRef.current = resumed.runtime;
+      setIntervalRt(resumed.runtime);
+      if (resumed.runtime.status === 'running') activateIntervalKeepAwake();
+      fireIntervalEffects(resumed.effects);
+    } else if (intervalRef.current.status === 'idle') {
+      // stay idle — athlete starts intentionally
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rt?.sessionId, rt?.cursor.blockIndex, rt?.cursor.status]);
 
   // Tempo trainer: timestamp-based; UI tick derives remaining; engine never sees it.
   const applyTempoTick = useCallback((now: number) => {
@@ -174,12 +260,138 @@ export function WorkoutScreen() {
     return () => sub.remove();
   }, [applyTempoTick]);
 
-  // Unmount: never leak keep-awake or leave a running tempo reference.
+  // Unmount: never leak keep-awake or leave a running tempo/interval reference.
   useEffect(() => {
     return () => {
       releaseTempoKeepAwake();
+      releaseIntervalKeepAwake();
     };
   }, []);
+
+  // Interval: timestamp-based; UI tick derives remaining; engine never sees phase events.
+  const applyIntervalTick = useCallback((now: number) => {
+    const current = intervalRef.current;
+    if (current.status !== 'running') {
+      setIntervalNow(now);
+      return;
+    }
+    const step = tickInterval(current, now);
+    intervalRef.current = step.runtime;
+    setIntervalRt(step.runtime);
+    setIntervalNow(now);
+    fireIntervalEffects(step.effects);
+    if (step.runtime.status === 'running') activateIntervalKeepAwake();
+    else {
+      releaseIntervalKeepAwake();
+      persistIntervalRef.current(step.runtime);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (intervalRt.status !== 'running') return;
+    activateIntervalKeepAwake();
+    const id = setInterval(() => applyIntervalTick(Date.now()), TEMPO_UI_TICK_MS);
+    return () => clearInterval(id);
+  }, [intervalRt.status, applyIntervalTick]);
+
+  // Background/resume interval: re-derive from absolute timestamps.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') applyIntervalTick(Date.now());
+    });
+    return () => sub.remove();
+  }, [applyIntervalTick]);
+
+  const persistIntervalRuntime = useCallback((next: IntervalRuntime) => {
+    const current = rtRef.current;
+    if (!current) return;
+    const persisted = toPersistedInterval(next);
+    const cursor = { ...current.cursor, interval: persisted };
+    // Application-layer write of optional runtime only — no engine event, no set_log.
+    void current.session.update((rec) => {
+      rec.cursorJson = JSON.stringify(cursor);
+      rec.updatedAt = Date.now();
+    }).catch(() => {
+      // fail-soft: recovery re-derives or stays idle
+    });
+    rtRef.current = { ...current, cursor };
+    setRt((prev) => (prev && prev.sessionId === current.sessionId ? { ...prev, cursor } : prev));
+  }, []);
+  persistIntervalRef.current = persistIntervalRuntime;
+
+  const clearPersistedInterval = useCallback(() => {
+    const current = rtRef.current;
+    if (!current || !current.cursor.interval) return;
+    const cursor = { ...current.cursor, interval: null };
+    void current.session.update((rec) => {
+      rec.cursorJson = JSON.stringify(cursor);
+      rec.updatedAt = Date.now();
+    }).catch(() => {});
+    rtRef.current = { ...current, cursor };
+    setRt((prev) => (prev && prev.sessionId === current.sessionId ? { ...prev, cursor } : prev));
+  }, []);
+
+  const onStartInterval = () => {
+    const block = rtRef.current?.definition.blocks[rtRef.current.cursor.blockIndex];
+    if (!block?.interval) return;
+    const now = Date.now();
+    const result = startInterval(block.interval, now);
+    intervalRef.current = result.runtime;
+    setIntervalRt(result.runtime);
+    setIntervalNow(now);
+    fireIntervalEffects(result.effects);
+    if (result.runtime.status === 'running') {
+      activateIntervalKeepAwake();
+      persistIntervalRuntime(result.runtime);
+    }
+  };
+
+  const onCancelInterval = () => {
+    intervalRef.current = cancelInterval();
+    setIntervalRt(cancelInterval());
+    setIntervalNow(Date.now());
+    releaseIntervalKeepAwake();
+    clearPersistedInterval();
+  };
+
+  const onRestartInterval = () => {
+    const now = Date.now();
+    const result = restartInterval(intervalRef.current, now);
+    intervalRef.current = result.runtime;
+    setIntervalRt(result.runtime);
+    setIntervalNow(now);
+    fireIntervalEffects(result.effects);
+    if (result.runtime.status === 'running') {
+      activateIntervalKeepAwake();
+      persistIntervalRuntime(result.runtime);
+    } else {
+      clearPersistedInterval();
+    }
+  };
+
+  const onSkipIntervalPhase = () => {
+    const now = Date.now();
+    const result = skipPhase(intervalRef.current, now);
+    intervalRef.current = result.runtime;
+    setIntervalRt(result.runtime);
+    setIntervalNow(now);
+    fireIntervalEffects(result.effects);
+    if (result.runtime.status === 'running') persistIntervalRuntime(result.runtime);
+    else {
+      releaseIntervalKeepAwake();
+      clearPersistedInterval();
+    }
+  };
+
+  const onFinishIntervalWork = () => {
+    const now = Date.now();
+    const result = completeWorkPhase(intervalRef.current, now);
+    intervalRef.current = result.runtime;
+    setIntervalRt(result.runtime);
+    setIntervalNow(now);
+    fireIntervalEffects(result.effects);
+    if (result.runtime.status === 'running') persistIntervalRuntime(result.runtime);
+  };
 
   const onStartTempo = () => {
     if (!step) return;
@@ -275,11 +487,17 @@ export function WorkoutScreen() {
       busyRef.current = true;
       setBusy(true);
       try {
-        // Completing a set / advancing while tempo runs: stop the aid first.
+        // Completing a set / advancing while tempo or interval runs: stop aids first.
         if (tempoRef.current.status === 'running') {
           tempoRef.current = cancelTempo();
           setTempo(cancelTempo());
           releaseTempoKeepAwake();
+        }
+        if (intervalRef.current.status !== 'idle') {
+          intervalRef.current = cancelInterval();
+          setIntervalRt(cancelInterval());
+          releaseIntervalKeepAwake();
+          clearPersistedInterval();
         }
         const next = await applyWorkoutEvent(database, current, event);
         setRt(next);
@@ -295,7 +513,7 @@ export function WorkoutScreen() {
         setBusy(false);
       }
     },
-    [setSession, timer],
+    [setSession, timer, clearPersistedInterval],
   );
   applyRef.current = apply;
 
@@ -355,6 +573,10 @@ export function WorkoutScreen() {
           tempoRef.current = cancelTempo();
           setTempo(cancelTempo());
           releaseTempoKeepAwake();
+          intervalRef.current = cancelInterval();
+          setIntervalRt(cancelInterval());
+          releaseIntervalKeepAwake();
+          clearPersistedInterval();
           await discardWorkout(database, current);
           setSession(null, null);
           timer.clear();
@@ -366,7 +588,7 @@ export function WorkoutScreen() {
     });
   };
 
-  // Rest timer / completed session takes precedence: never overlap tempo with REST.
+  // Rest timer / completed session takes precedence: never overlap tempo or interval with REST.
   // Declared with other hooks (before early returns) to keep hook order stable.
   const restActive = !!rt && rt.cursor.status === 'active' && rt.cursor.timer !== null;
   const sessionDone = !!rt && (completedView || rt.cursor.status === 'completed');
@@ -376,7 +598,13 @@ export function WorkoutScreen() {
       setTempo(cancelTempo());
       releaseTempoKeepAwake();
     }
-  }, [restActive, sessionDone, rt]);
+    if ((restActive || sessionDone || !rt) && intervalRef.current.status !== 'idle') {
+      intervalRef.current = cancelInterval();
+      setIntervalRt(cancelInterval());
+      releaseIntervalKeepAwake();
+      clearPersistedInterval();
+    }
+  }, [restActive, sessionDone, rt, clearPersistedInterval]);
 
   if (loading) {
     return (
@@ -411,12 +639,16 @@ export function WorkoutScreen() {
   const targetSets = Math.max(1, currentStep?.prescription.targetSets ?? 1);
   const canUndo = cursor.status === 'active' && cursor.lastReversible?.kind === 'set';
   const hasTimer = cursor.status === 'active' && cursor.timer !== null;
-  const showNumpad = cursor.status === 'active' && !!currentStep && !hasTimer;
+  const showNumpad = cursor.status === 'active' && !!currentStep && !hasTimer && block?.kind !== 'interval';
   const showTempo =
     cursor.status === 'active' &&
     !!currentStep &&
     !hasTimer &&
+    block?.kind !== 'interval' &&
     hasActiveTempo(currentStep.prescription.tempo);
+  const intervalSpec: IntervalSpec | null =
+    cursor.status === 'active' && block?.kind === 'interval' && block.interval ? block.interval : null;
+  const showInterval = !!intervalSpec && !hasTimer && hasActiveInterval(intervalSpec);
 
   if (completedView || cursor.status === 'completed') {
     return (
@@ -491,6 +723,32 @@ export function WorkoutScreen() {
               <Text className="text-2xl font-bold text-fg">{currentStep.exerciseName || strings.common.none}</Text>
               <Text className="mt-1 text-sm text-dim">{block?.name}</Text>
 
+              {showInterval && intervalSpec ? (
+                <View className="mt-4">
+                  {intervalRt.status === 'idle' ? (
+                    <IntervalReadyCard
+                      spec={intervalSpec}
+                      onStart={onStartInterval}
+                      disabled={busy}
+                    />
+                  ) : (
+                    <IntervalActiveCard
+                      spec={intervalSpec}
+                      runtime={intervalRt}
+                      now={intervalNow}
+                      onCancel={onCancelInterval}
+                      onRestart={onRestartInterval}
+                      onSkip={onSkipIntervalPhase}
+                      onFinishWork={onFinishIntervalWork}
+                      onComplete={() => void apply({ type: 'SKIP_STEP', now: Date.now() })}
+                      busy={busy}
+                    />
+                  )}
+                </View>
+              ) : null}
+
+              {!showInterval ? (
+                <>
               <SectionHeader title={strings.workout.target} />
               <View className="flex-row flex-wrap gap-2">
                 {currentStep.prescription.targetSets !== null ? (
@@ -587,6 +845,8 @@ export function WorkoutScreen() {
               <View className="mt-3">
                 <Button label={strings.workout.skip} variant="secondary" onPress={onSkip} disabled={busy} />
               </View>
+                </>
+              ) : null}
             </Card>
           </View>
         ) : (

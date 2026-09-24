@@ -19,5 +19,20 @@ export function parseCursor(json: string): ExecutionCursor {
   if (typeof cursor.blockIndex !== 'number' || typeof cursor.round !== 'number' || typeof cursor.setIndex !== 'number') {
     throw new Error('corrupt cursor_json');
   }
+  // Interval runtime is optional; discard malformed payloads rather than crash.
+  if (cursor.interval && typeof cursor.interval !== 'object') {
+    cursor.interval = null;
+  } else if (cursor.interval) {
+    const iv = cursor.interval;
+    if (
+      iv.status !== 'running' ||
+      typeof iv.startedAt !== 'number' ||
+      !Number.isFinite(iv.startedAt) ||
+      !iv.config ||
+      typeof iv.config.totalMs !== 'number'
+    ) {
+      cursor.interval = null;
+    }
+  }
   return cursor;
 }
