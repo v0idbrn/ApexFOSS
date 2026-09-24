@@ -198,6 +198,27 @@ export const strings = {
     tapField: 'Tap a field to edit',
     modifierPrefix: 'Quick add',
   },
+  tempo: {
+    title: 'TEMPO',
+    start: 'Start tempo',
+    cancel: 'Cancel',
+    restart: 'Restart',
+    complete: 'Tempo complete',
+    currentPhase: 'Current phase',
+    ready: 'Ready',
+    phases: {
+      eccentric: 'ECCENTRIC',
+      pauseBottom: 'BOTTOM PAUSE',
+      concentric: 'CONCENTRIC',
+      pauseTop: 'TOP PAUSE',
+    },
+    phaseDots: {
+      eccentric: 'Eccentric',
+      pauseBottom: 'Bottom pause',
+      concentric: 'Concentric',
+      pauseTop: 'Top pause',
+    },
+  },
 } as const;
 
 export type Strings = typeof strings;
