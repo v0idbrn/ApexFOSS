@@ -434,7 +434,7 @@ describe('backup create / restore', () => {
   it('backupSummary counts', async () => {
     const db = makeDb();
     const b = await createBackup(db);
-    expect(backupSummary(b)).toEqual({ exercises: 0, routines: 0, sessions: 0, setLogs: 0 });
+    expect(backupSummary(b)).toEqual({ exercises: 0, routines: 0, sessions: 0, setLogs: 0, readinessTests: 0 });
   });
 
   it('validateBackup rejects invalid JSON structure', () => {

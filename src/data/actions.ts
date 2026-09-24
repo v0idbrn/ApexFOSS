@@ -11,6 +11,7 @@ import {
   BlockTransition,
   WorkoutSession,
   SetLog,
+  ReadinessTest,
 } from './models';
 import { SEED_EXERCISES } from '../../scripts/seed-exercises';
 
@@ -124,6 +125,9 @@ export interface DbActions {
   findSessionExercise(sessionId: string, blockIndex: number, orderIndex: number, exerciseName: string): Promise<any>;
   /** Applies DB-backed effects and returns the cursor with lastReversible.setLogId filled for LOG_SET. */
   applyEffects(session: WorkoutSession, cursor: ExecutionCursor, effects: Effect[]): Promise<ExecutionCursor>;
+
+  createReadinessTest(input: { testedAt: number; durationMs: number; tapCount: number }): Promise<string>;
+  listReadinessTests(limit?: number): Promise<ReadinessTest[]>;
 }
 
 export function makeDbActions(db: Database): DbActions {
@@ -608,6 +612,26 @@ export function makeDbActions(db: Database): DbActions {
         }
       }
       return cursor;
+    },
+
+    async createReadinessTest(input) {
+      return db.write(async () => {
+        const row = await db.get<ReadinessTest>('readiness_tests').create((rec) => {
+          rec.testedAt = input.testedAt;
+          rec.durationMs = input.durationMs;
+          rec.tapCount = input.tapCount;
+          rec.createdAt = now();
+          rec.updatedAt = now();
+        });
+        return row.id;
+      });
+    },
+
+    async listReadinessTests(limit = 50) {
+      return db
+        .get<ReadinessTest>('readiness_tests')
+        .query(Q.sortBy('tested_at', 'desc'), Q.take(limit))
+        .fetch();
     },
   };
 }

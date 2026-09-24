@@ -151,12 +151,21 @@ export interface BackupSetLog {
   completedAt: number | null;
 }
 
+/** Readiness tap tests (Phase 2E). Optional on older backups. */
+export interface BackupReadinessTest {
+  testedAt: number;
+  durationMs: number;
+  tapCount: number;
+}
+
 export interface BackupData {
   exercises: PortableExercise[];
   routines: PortableRoutine[];
   sessions: BackupSession[];
   sessionExercises: BackupSessionExercise[];
   setLogs: BackupSetLog[];
+  /** Absent on backups created before schema v3 — restore treats as empty. */
+  readinessTests?: BackupReadinessTest[];
 }
 
 export interface ApexBackup {

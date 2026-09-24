@@ -1,5 +1,8 @@
 import { Model } from '@nozbe/watermelondb';
 import { field, text, children } from '@nozbe/watermelondb/decorators';
+import { ReadinessTest } from './readinessModel';
+
+export { ReadinessTest };
 
 export class Exercise extends Model {
   static table = 'exercises';
@@ -156,4 +159,5 @@ export const modelClasses = [
   WorkoutSession,
   SessionExercise,
   SetLog,
+  ReadinessTest,
 ];

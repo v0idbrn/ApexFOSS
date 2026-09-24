@@ -2,6 +2,7 @@ import { Database, Q } from '@nozbe/watermelondb';
 import type {
   ApexBackup,
   BackupData,
+  BackupReadinessTest,
   BackupSession,
   BackupSessionExercise,
   BackupSetLog,
@@ -33,6 +34,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
   const sessionRows = await db.get<any>('workout_sessions').query().fetch();
   const sessionExRows = await db.get<any>('session_exercises').query().fetch();
   const setLogRows = await db.get<any>('set_logs').query().fetch();
+  const readinessRows = await db.get<any>('readiness_tests').query(Q.sortBy('tested_at', 'asc')).fetch();
 
   // Package-local exercise keys (stable by first-use across routines, then leftover sorted by name).
   const localIdToKey = new Map<string, string>();
@@ -205,7 +207,13 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     if (!se.exerciseName && ex) se.exerciseName = ex.name;
   }
 
-  const data: BackupData = { exercises, routines, sessions, sessionExercises, setLogs };
+  const readinessTests: BackupReadinessTest[] = readinessRows.map((r: any) => ({
+    testedAt: r.testedAt,
+    durationMs: r.durationMs,
+    tapCount: r.tapCount,
+  }));
+
+  const data: BackupData = { exercises, routines, sessions, sessionExercises, setLogs, readinessTests };
   return {
     format: BACKUP_FORMAT,
     formatVersion: BACKUP_FORMAT_VERSION,
@@ -264,6 +272,10 @@ export function validateBackup(raw: unknown): ApexBackup {
   if (!Array.isArray(exercises) || !Array.isArray(routines) || !Array.isArray(sessions) ||
       !Array.isArray(sessionExercises) || !Array.isArray(setLogs)) {
     throw new PortabilityError('missing_field', 'data.*');
+  }
+  const readinessTestsRaw = d.readinessTests;
+  if (readinessTestsRaw !== undefined && !Array.isArray(readinessTestsRaw)) {
+    throw new PortabilityError('missing_field', 'data.readinessTests');
   }
 
   const exerciseKeys = new Set<string>();
@@ -344,6 +356,22 @@ export function validateBackup(raw: unknown): ApexBackup {
     }
   }
 
+  if (Array.isArray(readinessTestsRaw)) {
+    for (const [i, rt] of readinessTestsRaw.entries()) {
+      if (typeof rt !== 'object' || rt === null) throw new PortabilityError('invalid_reference', `readinessTests[${i}]`);
+      const r = rt as Record<string, unknown>;
+      if (typeof r.testedAt !== 'number' || !Number.isInteger(r.testedAt) || r.testedAt < 0) {
+        throw new PortabilityError('invalid_integer', `readinessTests[${i}].testedAt`);
+      }
+      if (typeof r.durationMs !== 'number' || !Number.isInteger(r.durationMs) || r.durationMs <= 0) {
+        throw new PortabilityError('invalid_integer', `readinessTests[${i}].durationMs`);
+      }
+      if (typeof r.tapCount !== 'number' || !Number.isInteger(r.tapCount) || r.tapCount < 0) {
+        throw new PortabilityError('invalid_integer', `readinessTests[${i}].tapCount`);
+      }
+    }
+  }
+
   const checksum = semanticChecksum(d as unknown as BackupData);
   if (checksum !== b.checksum) throw new PortabilityError('checksum_mismatch');
 
@@ -381,6 +409,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
     sessions: ((await db.get('workout_sessions').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     sessionExercises: ((await db.get('session_exercises').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     setLogs: ((await db.get('set_logs').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
+    readinessTests: ((await db.get('readiness_tests').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
   };
 
   try {
@@ -411,6 +440,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
       }
       const oldEx = await db.get('exercises').query().fetch();
       for (const e of oldEx) await e.markAsDeleted();
+      const oldReadiness = await db.get('readiness_tests').query().fetch();
+      for (const r of oldReadiness) await r.markAsDeleted();
 
       // Insert backup content. Map package keys → new local exercise ids.
       const keyToId = new Map<string, string>();
@@ -552,6 +583,20 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         logN += 1;
         hooks.onRowCreated?.('set_logs', logN);
       }
+
+      const readinessList = backup.data.readinessTests ?? [];
+      let rtN = 0;
+      for (const rt of readinessList) {
+        await db.get<any>('readiness_tests').create((rec: any) => {
+          rec.testedAt = rt.testedAt;
+          rec.durationMs = rt.durationMs;
+          rec.tapCount = rt.tapCount;
+          rec.createdAt = Date.now();
+          rec.updatedAt = Date.now();
+        });
+        rtN += 1;
+        hooks.onRowCreated?.('readiness_tests', rtN);
+      }
     });
   } catch (e) {
     // Compensating rollback: wipe whatever was written this call, restore snapshot.
@@ -575,7 +620,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           }
           await r.markAsDeleted();
         }
-        for (const x of await db.get('exercises').query().fetch()) await x.markAsDeleted();
+        for (const e of await db.get('exercises').query().fetch()) await e.markAsDeleted();
+        for (const r of await db.get('readiness_tests').query().fetch()) await r.markAsDeleted();
 
         // Re-insert snapshot rows (raw create with original ids where possible).
         const idMap = new Map<string, string>();
@@ -707,6 +753,15 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           });
           idMap.set(raw.id, row.id);
         }
+        for (const raw of snap.readinessTests ?? []) {
+          await db.get('readiness_tests').create((rec: any) => {
+            rec.testedAt = raw.tested_at;
+            rec.durationMs = raw.duration_ms;
+            rec.tapCount = raw.tap_count;
+            rec.createdAt = raw.created_at ?? Date.now();
+            rec.updatedAt = raw.updated_at ?? Date.now();
+          });
+        }
       });
     } catch {
       // Best-effort — original error still thrown below.
@@ -721,11 +776,13 @@ export function backupSummary(backup: ApexBackup): {
   routines: number;
   sessions: number;
   setLogs: number;
+  readinessTests: number;
 } {
   return {
     exercises: backup.data.exercises.length,
     routines: backup.data.routines.length,
     sessions: backup.data.sessions.length,
     setLogs: backup.data.setLogs.length,
+    readinessTests: backup.data.readinessTests?.length ?? 0,
   };
 }

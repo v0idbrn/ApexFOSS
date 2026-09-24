@@ -5,8 +5,9 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
  * Canonical execution state: workout_sessions.cursor_json (+ definition_json snapshot).
  * session_status / timer_expires_at / current_* are derived caches only (cursor_json wins).
  * v2 (Phase 2C): optional routine_blocks.interval_json for interval block programming.
+ * v3 (Phase 2E): readiness_tests for tap-test baseline history.
  */
-export const schemaVersion = 2;
+export const schemaVersion = 3;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -130,6 +131,16 @@ export const schema = appSchema({
         { name: 'rir', type: 'number', isOptional: true },
         { name: 'is_completed', type: 'number' },
         { name: 'completed_at', type: 'number', isOptional: true },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'readiness_tests',
+      columns: [
+        { name: 'tested_at', type: 'number', isIndexed: true },
+        { name: 'duration_ms', type: 'number' },
+        { name: 'tap_count', type: 'number' },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

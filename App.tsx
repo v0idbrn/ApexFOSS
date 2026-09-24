@@ -15,6 +15,9 @@ import { WorkoutScreen } from './src/ui/screens/WorkoutScreen';
 import { HistoryListScreen } from './src/ui/screens/HistoryListScreen';
 import { HistoryDetailScreen } from './src/ui/screens/HistoryDetailScreen';
 import { PortabilityScreen } from './src/ui/screens/PortabilityScreen';
+import { LoadScreen } from './src/ui/screens/LoadScreen';
+import { InventoryScreen } from './src/ui/screens/InventoryScreen';
+import { ReadinessScreen } from './src/ui/screens/ReadinessScreen';
 import { parseImportDeepLink } from './src/portability/encoding';
 import { setPendingDeepLink } from './src/portability/pendingDeepLink';
 
@@ -40,6 +43,12 @@ function renderRoute(route: Route) {
       return <PortabilityScreen />;
     case 'importPreview':
       return <PortabilityScreen />;
+    case 'load':
+      return <LoadScreen />;
+    case 'inventory':
+      return <InventoryScreen />;
+    case 'readiness':
+      return <ReadinessScreen />;
     default:
       return <HomeScreen />;
   }
