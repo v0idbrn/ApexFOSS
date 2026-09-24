@@ -38,7 +38,7 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
   const [nameError, setNameError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pickerFor, setPickerFor] = useState<string | null>(null); // localId of step awaiting exercise
-  const baseline = useRef<string>('');
+  const baseline = useRef<string>(JSON.stringify(emptyDraft()));
   const dirty = useMemo(() => JSON.stringify(draft) !== baseline.current, [draft]);
 
   const load = useCallback(async () => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
@@ -49,7 +50,7 @@ export function ExercisePickerScreen({
 
   return (
     <Modal visible animationType="slide" onRequestClose={onCancel} presentationStyle="fullScreen">
-      <View className="flex-1 bg-bg pt-10">
+      <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-bg">
         <View className="h-14 min-h-14 flex-row items-center border-b border-line px-1">
           <Text className="flex-1 px-3 text-lg font-semibold text-fg">{strings.exercises.selectTitle}</Text>
           <Text
@@ -98,7 +99,7 @@ export function ExercisePickerScreen({
             )}
           />
         )}
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

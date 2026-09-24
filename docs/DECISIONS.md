@@ -52,3 +52,57 @@ morrow plugin and registers `WatermelonDBJSIPackage` in the app `PackageList`.
   exactly the kind of drift the frozen plan tries to avoid.
 - *Fallback to `expo-sqlite`* — pre-authorized by the plan, but unnecessary:
   WatermelonDB itself was never broken, only its RN 0.83 compatibility.
+
+---
+
+## D-002 — Minimal stack navigator instead of React Navigation (Day 2, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Day 2 introduces the first real screen graph
+(Home → Exercises/Routines → editors). The Day 1 app is a single screen with
+no navigation dependency installed.
+
+**Decision.** Ship a ~70-line state-based stack navigator
+(`src/ui/navigation.tsx`) instead of adding `@react-navigation/*`.
+
+**Consequences.**
+
+- Zero new JS/native dependencies → no `expo prebuild`/native rebuild required
+  for Day 2 (JS-only checkpoint validation stays fast).
+- Android hardware/system back is handled by a single `BackHandler`
+  subscription with a per-screen interceptor hook (editors use it to guard
+  unsaved changes); stack depth > 1 pops, depth 1 defers to the OS.
+- Screens are remounted on every push/pop, which naturally re-reads
+  WatermelonDB on return (no focus-refetch plumbing).
+
+**Rejected alternatives.**
+
+- *React Navigation (native-stack)* — correct for larger apps, but adds JS
+  packages plus a native rebuild for a 5-route MVP graph.
+- *Tab navigator* — the Day 2 map is a hub-and-spoke tree, not tabs.
+
+---
+
+## D-003 — Routine editor save strategy: replace-children (Day 2, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** The editor edits an in-memory draft
+(`src/types/draft.ts`) and must persist blocks → steps → prescriptions →
+transitions with stable ordering.
+
+**Decision.** `saveRoutineDraft` writes inside a single WatermelonDB writer:
+upsert the routine row, `markAsDeleted` the previous children, then recreate
+the full tree from the draft with fresh `sort_order` indexes.
+
+**Consequences.**
+
+- Save is atomic and ordering is trivially deterministic; no diff/reconcile
+  logic between draft and store.
+- Safe because nothing durable references step/block ids: sessions store an
+  immutable `definition_json` snapshot taken at start, and `routines.id` is
+  preserved across saves. `block_transitions.to_step_id` is written as `null`
+  (implicit forward/loop target), so no cross-save step-id edges exist.
+- Cost: child row ids change on every save — acceptable until Day 3+ shows a
+  need for stable step ids (e.g., per-step notes).

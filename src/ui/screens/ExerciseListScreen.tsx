@@ -28,12 +28,10 @@ export function ExerciseListScreen() {
     setLoading(true);
     setError(null);
     try {
-      const actions = makeDbActions(database);
       const list = await database
         .get<any>('exercises')
         .query(Q.sortBy('name', 'asc'))
         .fetch();
-      void actions;
       setRows(
         list.map((e: any) => ({
           id: e.id,
