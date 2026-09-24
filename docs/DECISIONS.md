@@ -281,3 +281,101 @@ execution aid without becoming a second session engine.
   recovering it after process death adds complexity with no athlete value.
 - *expo-haptics / expo-audio* — unnecessary native surface for restrained
   pulses and optional cues in this phase.
+
+---
+
+## D-009 — Interval Engine: pure module + interval block programming (Phase 2C, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Phase 2C adds EMOM / HIIT / glycolytic-style protocols without
+turning intervals into a second workout engine.
+
+**Decision.**
+
+1. **Pure interval engine** in `src/interval/intervalEngine.ts`: validates a
+   declarative `IntervalConfig` (mode, workMs, restMs, rounds, periodMs?,
+   preparationMs?), runs timestamp-based phases (`startedAt` + offsets),
+   emits `PHASE_START` / `ROUND_START` / `INTERVAL_COMPLETE` only.
+2. **Specialized block kind** `interval` on `routine_blocks` (optional
+   `interval_json` column, schema **v1→v2**, one `addColumns` migration).
+   `block.rounds` pinned to 1 for interval blocks — the engine owns protocol
+   rounds; the workout engine still only advances block/step position.
+3. **EMOM fixed clock.** Round n starts at `prepEnd + (n−1)×periodMs`.
+   Early work completion enters a wait until the minute boundary; it never
+   re-anchors the next round. Skip during wait jumps to the boundary.
+4. **HIIT / glycolytic linear timeline.** work → rest → … → final work
+   (no trailing rest). Prep is optional and timestamp-based.
+5. **Integration.** WorkoutScreen shows the interval card on an interval
+   block; completion dispatches existing `SKIP_STEP` (no `LOG_SET`).
+   Active runtime optionally persists as `cursor.interval` for process-death
+   re-sample; corrupt payloads are discarded by `parseCursor`.
+6. **No pause button** (v1): pause is ambiguous on a fixed EMOM clock;
+   cancel/restart/skip are deterministic.
+
+**Consequences.**
+
+- Interval never writes set_logs, never owns REST/AUTO notifications.
+- Schema v2 is minimal (one optional column); migration tests updated.
+- Future Tabata-like protocols fit as another `mode` without engine rewrite.
+
+**Rejected alternatives.**
+
+- *Standalone conditioning sessions* — would invent a second session type.
+- *Persist phases inside engine events* — would couple UI cadence to the
+  workout engine.
+
+---
+
+## D-010 — Keep-awake ownership: promote expo-keep-awake + tag locks (Phase 2C, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Phase 2B used a transitive `expo-keep-awake` via dynamic
+require with a single tempo latch. Intervals add a second concurrent holder.
+
+**Decision.**
+
+1. Promote `expo-keep-awake@~55.0.8` to a **direct** dependency (Expo SDK
+   55 supported package; already present transitively — lockfile stays
+   consistent).
+2. Shared tag locks in `src/ui/keepAwake.ts`:
+   `apexfoss-tempo` and `apexfoss-interval` activate/release independently
+   so one feature never drops the other feature's wake lock.
+3. Fail-soft if the native module is unavailable (Jest/node).
+
+**Consequences.**
+
+- Deterministic dependency resolution; no reliance on accidental transitive
+  exposure.
+- Unmount / cancel / complete / rest-precedence release the owning tag only.
+
+**Rejected alternatives.**
+
+- *Shared boolean latch* — would let tempo cancel interval's keep-awake.
+- *Leave transitive-only* — fragile across Expo upgrades.
+
+---
+
+## D-011 — Audio deferred for interval cues (Phase 2C, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** The stack has no `expo-audio` / `expo-av` and no local cue
+assets. Adding audio would require a native rebuild and asset packaging for
+non-essential feedback.
+
+**Decision.** **Defer audio.** Interval uses fail-soft RN `Vibration`
+patterns (prep/work/rest/round/complete). The pure engine does not depend
+on any feedback adapter.
+
+**Consequences.**
+
+- Correctness never requires audio or hardware vibration.
+- A later phase can add local tones without touching interval timing.
+
+**Rejected alternatives.**
+
+- *expo-audio now* — disproportionate native surface for optional cues.
+- *Speech synthesis* — non-deterministic, larger dependency, accessibility
+  noise.
