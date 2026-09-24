@@ -165,9 +165,16 @@ export const strings = {
   history: {
     title: 'History',
     empty: 'No sessions yet',
+    emptyDetail: 'Completed workouts will appear here.',
+    detail: 'Session',
+    detailMissing: 'Session not found',
+    completed: 'Completed',
+    completedAt: 'Completed',
     duration: 'Duration',
     volume: 'Volume',
     sets: 'Sets',
+    actualPerformed: 'Actual',
+    notLogged: 'Not logged',
   },
   export: {
     title: 'Export',

@@ -75,9 +75,17 @@ export function HomeScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() => push({ name: 'routines' })}
-          className="h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+          className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
         >
           <Text className="text-lg font-medium text-fg">{strings.home.routines}</Text>
+          <Text className="text-xl text-dim">›</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => push({ name: 'history' })}
+          className="h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+        >
+          <Text className="text-lg font-medium text-fg">{strings.history.title}</Text>
           <Text className="text-xl text-dim">›</Text>
         </Pressable>
       </View>

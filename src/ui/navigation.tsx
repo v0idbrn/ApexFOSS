@@ -12,7 +12,9 @@ export type Route =
   | { name: 'exerciseEditor'; exerciseId: string | null }
   | { name: 'routines' }
   | { name: 'routineEditor'; routineId: string | null }
-  | { name: 'workout' };
+  | { name: 'workout' }
+  | { name: 'history' }
+  | { name: 'historyDetail'; sessionId: string };
 
 interface NavValue {
   route: Route;

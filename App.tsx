@@ -12,6 +12,8 @@ import { ExerciseEditorScreen } from './src/ui/screens/ExerciseEditorScreen';
 import { RoutineListScreen } from './src/ui/screens/RoutineListScreen';
 import { RoutineEditorScreen } from './src/ui/screens/RoutineEditorScreen';
 import { WorkoutScreen } from './src/ui/screens/WorkoutScreen';
+import { HistoryListScreen } from './src/ui/screens/HistoryListScreen';
+import { HistoryDetailScreen } from './src/ui/screens/HistoryDetailScreen';
 
 function renderRoute(route: Route) {
   switch (route.name) {
@@ -27,6 +29,10 @@ function renderRoute(route: Route) {
       return <RoutineEditorScreen routineId={route.routineId} />;
     case 'workout':
       return <WorkoutScreen />;
+    case 'history':
+      return <HistoryListScreen />;
+    case 'historyDetail':
+      return <HistoryDetailScreen sessionId={route.sessionId} />;
     default:
       return <HomeScreen />;
   }
