@@ -14,7 +14,9 @@ export type Route =
   | { name: 'routineEditor'; routineId: string | null }
   | { name: 'workout' }
   | { name: 'history' }
-  | { name: 'historyDetail'; sessionId: string };
+  | { name: 'historyDetail'; sessionId: string }
+  | { name: 'portability' }
+  | { name: 'importPreview'; encoded: string };
 
 interface NavValue {
   route: Route;

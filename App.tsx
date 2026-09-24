@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import './global.css';
 import { runDbSmoke, type SmokeResult } from './src/dev/smokeDb';
@@ -14,6 +14,9 @@ import { RoutineEditorScreen } from './src/ui/screens/RoutineEditorScreen';
 import { WorkoutScreen } from './src/ui/screens/WorkoutScreen';
 import { HistoryListScreen } from './src/ui/screens/HistoryListScreen';
 import { HistoryDetailScreen } from './src/ui/screens/HistoryDetailScreen';
+import { PortabilityScreen } from './src/ui/screens/PortabilityScreen';
+import { parseImportDeepLink } from './src/portability/encoding';
+import { setPendingDeepLink } from './src/portability/pendingDeepLink';
 
 function renderRoute(route: Route) {
   switch (route.name) {
@@ -33,6 +36,10 @@ function renderRoute(route: Route) {
       return <HistoryListScreen />;
     case 'historyDetail':
       return <HistoryDetailScreen sessionId={route.sessionId} />;
+    case 'portability':
+      return <PortabilityScreen />;
+    case 'importPreview':
+      return <PortabilityScreen />;
     default:
       return <HomeScreen />;
   }
@@ -46,6 +53,19 @@ export default function App() {
     makeDbActions(database)
       .seedExercisesIfEmpty()
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    // Deep links: data transport only — never auto-import. Payload is stashed
+    // for PortabilityScreen preview; user must confirm before any DB write.
+    const onUrl = (url: string | null | undefined) => {
+      if (!url) return;
+      const parsed = parseImportDeepLink(url);
+      if (parsed.ok) setPendingDeepLink(parsed.encoded);
+    };
+    Linking.getInitialURL().then(onUrl).catch(() => {});
+    const sub = Linking.addEventListener('url', (e) => onUrl(e.url));
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
