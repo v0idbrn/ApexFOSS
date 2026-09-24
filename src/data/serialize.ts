@@ -24,6 +24,14 @@ export async function serializeRoutine(db: Database, routine: Routine): Promise<
       .get<BlockTransition>('block_transitions')
       .query(Q.where('block_id', block.id))
       .fetch();
+    // Deterministic order: follow step order, unknown fromStepId last (stable by id).
+    const stepOrder = new Map(steps.map((s, i) => [s.id, i]));
+    transitions.sort((a, b) => {
+      const ia = stepOrder.get(a.fromStepId) ?? Number.MAX_SAFE_INTEGER;
+      const ib = stepOrder.get(b.fromStepId) ?? Number.MAX_SAFE_INTEGER;
+      if (ia !== ib) return ia - ib;
+      return a.fromStepId < b.fromStepId ? -1 : a.fromStepId > b.fromStepId ? 1 : 0;
+    });
 
     const stepDefs = [];
     for (const step of steps) {
