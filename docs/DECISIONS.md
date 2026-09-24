@@ -534,3 +534,109 @@ versioning, validation, atomicity/rollback, checksum, tests.
 
 - `.apexroutine` / `.apexbackup` file association deferred (documented).
 - Interactive exercise-conflict merge deferred; suffix rename only.
+
+---
+
+## D-019 — Pure training load categories (Phase 2E, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Athlete load intelligence needs historical volume metrics without
+fabricating tonnage for timed/interval work.
+
+**Decision.** `src/analytics/load.ts` is pure TS with integer units only:
+resistance volume = weightGrams × reps (gram-reps), duration work = durationMs,
+kept as separate categories. Incomplete sets contribute nothing. Date windows
+today/7d/28d use local-calendar midnight semantics (`startOfLocalDay`).
+
+**Consequences.**
+
+- Interval/timed sets never inflate resistance volume.
+- No DB/React in math — UI adapters in screens call pure functions.
+- Display converts gram-reps ? kg·reps at the edge.
+
+---
+
+## D-020 — Inventory solver semantics (Phase 2E, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Plate/load calculator must be deterministic and generic (no
+hardcoded Olympic plates).
+
+**Decision.** `solveLoadInventory` is bounded-knapsack DP over grams.
+`LoadItem {name, weightGrams, quantity, perSide?}`; perSide contributes ×2.
+Tie-break: (1) exact over closest, (2) smallest |diff|, (3) prefer = target,
+(4) fewer units, (5) ascending item index. Status: exact / closest /
+impossible (no items and base < target).
+
+**Consequences.**
+
+- Same input always yields same allocation on any device.
+- No persistence — inventory is a session tool.
+
+---
+
+## D-021 — RIR autoregulation is runtime-only and opt-in (Phase 2E, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Autoregulation must never mutate routine definitions or historical
+session snapshots.
+
+**Decision.** Pure policy `recommendNextLoad` in
+`src/analytics/autoregulation.ts`. Config: enabled, targetRir, stepGrams,
+min/maxWeightGrams. Rules: actualRir < target ? +step; > target ? -step; equal
+? hold; clamped reasons reported. WorkoutScreen holds ephemeral state only:
+toggle (default OFF), pending suggestion keyed by next posKey, prefill weight
+input, display suggestion card. No DB write, no definition_json change.
+
+**Consequences.**
+
+- Discarding/finishing session discards all autoreg state.
+- Definitions and set_logs remain immutable history.
+
+---
+
+## D-022 — Readiness tap test: neutral score + personal baseline (Phase 2E, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Readiness must avoid medical/CNS/injury language and must not
+fabricate scores without history.
+
+**Decision.** 10-second tap test via RN touch events + Date.now timestamps.
+Baseline = rolling median of last up-to-10 prior tests; minimum 3 samples
+before any score. Score = round(100 × current / baseline) clamped [0, 200];
+deviation = percent vs baseline. Schema v3 adds `readiness_tests`
+(tested_at, duration_ms, tap_count). Backup field `readinessTests` optional —
+older backups restore as empty. Pure calcs in `src/analytics/readiness.ts`.
+
+**Consequences.**
+
+- No score before 3 prior tests (UI shows explanation).
+- Migration v2?v3 is additive (createTable); migration tests updated to 10
+  tables / 2 migrations / schemaVersion 3.
+- Neutral language only: score, baseline, deviation.
+
+---
+
+## D-023 — Scope cuts for Phase 2E (Phase 2E, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Phase 2E scope risk: charts, dashboards, gamification, extra
+autoreg strategies, persistence for inventory.
+
+**Decision.** Cut order: (1) no charts/dashboard/gamification — numeric cards
+only, (2) autoregulation is RIR-only (no VBT/RPE/1RM/ML/HRV), (3) inventory
+not persisted (in-session tool), (4) readiness baseline window fixed at 10
+(not configurable in UI), (5) ACWR is not presented — 7d/28d loads exposed as
+primitives only. **Never cut:** pure math modules, deterministic tie-breaks,
+immutability of definitions/snapshots, schema migration tests, medical-language
+guard, backup backward compatibility.
+
+**Consequences.**
+
+- Future phases can add presentation layers without touching math.
+- No hidden heuristics — all autoreg constants live in AutoregConfig.
