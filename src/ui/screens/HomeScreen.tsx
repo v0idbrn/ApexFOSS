@@ -1,11 +1,33 @@
-import { Text, View, Pressable } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
+import { database } from '../../data';
 import { strings } from '../../constants/strings';
+import { loadActiveWorkout } from '../../workout/runner';
 import { useNav } from '../navigation';
 import { Screen, SectionHeader } from '../components';
+
+interface ActiveRow {
+  id: string;
+  name: string;
+}
 
 /** Home — navigation hub only (no dashboard/analytics per Day 2 contract). */
 export function HomeScreen() {
   const { push } = useNav();
+  const [active, setActive] = useState<ActiveRow | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      const rt = await loadActiveWorkout(database);
+      setActive(rt && rt.cursor.status === 'active' ? { id: rt.sessionId, name: rt.definition.name } : null);
+    } catch {
+      setActive(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   return (
     <Screen>
@@ -14,6 +36,32 @@ export function HomeScreen() {
           <Text className="text-3xl font-bold text-fg">{strings.home.title}</Text>
           <Text className="mt-1 text-sm text-dim">{strings.home.tagline}</Text>
         </View>
+
+        <SectionHeader title={strings.home.training} />
+        {active ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => push({ name: 'workout' })}
+            className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-accent bg-accent/10 px-4"
+          >
+            <View className="flex-1 pr-2">
+              <Text className="text-base font-medium text-accent">{strings.home.activeSession}</Text>
+              <Text numberOfLines={1} className="text-sm text-dim">
+                {active.name}
+              </Text>
+            </View>
+            <Text className="text-sm font-semibold text-accent">{strings.home.resume}</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => push({ name: 'routines' })}
+            className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+          >
+            <Text className="text-lg font-medium text-fg">{strings.home.startWorkout}</Text>
+            <Text className="text-xl text-dim">›</Text>
+          </Pressable>
+        )}
 
         <SectionHeader title={strings.home.authoring} />
         <Pressable

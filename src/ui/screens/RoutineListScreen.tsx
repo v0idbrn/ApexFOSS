@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, Text, View } from 'react-native';
 import { database } from '../../data';
 import { makeDbActions } from '../../data/actions';
+import { startWorkoutSession } from '../../workout/runner';
+import { useActiveSessionStore } from '../../state/activeSessionStore';
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
 import { AppHeader, EmptyState, ErrorState, HeaderButton, ListRow, LoadingState, Screen, confirmDestructive } from '../components';
@@ -18,6 +20,7 @@ export function RoutineListScreen() {
   const [rows, setRows] = useState<RoutineRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const setSession = useActiveSessionStore((s) => s.setSession);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -44,6 +47,37 @@ export function RoutineListScreen() {
         setError(e instanceof Error ? e.message : String(e));
       }
     });
+  };
+
+  const start = async (row: RoutineRow) => {
+    try {
+      const active = await makeDbActions(database).getActiveSession();
+      if (active) {
+        Alert.alert(strings.workout.start, strings.workout.activeConflict, [
+          { text: strings.common.cancel, style: 'cancel' },
+          {
+            text: strings.routines.start,
+            onPress: () => {
+              void startAndNavigate(row);
+            },
+          },
+        ]);
+        return;
+      }
+      await startAndNavigate(row);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const startAndNavigate = async (row: RoutineRow) => {
+    try {
+      const sessionId = await startWorkoutSession(database, row.id);
+      setSession(sessionId, row.name);
+      push({ name: 'workout' });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : strings.workout.startFailed);
+    }
   };
 
   return (
@@ -77,7 +111,18 @@ export function RoutineListScreen() {
                   onPress={() => push({ name: 'routineEditor', routineId: item.id })}
                 />
               </View>
-              <View className="w-16 items-center justify-center">
+              <View className="w-14 items-center justify-center">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${strings.routines.start} ${item.name}`}
+                  onPress={() => void start(item)}
+                  hitSlop={8}
+                  className="h-12 w-12 items-center justify-center rounded-lg"
+                >
+                  <Text className="text-base text-accent">▶</Text>
+                </Pressable>
+              </View>
+              <View className="w-14 items-center justify-center">
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${strings.common.delete} ${item.name}`}

@@ -11,7 +11,8 @@ export type Route =
   | { name: 'exercises' }
   | { name: 'exerciseEditor'; exerciseId: string | null }
   | { name: 'routines' }
-  | { name: 'routineEditor'; routineId: string | null };
+  | { name: 'routineEditor'; routineId: string | null }
+  | { name: 'workout' };
 
 interface NavValue {
   route: Route;

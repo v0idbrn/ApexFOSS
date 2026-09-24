@@ -121,7 +121,8 @@ export interface DbActions {
   discardSession(session: WorkoutSession): Promise<void>;
 
   findSessionExercise(sessionId: string, blockIndex: number, orderIndex: number, exerciseName: string): Promise<any>;
-  applyEffects(session: WorkoutSession, cursor: ExecutionCursor, effects: Effect[]): Promise<void>;
+  /** Applies DB-backed effects and returns the cursor with lastReversible.setLogId filled for LOG_SET. */
+  applyEffects(session: WorkoutSession, cursor: ExecutionCursor, effects: Effect[]): Promise<ExecutionCursor>;
 }
 
 export function makeDbActions(db: Database): DbActions {
@@ -526,6 +527,8 @@ export function makeDbActions(db: Database): DbActions {
     },
 
     async applyEffects(session, cursor, effects) {
+      let createdLogId: string | null = null;
+      let createdLogKey: string | null = null;
       await db.write(async () => {
         const definition: RoutineDefinition = JSON.parse(session.definitionJson);
         // NOTE: never call db.write() inside this writer (WatermelonDB's writer queue is
@@ -553,7 +556,7 @@ export function makeDbActions(db: Database): DbActions {
             if (!block || !step) continue;
             const orderIndex = block.steps.indexOf(step);
             const se = await ensureSessionExercise(effect.blockIndex, orderIndex, step.exerciseName);
-            await setLogsCol().create((rec) => {
+            const log = await setLogsCol().create((rec) => {
               rec.sessionExerciseId = se.id;
               rec.blockIndex = effect.blockIndex;
               rec.stepIndex = effect.stepIndex;
@@ -569,6 +572,8 @@ export function makeDbActions(db: Database): DbActions {
               rec.createdAt = now();
               rec.updatedAt = now();
             });
+            createdLogId = log.id;
+            createdLogKey = `${effect.blockIndex}:${effect.stepIndex}:${effect.round}:${effect.setIndex}`;
           } else if (effect.kind === 'VOID_LAST_SET') {
             if (!effect.setLogId) continue; // nothing persisted yet — nothing to void
             try {
@@ -589,9 +594,17 @@ export function makeDbActions(db: Database): DbActions {
             });
           }
           // Timer/notification effects are handled by the timer service (not DB).
-          void cursor;
         }
       });
+      // Application-layer duty: attach the real set_log id so UNDO can void it.
+      const last = cursor.lastReversible;
+      if (createdLogId && last && last.kind === 'set') {
+        const key = `${last.blockIndex}:${last.stepIndex}:${last.round}:${last.setIndex}`;
+        if (key === createdLogKey) {
+          return { ...cursor, lastReversible: { ...last, setLogId: createdLogId } };
+        }
+      }
+      return cursor;
     },
   };
 }
