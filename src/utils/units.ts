@@ -16,6 +16,9 @@ export const formatKg = (grams: number | null): string => {
   return String(Number(kg.toFixed(3)));
 };
 
+/** Format an integer for display with en-US grouping (deterministic across devices). */
+export const formatCount = (n: number): string => Math.round(n).toLocaleString('en-US');
+
 /** Format milliseconds as m:ss countdown. */
 export const formatCountdown = (msRemaining: number): string => {
   const total = Math.max(0, Math.ceil(msRemaining / 1000));

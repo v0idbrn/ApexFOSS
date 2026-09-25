@@ -209,16 +209,19 @@ export function ListRow({
   subtitle,
   onPress,
   right,
+  testID,
 }: {
   title: string;
   subtitle?: string;
   onPress: () => void;
   right?: ReactNode;
+  testID?: string;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
+      testID={testID}
       style={({ pressed }) => (pressed ? { opacity: 0.8 } : undefined)}
       className="min-h-14 flex-row items-center border-b border-line px-4 py-3"
     >
@@ -375,7 +378,7 @@ export function MetricCard({
   value,
   unit,
   hint,
-  emphasis = false,
+  size = 'md',
   onPress,
   testID,
   className = '',
@@ -384,16 +387,17 @@ export function MetricCard({
   value: string;
   unit?: string;
   hint?: string;
-  emphasis?: boolean;
+  size?: 'sm' | 'md' | 'lg';
   onPress?: () => void;
   testID?: string;
   className?: string;
 }) {
+  const valueClass = size === 'lg' ? 'text-metric-xl' : size === 'sm' ? 'text-metric' : 'text-metric-lg';
   const body = (
     <>
       <Text className="text-overline uppercase text-dim">{label}</Text>
       <View className="mt-1 flex-row items-baseline">
-        <Text className={`font-mono ${emphasis ? 'text-metric-xl' : 'text-metric-lg'} text-fg`}>{value}</Text>
+        <Text className={`font-mono ${valueClass} text-fg`}>{value}</Text>
         {unit ? <Text className="ml-1 text-caption text-dim">{unit}</Text> : null}
       </View>
       {hint ? <Text className="mt-0.5 text-caption text-dim">{hint}</Text> : null}
