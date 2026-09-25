@@ -2,6 +2,7 @@ import { Database, Q } from '@nozbe/watermelondb';
 import type {
   ApexBackup,
   BackupData,
+  BackupEquipmentItem,
   BackupReadinessTest,
   BackupSession,
   BackupSessionExercise,
@@ -35,6 +36,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
   const sessionExRows = await db.get<any>('session_exercises').query().fetch();
   const setLogRows = await db.get<any>('set_logs').query().fetch();
   const readinessRows = await db.get<any>('readiness_tests').query(Q.sortBy('tested_at', 'asc')).fetch();
+  const equipmentRows = await db.get<any>('equipment_items').query(Q.sortBy('created_at', 'asc')).fetch();
 
   // Package-local exercise keys (stable by first-use across routines, then leftover sorted by name).
   const localIdToKey = new Map<string, string>();
@@ -213,7 +215,14 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     tapCount: r.tapCount,
   }));
 
-  const data: BackupData = { exercises, routines, sessions, sessionExercises, setLogs, readinessTests };
+  const equipmentItems: BackupEquipmentItem[] = equipmentRows.map((e: any) => ({
+    name: e.name,
+    weightGrams: e.weightGrams,
+    quantity: e.quantity,
+    perSide: e.perSide === true || e.perSide === 1,
+  }));
+
+  const data: BackupData = { exercises, routines, sessions, sessionExercises, setLogs, readinessTests, equipmentItems };
   return {
     format: BACKUP_FORMAT,
     formatVersion: BACKUP_FORMAT_VERSION,
@@ -279,6 +288,10 @@ export function validateBackup(raw: unknown): ApexBackup {
   const readinessTestsRaw = d.readinessTests;
   if (readinessTestsRaw !== undefined && !Array.isArray(readinessTestsRaw)) {
     throw new PortabilityError('missing_field', 'data.readinessTests');
+  }
+  const equipmentItemsRaw = d.equipmentItems;
+  if (equipmentItemsRaw !== undefined && !Array.isArray(equipmentItemsRaw)) {
+    throw new PortabilityError('missing_field', 'data.equipmentItems');
   }
 
   const exerciseKeys = new Set<string>();
@@ -375,6 +388,23 @@ export function validateBackup(raw: unknown): ApexBackup {
     }
   }
 
+  if (Array.isArray(equipmentItemsRaw)) {
+    for (const [i, ei] of equipmentItemsRaw.entries()) {
+      if (typeof ei !== 'object' || ei === null) throw new PortabilityError('invalid_reference', `equipmentItems[${i}]`);
+      const e = ei as Record<string, unknown>;
+      if (typeof e.name !== 'string') throw new PortabilityError('invalid_string', `equipmentItems[${i}].name`);
+      if (typeof e.weightGrams !== 'number' || !Number.isInteger(e.weightGrams) || e.weightGrams <= 0) {
+        throw new PortabilityError('invalid_integer', `equipmentItems[${i}].weightGrams`);
+      }
+      if (typeof e.quantity !== 'number' || !Number.isInteger(e.quantity) || e.quantity < 1) {
+        throw new PortabilityError('invalid_integer', `equipmentItems[${i}].quantity`);
+      }
+      if (typeof e.perSide !== 'boolean') {
+        throw new PortabilityError('invalid_boolean', `equipmentItems[${i}].perSide`);
+      }
+    }
+  }
+
   const checksum = semanticChecksum(d as unknown as BackupData);
   if (checksum !== b.checksum) throw new PortabilityError('checksum_mismatch');
 
@@ -413,6 +443,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
     sessionExercises: ((await db.get('session_exercises').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     setLogs: ((await db.get('set_logs').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     readinessTests: ((await db.get('readiness_tests').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
+    equipmentItems: ((await db.get('equipment_items').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
   };
 
   try {
@@ -445,6 +476,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
       for (const e of oldEx) await e.markAsDeleted();
       const oldReadiness = await db.get('readiness_tests').query().fetch();
       for (const r of oldReadiness) await r.markAsDeleted();
+      const oldEquipment = await db.get('equipment_items').query().fetch();
+      for (const e of oldEquipment) await e.markAsDeleted();
 
       // Insert backup content. Map package keys → new local exercise ids.
       const keyToId = new Map<string, string>();
@@ -600,6 +633,21 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         rtN += 1;
         hooks.onRowCreated?.('readiness_tests', rtN);
       }
+
+      const equipmentList = backup.data.equipmentItems ?? [];
+      let eqN = 0;
+      for (const item of equipmentList) {
+        await db.get<any>('equipment_items').create((rec: any) => {
+          rec.name = item.name;
+          rec.weightGrams = item.weightGrams;
+          rec.quantity = item.quantity;
+          rec.perSide = item.perSide ? 1 : 0;
+          rec.createdAt = Date.now();
+          rec.updatedAt = Date.now();
+        });
+        eqN += 1;
+        hooks.onRowCreated?.('equipment_items', eqN);
+      }
     });
   } catch (e) {
     // Compensating rollback: wipe whatever was written this call, restore snapshot.
@@ -625,6 +673,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         }
         for (const e of await db.get('exercises').query().fetch()) await e.markAsDeleted();
         for (const r of await db.get('readiness_tests').query().fetch()) await r.markAsDeleted();
+        for (const e of await db.get('equipment_items').query().fetch()) await e.markAsDeleted();
 
         // Re-insert snapshot rows (raw create with original ids where possible).
         const idMap = new Map<string, string>();
@@ -765,6 +814,16 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
             rec.updatedAt = raw.updated_at ?? Date.now();
           });
         }
+        for (const raw of snap.equipmentItems ?? []) {
+          await db.get('equipment_items').create((rec: any) => {
+            rec.name = raw.name;
+            rec.weightGrams = raw.weight_grams;
+            rec.quantity = raw.quantity;
+            rec.perSide = raw.per_side;
+            rec.createdAt = raw.created_at ?? Date.now();
+            rec.updatedAt = raw.updated_at ?? Date.now();
+          });
+        }
       });
     } catch {
       // Best-effort — original error still thrown below.
@@ -780,6 +839,7 @@ export function backupSummary(backup: ApexBackup): {
   sessions: number;
   setLogs: number;
   readinessTests: number;
+  equipmentItems: number;
 } {
   return {
     exercises: backup.data.exercises.length,
@@ -787,5 +847,6 @@ export function backupSummary(backup: ApexBackup): {
     sessions: backup.data.sessions.length,
     setLogs: backup.data.setLogs.length,
     readinessTests: backup.data.readinessTests?.length ?? 0,
+    equipmentItems: backup.data.equipmentItems?.length ?? 0,
   };
 }

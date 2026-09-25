@@ -82,6 +82,7 @@ export type PortabilityErrorCode =
   | 'missing_field'
   | 'invalid_integer'
   | 'invalid_string'
+  | 'invalid_boolean'
   | 'invalid_units'
   | 'invalid_transition'
   | 'invalid_interval'
@@ -158,6 +159,14 @@ export interface BackupReadinessTest {
   tapCount: number;
 }
 
+/** Gym equipment inventory (Phase 2J, schema v4). Optional on older backups. */
+export interface BackupEquipmentItem {
+  name: string;
+  weightGrams: number;
+  quantity: number;
+  perSide: boolean;
+}
+
 export interface BackupData {
   exercises: PortableExercise[];
   routines: PortableRoutine[];
@@ -166,6 +175,8 @@ export interface BackupData {
   setLogs: BackupSetLog[];
   /** Absent on backups created before schema v3 — restore treats as empty. */
   readinessTests?: BackupReadinessTest[];
+  /** Absent on backups created before schema v4 — restore treats as empty. */
+  equipmentItems?: BackupEquipmentItem[];
 }
 
 export interface ApexBackup {

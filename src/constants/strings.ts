@@ -497,6 +497,9 @@ export const strings = {
     empty: 'No items yet. Add plates or load pieces.',
     noAllocations: 'No allocations needed (target equals bar).',
     summary: 'Result',
+    saved: 'Inventory saved on this device.',
+    loadFailed: 'Could not load saved inventory.',
+    saveFailed: 'Could not save inventory.',
   },
   readiness: {
     title: 'Readiness tap test',

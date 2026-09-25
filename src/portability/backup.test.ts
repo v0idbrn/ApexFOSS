@@ -10,6 +10,7 @@ import { emptyPrescription, type RoutineDraft } from '../types/draft';
 import { buildRoutinePackageFromDraft, serializeRoutinePackage, parseRoutinePackage } from './routinePackage';
 import { importRoutinePackage, previewRoutineImport, uniqueRoutineName } from './importRoutine';
 import { createBackup, restoreBackup, parseBackup, serializeBackup, backupSummary, validateBackup } from './backup';
+import { replaceEquipmentItems, loadEquipmentItems } from '../data/equipment';
 import { PortabilityError, BACKUP_FORMAT_VERSION } from './types';
 import { semanticChecksum } from './canonical';
 
@@ -434,12 +435,84 @@ describe('backup create / restore', () => {
   it('backupSummary counts', async () => {
     const db = makeDb();
     const b = await createBackup(db);
-    expect(backupSummary(b)).toEqual({ exercises: 0, routines: 0, sessions: 0, setLogs: 0, readinessTests: 0 });
+    expect(backupSummary(b)).toEqual({
+      exercises: 0,
+      routines: 0,
+      sessions: 0,
+      setLogs: 0,
+      readinessTests: 0,
+      equipmentItems: 0,
+    });
   });
 
   it('validateBackup rejects invalid JSON structure', () => {
     expect(() => validateBackup(null)).toThrow(PortabilityError);
     expect(() => validateBackup([1, 2])).toThrow(PortabilityError);
+  });
+});
+
+describe('equipment inventory portability (schema v4)', () => {
+  it('createBackup carries equipment items and restore round-trips them', async () => {
+    const db = makeDb();
+    await replaceEquipmentItems(db, [
+      { name: 'Plate 20kg', weightGrams: 20_000, quantity: 4 },
+      { name: 'Fractional 1.25kg', weightGrams: 1_250, quantity: 2, perSide: true },
+    ]);
+    const b = await createBackup(db);
+    expect(b.data.equipmentItems).toHaveLength(2);
+    expect(b.data.equipmentItems).toEqual(
+      expect.arrayContaining([
+        { name: 'Plate 20kg', weightGrams: 20_000, quantity: 4, perSide: false },
+        { name: 'Fractional 1.25kg', weightGrams: 1_250, quantity: 2, perSide: true },
+      ]),
+    );
+    expect(backupSummary(b).equipmentItems).toBe(2);
+
+    const target = makeDb();
+    await replaceEquipmentItems(target, [{ name: 'Stale', weightGrams: 5_000, quantity: 1 }]);
+    await restoreBackup(target, serializeBackup(b));
+    const restored = await loadEquipmentItems(target);
+    expect(restored.map((i) => i.name).sort()).toEqual(['Fractional 1.25kg', 'Plate 20kg']);
+    expect(restored.find((i) => i.name === 'Plate 20kg')).toMatchObject({
+      weightGrams: 20_000,
+      quantity: 4,
+      perSide: false,
+    });
+    expect(restored.find((i) => i.name === 'Fractional 1.25kg')?.perSide).toBe(true);
+  });
+
+  it('older backups without equipmentItems validate and restore as empty', async () => {
+    const db = makeDb();
+    const b = await createBackup(db);
+    const legacy = JSON.parse(serializeBackup(b)) as any;
+    delete legacy.data.equipmentItems;
+    legacy.checksum = semanticChecksum(legacy.data);
+
+    const parsed = parseBackup(JSON.stringify(legacy));
+    expect(parsed.data.equipmentItems).toBeUndefined();
+
+    const target = makeDb();
+    await replaceEquipmentItems(target, [{ name: 'Old plate', weightGrams: 10_000, quantity: 2 }]);
+    await restoreBackup(target, JSON.stringify(legacy));
+    expect(await loadEquipmentItems(target)).toEqual([]);
+  });
+
+  it('rejects malformed equipment entries before the checksum', async () => {
+    const db = makeDb();
+    const b = await createBackup(db);
+    const bad = JSON.parse(serializeBackup(b)) as any;
+    bad.data.equipmentItems = [{ name: 'Bad', weightGrams: -1, quantity: 1, perSide: false }];
+    bad.checksum = semanticChecksum(bad.data);
+    expect(() => parseBackup(JSON.stringify(bad))).toThrow(
+      expect.objectContaining({ code: 'invalid_integer' }),
+    );
+
+    const badBool = JSON.parse(serializeBackup(b)) as any;
+    badBool.data.equipmentItems = [{ name: 'Bad', weightGrams: 1000, quantity: 1, perSide: 'yes' }];
+    badBool.checksum = semanticChecksum(badBool.data);
+    expect(() => parseBackup(JSON.stringify(badBool))).toThrow(
+      expect.objectContaining({ code: 'invalid_boolean' }),
+    );
   });
 });
 

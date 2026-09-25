@@ -149,6 +149,18 @@ export class SetLog extends Model {
   @field('updated_at') updatedAt!: number;
 }
 
+export class EquipmentItem extends Model {
+  static table = 'equipment_items';
+
+  @text('name') name!: string;
+  @field('weight_grams') weightGrams!: number;
+  @field('quantity') quantity!: number;
+  /** 0/1 — each unit contributes 2×weightGrams (left+right pair). */
+  @field('per_side') perSide!: number;
+  @field('created_at') createdAt!: number;
+  @field('updated_at') updatedAt!: number;
+}
+
 export const modelClasses = [
   Exercise,
   Routine,
@@ -160,4 +172,5 @@ export const modelClasses = [
   SessionExercise,
   SetLog,
   ReadinessTest,
+  EquipmentItem,
 ];
