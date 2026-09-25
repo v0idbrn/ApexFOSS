@@ -206,6 +206,22 @@ export const strings = {
     durationWork: 'Duration work',
     compare: 'Compare with previous',
   },
+  integrity: {
+    title: 'Routine checks',
+    ok: 'No problems found.',
+    error: 'Error',
+    warning: 'Warning',
+    messages: {
+      empty_routine: 'Routine has no blocks or steps.',
+      no_work_steps: 'No work sets — the routine would finish without training work.',
+      invalid_rounds: 'Block rounds must be at least 1.',
+      missing_interval_spec: 'Interval block is missing valid work/rest/rounds settings.',
+      orphan_transition: 'A transition points to a step that does not exist.',
+      transition_cycle: 'Transitions form a loop that may never finish.',
+      zero_target_sets: 'Work step has no target set count (engine assumes 1 set).',
+      duplicate_step_id: 'Two steps in this block share the same id.',
+    },
+  },
   preview: {
     title: 'Routine preview',
     open: 'Preview',

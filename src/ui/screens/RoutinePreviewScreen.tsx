@@ -2,10 +2,22 @@ import { useMemo } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { strings } from '../../constants/strings';
 import { definitionFromDraft } from '../../data/serialize';
+import { checkIntegrity, type IntegrityIssue } from '../../engine/integrity';
 import { simulateRoutine, type SimulationResult } from '../../engine/simulator';
 import type { RoutineDraft } from '../../types/draft';
 import { useNav } from '../navigation';
-import { AppHeader, Card, EmptyState, MetricCard, Screen, SectionHeader } from '../components';
+import { AppHeader, Badge, Card, EmptyState, MetricCard, Screen, SectionHeader } from '../components';
+
+function issueKey(issue: IntegrityIssue, index: number): string {
+  return `${issue.code}-${issue.blockId ?? ''}-${issue.stepId ?? ''}-${index}`;
+}
+
+function issueContext(issue: IntegrityIssue): string | null {
+  const block = issue.blockName ?? null;
+  const step = issue.stepName ?? null;
+  if (block && step) return `${block} › ${step}`;
+  return block;
+}
 
 /**
  * Routine preview (Phase 2J §14): converts the editor draft with the same
@@ -15,10 +27,9 @@ import { AppHeader, Card, EmptyState, MetricCard, Screen, SectionHeader } from '
 export function RoutinePreviewScreen({ draft }: { draft: RoutineDraft }) {
   const { pop } = useNav();
 
-  const simulation = useMemo<SimulationResult>(
-    () => simulateRoutine(definitionFromDraft(draft)),
-    [draft],
-  );
+  const definition = useMemo(() => definitionFromDraft(draft), [draft]);
+  const simulation = useMemo<SimulationResult>(() => simulateRoutine(definition), [definition]);
+  const issues = useMemo(() => checkIntegrity(definition), [definition]);
 
   const hasSteps = draft.blocks.some((b) => b.steps.length > 0) && draft.blocks.length > 0;
   const restMinutes = Math.round(simulation.totalTimerMs / 60_000);
@@ -43,6 +54,35 @@ export function RoutinePreviewScreen({ draft }: { draft: RoutineDraft }) {
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 pt-4">
           <Text className="text-caption text-dim">{strings.preview.how}</Text>
+
+          <View className="mt-4">
+            <SectionHeader title={strings.integrity.title} />
+            {issues.length === 0 ? (
+              <Card>
+                <Text className="text-sm text-dim">{strings.integrity.ok}</Text>
+              </Card>
+            ) : (
+              issues.map((issue, index) => {
+                const context = issueContext(issue);
+                return (
+                  <Card key={issueKey(issue, index)} className="mb-2">
+                    <View className="mb-1 flex-row items-center gap-2">
+                      <Badge
+                        label={
+                          issue.severity === 'error'
+                            ? strings.integrity.error
+                            : strings.integrity.warning
+                        }
+                        tone={issue.severity === 'error' ? 'danger' : 'neutral'}
+                      />
+                    </View>
+                    <Text className="text-sm text-fg">{strings.integrity.messages[issue.code]}</Text>
+                    {context ? <Text className="mt-1 text-caption text-dim">{context}</Text> : null}
+                  </Card>
+                );
+              })
+            )}
+          </View>
 
           {simulation.truncated ? (
             <Card tone="tonal" className="mt-3">

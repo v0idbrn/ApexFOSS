@@ -93,4 +93,45 @@ describe('RoutinePreviewScreen (Phase 2J §14)', () => {
     const renderer = await renderPreview(draftWithSteps());
     expect(textsOf(renderer)).not.toContain(strings.preview.truncated);
   });
+
+  it('shows a clean routine-checks section for a healthy draft', async () => {
+    const renderer = await renderPreview(draftWithSteps());
+    const texts = textsOf(renderer);
+    expect(texts).toContain(strings.integrity.title);
+    expect(texts).toContain(strings.integrity.ok);
+    expect(texts).not.toContain(strings.integrity.error);
+    expect(texts).not.toContain(strings.integrity.warning);
+  });
+
+  it('surfaces integrity issues from the draft conversion', async () => {
+    const draft = draftWithSteps();
+    draft.blocks[0].steps[1] = {
+      ...draft.blocks[0].steps[1],
+      prescription: { ...emptyPrescription(), targetSets: null },
+    };
+    const renderer = await renderPreview(draft);
+    const joined = textsOf(renderer).join(' ');
+    expect(joined).toContain(strings.integrity.title);
+    expect(joined).toContain(strings.integrity.messages.zero_target_sets);
+    expect(joined).toContain(strings.integrity.warning);
+    expect(joined).toContain('Overhead Press');
+    expect(joined).not.toContain(strings.integrity.ok);
+  });
+
+  it('flags an empty block inside an otherwise valid draft', async () => {
+    const draft = draftWithSteps();
+    draft.blocks.push({
+      localId: 'blk-2',
+      name: 'Assist',
+      kind: 'normal',
+      rounds: 1,
+      steps: [],
+      interval: null,
+    });
+    const renderer = await renderPreview(draft);
+    const joined = textsOf(renderer).join(' ');
+    expect(joined).toContain(strings.integrity.messages.empty_routine);
+    expect(joined).toContain('Assist');
+    expect(joined).toContain(strings.integrity.error);
+  });
 });
