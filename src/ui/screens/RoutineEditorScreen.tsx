@@ -215,7 +215,7 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
             accessibilityRole="button"
             accessibilityLabel={strings.common.save}
             onPress={save}
-            className="flex-row items-center px-4 text-base font-semibold text-accent"
+            className="flex-row items-center px-4 text-base font-semibold text-accent-ink"
             style={{ minHeight: 48 }}
           >
             {saving ? strings.common.saving : strings.common.save}
@@ -477,7 +477,7 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
                   </View>
 
                   <SectionHeader title={strings.routines.prescription.tempo} />
-                  <Text className="mb-2 font-mono text-sm text-accent">
+                  <Text className="mb-2 font-mono text-sm text-accent-ink">
                     {formatTempo(step.prescription.tempo)}
                   </Text>
                   <View className="flex-row flex-wrap gap-2">

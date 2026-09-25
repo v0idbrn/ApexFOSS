@@ -183,7 +183,7 @@ export function ReadinessScreen() {
                 onPress={onTap}
                 className="mt-4 h-32 min-h-32 items-center justify-center rounded-xl border-2 border-accent bg-accent/15"
               >
-                <Text className="text-3xl font-black text-accent">{strings.readiness.tapping}</Text>
+                <Text className="text-3xl font-black text-accent-ink">{strings.readiness.tapping}</Text>
               </Pressable>
             ) : (
               <Button label={strings.readiness.start} onPress={start} className="mt-4" />

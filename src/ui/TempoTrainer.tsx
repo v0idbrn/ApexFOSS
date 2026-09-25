@@ -37,7 +37,7 @@ export function TempoReadyCard({
   return (
     <View className="rounded-xl border border-line bg-surface p-4" testID="tempo-ready">
       <View className="flex-row items-center justify-between">
-        <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+        <Text className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
           {strings.tempo.title}
         </Text>
         <Text className="font-mono text-sm text-dim">{formatTempo(tempo)}</Text>
@@ -87,7 +87,7 @@ export function TempoActiveCard({
       accessibilityLabel={strings.tempo.title}
     >
       <View className="flex-row items-center justify-between">
-        <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+        <Text className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
           {strings.tempo.title}
         </Text>
         <Text className="font-mono text-sm text-dim">{formatTempo(tempo)}</Text>
@@ -126,7 +126,7 @@ export function TempoActiveCard({
             <View key={id} className="min-h-12 flex-1 items-center justify-center rounded-lg border border-line bg-surface-2 px-1 py-2"
               style={{ minHeight: 48 }}
             >
-              <Text className={`text-[10px] leading-tight ${isCurrent ? 'font-semibold text-accent' : isPast ? 'text-dim' : 'text-dim'}`}>
+              <Text className={`text-[10px] leading-tight ${isCurrent ? 'font-semibold text-accent-ink' : isPast ? 'text-dim' : 'text-dim'}`}>
                 {phaseDotLabel(id)}
               </Text>
               {isCurrent ? <View className="mt-1 h-0.5 w-full bg-accent" /> : null}

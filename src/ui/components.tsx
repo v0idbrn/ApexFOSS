@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, type ReactNode } from 'react';
 import { strings } from '../constants/strings';
+import { theme } from '../theme';
 
 /** Shared AMOLED UI primitives. 8dp spacing base, 48dp minimum touch targets. */
 
@@ -23,10 +24,10 @@ const buttonStyles: Record<Variant, string> = {
 };
 
 const buttonTextStyles: Record<Variant, string> = {
-  primary: 'text-black font-semibold',
+  primary: 'text-fg font-semibold',
   secondary: 'text-fg',
   danger: 'text-danger font-semibold',
-  ghost: 'text-accent',
+  ghost: 'text-accent-ink',
 };
 
 export function Button({
@@ -83,7 +84,7 @@ export function AppHeader({
           onPress={onBack}
           className="h-12 w-12 items-center justify-center"
         >
-          <Text className="text-2xl text-accent">‹</Text>
+          <Text className="text-2xl text-accent-ink">‹</Text>
         </Pressable>
       ) : (
         <View className="w-4" />
@@ -104,7 +105,7 @@ export function HeaderButton({ label, onPress }: { label: string; onPress: () =>
       onPress={onPress}
       className="h-12 w-12 items-center justify-center"
     >
-      <Text className="text-2xl text-accent">+</Text>
+      <Text className="text-2xl text-accent-ink">+</Text>
     </Pressable>
   );
 }
@@ -194,7 +195,7 @@ export function Chip({
         active ? 'border-accent bg-accent/10' : 'border-line bg-surface'
       }`}
     >
-      <Text className={`text-sm ${active ? 'text-accent' : 'text-dim'}`}>{label}</Text>
+      <Text className={`text-sm ${active ? 'text-accent-ink' : 'text-dim'}`}>{label}</Text>
     </Pressable>
   );
 }
@@ -253,7 +254,7 @@ export function PressableRow({
         <Text numberOfLines={1} className={`flex-1 text-base ${placeholder ? 'text-dim' : 'text-fg'}`}>
           {value}
         </Text>
-        <Text className="ml-2 text-accent">›</Text>
+        <Text className="ml-2 text-accent-ink">›</Text>
       </Pressable>
     </View>
   );
@@ -275,7 +276,7 @@ export function SectionHeader({ title, right }: { title: string; right?: ReactNo
 export function LoadingState({ label }: { label?: string }) {
   return (
     <View className="items-center py-8">
-      <ActivityIndicator color="#22d3ee" />
+      <ActivityIndicator color={theme.colors.accent} />
       <Text className="mt-2 text-sm text-dim">{label ?? strings.common.loading}</Text>
     </View>
   );

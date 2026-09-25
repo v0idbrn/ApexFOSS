@@ -119,7 +119,7 @@ export function RoutineListScreen() {
                   hitSlop={8}
                   className="h-12 w-12 items-center justify-center rounded-lg"
                 >
-                  <Text className="text-base text-accent">▶</Text>
+                  <Text className="text-base text-accent-ink">▶</Text>
                 </Pressable>
               </View>
               <View className="w-14 items-center justify-center">

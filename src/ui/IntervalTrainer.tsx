@@ -35,7 +35,7 @@ export function IntervalReadyCard({
   return (
     <View className="rounded-xl border border-line bg-surface p-4" testID="interval-ready">
       <View className="flex-row items-center justify-between">
-        <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+        <Text className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
           {strings.interval.title} · {modeLabel(spec.mode)}
         </Text>
         <Text className="font-mono text-sm text-dim">{summary}</Text>
@@ -76,7 +76,7 @@ export function IntervalActiveCard({
   if (completed) {
     return (
       <View className="rounded-xl border border-success/60 bg-surface p-4" testID="interval-complete">
-        <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+        <Text className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
           {strings.interval.title} · {modeLabel(spec.mode)}
         </Text>
         <Text className="mt-3 text-3xl font-bold text-success" testID="interval-complete-label">
@@ -102,7 +102,7 @@ export function IntervalActiveCard({
   return (
     <View className="rounded-xl border border-accent/50 bg-surface p-4" testID="interval-active">
       <View className="flex-row items-center justify-between">
-        <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+        <Text className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
           {modeLabel(spec.mode)} · {phaseLabel(runtime.phase)}
         </Text>
         <Text className="font-mono text-sm text-dim">

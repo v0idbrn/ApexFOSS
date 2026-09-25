@@ -57,7 +57,7 @@ export function ExercisePickerScreen({
             accessibilityRole="button"
             accessibilityLabel={strings.common.cancel}
             onPress={onCancel}
-            className="h-12 min-h-12 flex-row items-center px-4 text-base text-accent"
+            className="h-12 min-h-12 flex-row items-center px-4 text-base text-accent-ink"
           >
             {strings.common.cancel}
           </Text>
@@ -94,7 +94,7 @@ export function ExercisePickerScreen({
                 title={item.name}
                 subtitle={item.category}
                 onPress={() => onPick(item.id, item.name)}
-                right={<Text className="text-base text-accent">{strings.common.add}</Text>}
+                right={<Text className="text-base text-accent-ink">{strings.common.add}</Text>}
               />
             )}
           />

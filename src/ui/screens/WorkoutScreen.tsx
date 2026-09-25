@@ -745,7 +745,7 @@ export function WorkoutScreen() {
         {hasTimer && cursor.timer ? (
           <View className="mt-6 px-4">
             <Card>
-              <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+              <Text className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
                 {cursor.timer.kind === 'rest' ? strings.timer.rest : strings.timer.autoAdvance}
               </Text>
               <Text className="mt-2 font-mono text-5xl font-bold text-fg">
@@ -838,7 +838,7 @@ export function WorkoutScreen() {
                       autoregEnabled ? 'border-accent bg-accent/20' : 'border-line bg-surface'
                     }`}
                   >
-                    <Text className={`text-xs font-semibold ${autoregEnabled ? 'text-accent' : 'text-dim'}`}>
+                    <Text className={`text-xs font-semibold ${autoregEnabled ? 'text-accent-ink' : 'text-dim'}`}>
                       {autoregEnabled ? 'ON' : 'OFF'}
                     </Text>
                   </Pressable>
@@ -847,7 +847,7 @@ export function WorkoutScreen() {
 
               {autoregEnabled && autoregSuggestion ? (
                 <View className="mt-2 rounded-lg border border-accent/40 bg-accent/5 px-3 py-2">
-                  <Text className="text-xs font-semibold uppercase tracking-wider text-accent">
+                  <Text className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
                     {strings.autoreg.recommendation}
                   </Text>
                   <Text className="mt-0.5 text-sm text-fg">

@@ -147,7 +147,7 @@ export function InventoryScreen() {
                     d.perSide ? 'border-accent bg-accent/10' : 'border-line bg-surface-2'
                   }`}
                 >
-                  <Text className={`text-sm ${d.perSide ? 'text-accent' : 'text-dim'}`}>
+                  <Text className={`text-sm ${d.perSide ? 'text-accent-ink' : 'text-dim'}`}>
                     {d.perSide ? '✓ ' : ''}
                     {strings.inventory.perSide}
                   </Text>

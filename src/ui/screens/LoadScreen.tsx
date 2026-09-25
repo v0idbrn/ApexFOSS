@@ -142,7 +142,7 @@ export function LoadScreen() {
                 kind === r ? 'border-accent bg-accent/10' : 'border-line bg-surface'
               }`}
             >
-              <Text className={`text-sm font-semibold ${kind === r ? 'text-accent' : 'text-dim'}`}>
+              <Text className={`text-sm font-semibold ${kind === r ? 'text-accent-ink' : 'text-dim'}`}>
                 {rangeLabel(r)}
               </Text>
             </Pressable>

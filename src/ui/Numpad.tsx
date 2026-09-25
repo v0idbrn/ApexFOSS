@@ -85,7 +85,7 @@ export function Numpad({
               }`}
               style={{ minHeight: 48 }}
             >
-              <Text className="text-sm font-semibold text-accent">
+              <Text className="text-sm font-semibold text-accent-ink">
                 {MODIFIER_LABELS[m]}
                 {m.startsWith('kg') ? ` ${strings.workout.weight}` : ` ${strings.workout.reps}`}
               </Text>
@@ -161,7 +161,7 @@ export function NumpadField({
 }) {
   return (
     <View className="flex-1">
-      <Text className={`mb-1 text-sm ${active ? 'text-accent' : 'text-dim'}`}>{label}</Text>
+      <Text className={`mb-1 text-sm ${active ? 'text-accent-ink' : 'text-dim'}`}>{label}</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ selected: active }}
