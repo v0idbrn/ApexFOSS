@@ -255,10 +255,13 @@ describe('Day 2 — serializer', () => {
       { fromStepId: def.blocks[1].steps[0].id, toStepId: null, delayMs: 15_000, type: 'auto_advance' },
     ]);
 
-    // no UI-only state leaked (localIds are not part of definition)
+    // no UI-only state leaked (localIds are not part of definition).
+    // Quote-exact matches: record ids are random 16-char base62 strings, so bare
+    // substrings like 'b1'/'s1' can occur inside them by chance (observed flake,
+    // Phase 2I). A leaked localId always appears as a complete JSON string value.
     expect(JSON.stringify(def)).not.toContain('localId');
-    expect(JSON.stringify(def)).not.toContain('b1');
-    expect(JSON.stringify(def)).not.toContain('s1');
+    expect(JSON.stringify(def)).not.toContain('"b1"');
+    expect(JSON.stringify(def)).not.toContain('"s1"');
   });
 
   it('serializes empty prescription fields as null (complete, no undefined)', async () => {

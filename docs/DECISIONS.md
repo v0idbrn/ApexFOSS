@@ -1163,3 +1163,30 @@ Keep the plugin idempotent.
 - `expo prebuild --clean` now yields a compilable `MainApplication.kt` on any
   line-ending regime; `assembleDebug`/`assembleRelease` succeeded after the
   fix (both APKs produced, release signed and audit-verified).
+
+## D-045 - Fix a flaky localId-leak assertion (Phase 2I, 2026-09-25)
+
+**Status:** Accepted (test fix)
+
+**Context.** The Phase 2I release-readiness audit caught
+`src/data/day2.test.ts` failing once on
+`expect(JSON.stringify(def)).not.toContain('b1')`. WatermelonDB record ids
+are random 16-character base62 strings (`utils/common/randomId`), so a bare
+2-character needle like `b1`/`s1` can occur inside a generated id by chance
+(roughly 3-4% of runs over the ~9 distinct ids serialized in that
+definition). Sibling `not.toContain` assertions are unaffected because their
+needles contain characters impossible in ids (`_`, `"`), or are long strings
+(`localId`, `remainingSeconds`).
+
+**Decision.** Assert on quote-exact JSON string values (`'"b1"'`, `'"s1"'`)
+instead of bare substrings. A leaked draft localId is always a complete JSON
+string value, so the assertion keeps its original intent while removing the
+random-collision path; the `localId`-key check is unchanged. No production
+code changed.
+
+**Consequences.**
+
+- The 480-test release gate is deterministic again: the `day2` suite passed
+  3/3 consecutive runs after the fix; full suite green (480/480, 29 suites).
+- Auditors rerunning historical phases will no longer see this intermittent
+  failure attributed to a regression.
