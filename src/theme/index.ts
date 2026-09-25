@@ -31,11 +31,23 @@ export const theme = {
   touch: {
     minTarget: 48,
   },
+  /**
+   * Typographic roles (Phase 2J) — JS mirror of tailwind.config.js fontSize.
+   * `metric*` roles are intended for font-mono training numbers (weight,
+   * reps, timer, volume, PR values) so numerics stay visually powerful.
+   */
   type: {
-    display: 40,
+    display: 34,
+    title: 22,
+    heading: 17,
+    body: 15,
+    caption: 13,
+    overline: 11,
+    metricXl: 36,
+    metricLg: 26,
+    metric: 18,
+    // Legacy keys kept for existing callers.
     number: 32,
-    title: 20,
-    body: 16,
     small: 13,
   },
 } as const;

@@ -4,7 +4,7 @@ import { strings } from '../../constants/strings';
 import { solveLoadInventory, type InventorySolveResult, type LoadItem } from '../../analytics/inventory';
 import { kgToGrams, gramsToKg } from '../../utils/units';
 import { useNav } from '../navigation';
-import { AppHeader, Button, Card, Screen, TextField } from '../components';
+import { AppHeader, Button, Card, Screen, SectionHeader, TextField } from '../components';
 
 interface DraftItem {
   name: string;
@@ -88,7 +88,7 @@ export function InventoryScreen() {
 
         {result ? (
           <View className="px-4 pt-4">
-            <SectionHeader2 title={strings.inventory.summary} />
+            <SectionHeader title={strings.inventory.summary} />
             <Card>
               <Text className="text-lg font-semibold text-fg">{statusLabel(result.status)}</Text>
               <Text className="mt-1 text-sm text-dim">
@@ -111,7 +111,7 @@ export function InventoryScreen() {
         ) : null}
 
         <View className="px-4 pt-4">
-          <SectionHeader2 title={strings.inventory.items} />
+          <SectionHeader title={strings.inventory.items} />
           {items.length === 0 ? (
             <Text className="mb-2 text-sm text-dim">{strings.inventory.empty}</Text>
           ) : null}
@@ -168,10 +168,3 @@ export function InventoryScreen() {
   );
 }
 
-function SectionHeader2({ title }: { title: string }) {
-  return (
-    <View className="mb-2 mt-2">
-      <Text className="text-xs font-semibold uppercase tracking-wider text-dim">{title}</Text>
-    </View>
-  );
-}
