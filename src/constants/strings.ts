@@ -354,6 +354,18 @@ export const strings = {
       noBaseline: 'No baseline sessions in the previous 28 days',
       zeroBaseline: 'Baseline window has no resistance load',
     },
+    rhythm: {
+      section: 'Training rhythm',
+      window: 'Last 7 days',
+      frequency: 'Sessions / week',
+      avgSets: 'Avg sets / session',
+      density: 'Work / minute',
+      densityUnit: 'kg·reps/min',
+      weekly: 'Weekly volume',
+      weeklyLabel: 'Weekly volume, last 8 weeks, kg·reps',
+      weeklyCaption: 'Weekly volume · kg·reps · last 8 weeks',
+      weeklyEmpty: 'Complete a session to see your weekly volume here.',
+    },
   },
   muscles: {
     title: 'Muscle distribution',

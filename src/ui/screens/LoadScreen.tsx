@@ -10,6 +10,7 @@ import {
   msToSeconds,
   type DateRangeKind,
 } from '../../analytics/load';
+import { rollingSummary, weeklySeries } from '../../analytics/athlete';
 import {
   calculateLoadRatio,
   calculateWindowTotals,
@@ -19,7 +20,9 @@ import {
   type WindowComparison,
 } from '../../analytics/trends';
 import { useNav } from '../navigation';
-import { AppHeader, Card, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
+import { AppHeader, Card, ErrorState, LoadingState, MetricCard, Screen, SectionHeader } from '../components';
+import { BarChart } from '../Charts';
+import { formatCount } from '../../utils/units';
 
 const RANGES: DateRangeKind[] = ['today', '7d', '28d'];
 
@@ -27,6 +30,12 @@ function rangeLabel(kind: DateRangeKind): string {
   if (kind === 'today') return strings.load.today;
   if (kind === '7d') return strings.load.last7;
   return strings.load.last28;
+}
+
+/** Short axis caption for a weekly bucket: local month/day (e.g. "9/18"). */
+function weekCaption(weekStartMs: number): string {
+  const d = new Date(weekStartMs);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 function changeLabel(comparison: WindowComparison): string {
@@ -106,6 +115,8 @@ export function LoadScreen() {
     trend28.previous.resistanceGramReps,
     trend28.previous.sessionCount,
   );
+  const rhythm = rollingSummary(sessions, now, 7);
+  const weekly = weeklySeries(sessions, now, 8);
 
   if (loading) {
     return (
@@ -210,6 +221,50 @@ export function LoadScreen() {
                   : strings.load.ratio.zeroBaseline}
               </Text>
             )}
+          </Card>
+        </View>
+
+        <View className="px-4 pt-6">
+          <SectionHeader title={strings.load.rhythm.section} />
+          <Card>
+            <Text className="text-overline uppercase text-dim">{strings.load.rhythm.window}</Text>
+            <View className="mt-2 flex-row gap-2">
+              <MetricCard
+                size="sm"
+                label={strings.load.rhythm.frequency}
+                value={rhythm.sessionsPerWeek === null ? '—' : formatCount(rhythm.sessionsPerWeek)}
+              />
+              <MetricCard
+                size="sm"
+                label={strings.load.rhythm.avgSets}
+                value={rhythm.avgSetsPerSession === null ? '—' : String(rhythm.avgSetsPerSession)}
+              />
+              <MetricCard
+                size="sm"
+                label={strings.load.rhythm.density}
+                value={
+                  rhythm.densityGramRepsPerMinute === null
+                    ? '—'
+                    : formatCount(gramRepsToKgReps(rhythm.densityGramRepsPerMinute))
+                }
+                unit={strings.load.rhythm.densityUnit}
+              />
+            </View>
+            <View className="mt-4">
+              <Text className="text-overline uppercase text-dim">{strings.load.rhythm.weeklyCaption}</Text>
+              <View className="mt-2">
+                <BarChart
+                  label={strings.load.rhythm.weeklyLabel}
+                  data={weekly.map((p, i) => ({
+                    key: `w${i}`,
+                    value: gramRepsToKgReps(p.resistanceGramReps),
+                    caption: weekCaption(p.weekStartMs),
+                  }))}
+                  format={(v) => String(Math.round(v))}
+                  emptyHint={strings.load.rhythm.weeklyEmpty}
+                />
+              </View>
+            </View>
           </Card>
         </View>
       </ScrollView>
