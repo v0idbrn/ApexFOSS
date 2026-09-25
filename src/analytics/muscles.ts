@@ -214,6 +214,8 @@ export function distributeBasisPoints(
 
 export interface MuscleStepInput {
   exerciseName: string;
+  /** Canonical exercise row id when known; null for orphaned snapshot steps. */
+  exerciseId?: string | null;
   /** Resolved built-in mapping, or null when unmapped. */
   contributions: Contributions | null;
   sets: SetLoadInput[];

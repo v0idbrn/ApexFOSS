@@ -19,6 +19,7 @@ export type Route =
   | { name: 'importPreview'; encoded: string }
   | { name: 'load' }
   | { name: 'muscles' }
+  | { name: 'records' }
   | { name: 'inventory' }
   | { name: 'readiness' }
   | { name: 'trust' };

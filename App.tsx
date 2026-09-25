@@ -17,6 +17,7 @@ import { HistoryDetailScreen } from './src/ui/screens/HistoryDetailScreen';
 import { PortabilityScreen } from './src/ui/screens/PortabilityScreen';
 import { LoadScreen } from './src/ui/screens/LoadScreen';
 import { MuscleScreen } from './src/ui/screens/MuscleScreen';
+import { RecordsScreen } from './src/ui/screens/RecordsScreen';
 import { InventoryScreen } from './src/ui/screens/InventoryScreen';
 import { ReadinessScreen } from './src/ui/screens/ReadinessScreen';
 import { TrustScreen } from './src/ui/screens/TrustScreen';
@@ -49,6 +50,8 @@ function renderRoute(route: Route) {
       return <LoadScreen />;
     case 'muscles':
       return <MuscleScreen />;
+    case 'records':
+      return <RecordsScreen />;
     case 'inventory':
       return <InventoryScreen />;
     case 'readiness':

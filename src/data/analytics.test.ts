@@ -62,6 +62,7 @@ async function createCompletedSession(
       weightGrams: number | null;
       reps: number | null;
       durationMs: number | null;
+      distanceMm?: number | null;
       isCompleted: number;
       blockIndex?: number;
       stepIndex?: number;
@@ -128,7 +129,7 @@ async function createCompletedSession(
         rec.weightGrams = log.weightGrams;
         rec.reps = log.reps;
         rec.durationMs = log.durationMs;
-        rec.distanceMm = null;
+        rec.distanceMm = log.distanceMm ?? null;
         rec.rir = null;
         rec.isCompleted = log.isCompleted;
         rec.completedAt = T;
@@ -163,8 +164,9 @@ describe('loadAnalyticsSnapshot', () => {
     expect(stepEx.exerciseName).toBe('Bench Press');
     expect(stepEx.contributions).toEqual([['chest', 6000], ['triceps', 2500], ['front_delts', 1500]]);
     expect(stepEx.sets).toEqual([
-      { weightGrams: 60_000, reps: 5, durationMs: null, isCompleted: true },
+      { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, isCompleted: true },
     ]);
+    expect(stepEx.exerciseId).toBe('seed_bench_press');
     expect(snapshot.exercises.map((e) => e.id)).toContain('seed_bench_press');
   });
 
@@ -271,10 +273,21 @@ describe('loadAnalyticsSnapshot', () => {
     const snapshot = await loadAnalyticsSnapshot(db);
     const sets = snapshot.sessions[0].exercises[0].sets;
     expect(sets).toEqual([
-      { weightGrams: 60_000, reps: 5, durationMs: null, isCompleted: true },
-      { weightGrams: 60_000, reps: 5, durationMs: null, isCompleted: false },
-      { weightGrams: null, reps: null, durationMs: 45_000, isCompleted: true },
+      { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, isCompleted: true },
+      { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, isCompleted: false },
+      { weightGrams: null, reps: null, durationMs: 45_000, distanceMm: null, isCompleted: true },
     ]);
+  });
+
+  it('carries distance through the snapshot as a record basis (§12)', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    await actions.seedExercisesIfEmpty();
+    await createCompletedSession(db, {
+      logs: [{ weightGrams: null, reps: 1, durationMs: null, distanceMm: 2_500, isCompleted: 1 }],
+    });
+    const snapshot = await loadAnalyticsSnapshot(db);
+    expect(snapshot.sessions[0].exercises[0].sets[0].distanceMm).toBe(2_500);
   });
 
   it('keeps steps without any set logs out of the snapshot', async () => {

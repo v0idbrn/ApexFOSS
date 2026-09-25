@@ -9,6 +9,8 @@ export interface SetLoadInput {
   weightGrams: number | null;
   reps: number | null;
   durationMs: number | null;
+  /** Optional distance (mm) — carried for records; not part of load math. */
+  distanceMm?: number | null;
   isCompleted: boolean;
 }
 

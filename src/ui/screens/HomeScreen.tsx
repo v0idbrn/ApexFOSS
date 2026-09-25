@@ -83,6 +83,7 @@ export function HomeScreen() {
     { label: strings.athleteTools.readiness, route: 'readiness' as const },
   ];
   const toolsRow3 = [
+    { label: strings.athleteTools.records, route: 'records' as const },
     { label: strings.athleteTools.inventory, route: 'inventory' as const },
     { label: strings.portability.title, route: 'portability' as const },
   ];

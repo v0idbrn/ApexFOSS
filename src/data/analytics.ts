@@ -64,6 +64,7 @@ function toSetLoadInput(log: SetLog): SetLoadInput {
     weightGrams: log.weightGrams,
     reps: log.reps,
     durationMs: log.durationMs,
+    distanceMm: log.distanceMm,
     isCompleted: log.isCompleted === 1,
   };
 }
@@ -158,6 +159,7 @@ export async function loadAnalyticsSnapshot(db: Database): Promise<AnalyticsSnap
 
         sessionSteps.push({
           exerciseName: step.exerciseName,
+          exerciseId: identity.id,
           contributions,
           sets: stepSets,
         });
