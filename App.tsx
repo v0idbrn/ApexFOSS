@@ -19,6 +19,7 @@ import { LoadScreen } from './src/ui/screens/LoadScreen';
 import { MuscleScreen } from './src/ui/screens/MuscleScreen';
 import { InventoryScreen } from './src/ui/screens/InventoryScreen';
 import { ReadinessScreen } from './src/ui/screens/ReadinessScreen';
+import { TrustScreen } from './src/ui/screens/TrustScreen';
 import { parseImportDeepLink } from './src/portability/encoding';
 import { setPendingDeepLink } from './src/portability/pendingDeepLink';
 
@@ -52,6 +53,8 @@ function renderRoute(route: Route) {
       return <InventoryScreen />;
     case 'readiness':
       return <ReadinessScreen />;
+    case 'trust':
+      return <TrustScreen />;
     default:
       return <HomeScreen />;
   }

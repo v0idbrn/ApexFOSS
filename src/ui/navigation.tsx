@@ -20,7 +20,8 @@ export type Route =
   | { name: 'load' }
   | { name: 'muscles' }
   | { name: 'inventory' }
-  | { name: 'readiness' };
+  | { name: 'readiness' }
+  | { name: 'trust' };
 
 interface NavValue {
   route: Route;

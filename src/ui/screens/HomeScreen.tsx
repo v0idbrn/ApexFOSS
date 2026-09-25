@@ -46,12 +46,12 @@ export function HomeScreen() {
             className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-accent bg-accent/10 px-4"
           >
             <View className="flex-1 pr-2">
-              <Text className="text-base font-medium text-accent">{strings.home.activeSession}</Text>
+              <Text className="text-base font-medium text-accent-ink">{strings.home.activeSession}</Text>
               <Text numberOfLines={1} className="text-sm text-dim">
                 {active.name}
               </Text>
             </View>
-            <Text className="text-sm font-semibold text-accent">{strings.home.resume}</Text>
+            <Text className="text-sm font-semibold text-accent-ink">{strings.home.resume}</Text>
           </Pressable>
         ) : (
           <Pressable
@@ -125,9 +125,19 @@ export function HomeScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() => push({ name: 'portability' })}
-          className="h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+          className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
         >
           <Text className="text-lg font-medium text-fg">{strings.portability.title}</Text>
+          <Text className="text-xl text-dim">›</Text>
+        </Pressable>
+        <SectionHeader title={strings.trust.section} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => push({ name: 'trust' })}
+          testID="home-trust"
+          className="h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+        >
+          <Text className="text-lg font-medium text-fg">{strings.trust.title}</Text>
           <Text className="text-xl text-dim">›</Text>
         </Pressable>
         </View>

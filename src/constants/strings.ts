@@ -421,6 +421,47 @@ export const strings = {
     noTarget: 'Set a target RIR in the prescription to enable adjustments.',
     hint: 'Adjustments apply at runtime only — routine definitions are never modified.',
   },
+  trust: {
+    section: 'App',
+    title: 'Trust, Safety & Legal',
+    privacy: 'Privacy',
+    privacyBody:
+      'ApexFOSS stores workouts, routines and settings only on this device. There are no accounts and no project-run servers. Exports and backups only leave the device when you share them yourself. See docs/PRIVACY.md in the repository for the full notice.',
+    terms: 'Terms of Use',
+    termsBody:
+      'Draft pending human/legal review — see docs/TERMS_OF_USE.md. Using this software is your own responsibility; no professional relationship is created by using it.',
+    health: 'Health & Fitness',
+    healthBody:
+      'ApexFOSS is general fitness software for recording and timing your own training. It is not medical software: it does not diagnose, treat, monitor or predict any health condition, and it does not replace professional advice. Physical activity carries risk — train within your own limits.',
+    dataStorage: 'Data & Storage',
+    dataBody:
+      'Everything below lives in the local database on this device. Backups are created only when you ask for them. Deleting local data cannot be undone.',
+    security: 'Security',
+    securityBody:
+      'Found a vulnerability? Report it through the process described in SECURITY.md in the repository. Please do not open public issues for exploitable bugs.',
+    limitations: 'Known Limitations',
+    limitationsBody:
+      'No medical claims, no accuracy guarantee for computed values, single-device storage, Android only, possible data loss without your own backups. Full list: docs/KNOWN_LIMITATIONS.md.',
+    licenses: 'Open Source & Licenses',
+    licensesBody:
+      'Built with open-source components (Expo, React Native, WatermelonDB and others). Third-party notices: docs/THIRD_PARTY_LICENSES.md. The project license itself has not been declared yet — see the repository.',
+    about: 'About',
+    aboutBody:
+      'ApexFOSS 0.1.0 — local-first workout engine. Database schema v3. No accounts, no subscriptions, no ads, no telemetry.',
+    localData: 'Local data',
+    countExercises: 'Exercises',
+    countRoutines: 'Routines',
+    countSessions: 'Sessions',
+    countReadiness: 'Readiness tests',
+    deleteAll: 'Delete all local data',
+    deleteAllBody:
+      'Removes every exercise, routine, session, set log and readiness test from this device.',
+    deleteAllConfirm:
+      'Delete ALL local data on this device? This cannot be undone. Create a backup first if you want to keep your history.',
+    deleteAllDone: 'Local data deleted',
+    deleteAllFailed: 'Could not delete local data',
+    reseedNote: 'Starter exercise presets may reappear on next launch — they are app content, not your data.',
+  },
 } as const;
 
 export type Strings = typeof strings;
