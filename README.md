@@ -7,7 +7,7 @@
 ## Stack (frozen)
 
 - React Native + **Expo SDK 55** (CNG — no Expo Go) · TypeScript
-- **WatermelonDB 0.27.x** over SQLite (JSI) — local source of truth
+- **WatermelonDB 0.28.x** over SQLite (JSI) — local source of truth
 - Zustand — ephemeral/visual state only
 - NativeWind (dark AMOLED) · expo-notifications · Jest
 - Build: local Gradle (`assembleRelease`), EAS as fallback
@@ -51,3 +51,12 @@ src/
 ## MVP scope
 
 NORMAL / SUPERSET / CONTRAST-PAP blocks · transitions (IMMEDIATE / REST / AUTO_ADVANCE) · persistent timer surviving process death · set logging (grams/ms/mm integers) · history · CSV export. Cut list: backup, cloud, heatmap, EMOM, analytics — see `docs/PLAN.md`.
+
+## Security, privacy & legal (Phase 2G)
+
+- `SECURITY.md` — how to report vulnerabilities; `docs/SECURITY_AUDIT.md` — full audit + release-APK verification (the release build holds **no INTERNET permission**).
+- `docs/PRIVACY.md` + `docs/DATA_MAP.md` — local-first data handling: no accounts, no servers, no analytics, no telemetry.
+- `docs/HEALTH_AND_FITNESS.md` — product boundary (general fitness software, **not** medical software).
+- `docs/TERMS_OF_USE.md` — **draft, pending legal review**; `docs/DISTRIBUTION.md` — channel notes (no submissions made); `docs/KNOWN_LIMITATIONS.md` — honest limits; `docs/THIRD_PARTY_LICENSES.md` — component licenses.
+- **License status:** no `LICENSE` file is declared yet — the "open source" tagline states intent, not a grant; see `docs/KNOWN_LIMITATIONS.md`.
+- In-app: Home → **Trust, Safety & Legal** (privacy, terms, health boundary, data counts + full local wipe).
