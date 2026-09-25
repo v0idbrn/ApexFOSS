@@ -13,6 +13,7 @@ import type {
 import { BACKUP_FORMAT, MAX_BACKUP_JSON_BYTES, BACKUP_FORMAT_VERSION, PortabilityError } from './types';
 import { canonicalJson, semanticChecksum, utf8ByteLength } from './canonical';
 import { schemaVersion } from '../data/schema';
+import { NOTE_MAX_LENGTH } from '../data/notes';
 
 const APP_VERSION = '0.1.0';
 
@@ -142,6 +143,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
       startedAt: s.startedAt,
       endedAt: s.endedAt ?? null,
       status: s.sessionStatus,
+      note: s.note ?? null,
       definitionJson: s.definitionJson,
       cursorJson: s.cursorJson,
       currentBlockIndex: s.currentBlockIndex,
@@ -344,6 +346,10 @@ export function validateBackup(raw: unknown): ApexBackup {
       throw new PortabilityError('invalid_integer', `sessions[${i}].startedAt`);
     }
     if (typeof ss.status !== 'string') throw new PortabilityError('invalid_session', `sessions[${i}].status`);
+    if (ss.note !== undefined && ss.note !== null &&
+        (typeof ss.note !== 'string' || ss.note.length > NOTE_MAX_LENGTH)) {
+      throw new PortabilityError('invalid_string', `sessions[${i}].note`);
+    }
     if (typeof ss.definitionJson !== 'string' || typeof ss.cursorJson !== 'string') {
       throw new PortabilityError('invalid_session', `sessions[${i}].json`);
     }
@@ -569,6 +575,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           rec.startedAt = s.startedAt;
           rec.endedAt = s.endedAt;
           rec.sessionStatus = s.status;
+          rec.note = s.note ?? null;
           rec.definitionJson = s.definitionJson;
           rec.cursorJson = s.cursorJson;
           rec.currentBlockIndex = s.currentBlockIndex;
@@ -760,6 +767,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
             rec.startedAt = raw.started_at;
             rec.endedAt = raw.ended_at;
             rec.sessionStatus = raw.session_status;
+            rec.note = raw.note ?? null;
             rec.definitionJson = raw.definition_json;
             rec.cursorJson = raw.cursor_json;
             rec.currentBlockIndex = raw.current_block_index;

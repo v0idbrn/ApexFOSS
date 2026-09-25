@@ -63,11 +63,13 @@ import {
   Progress,
   Screen,
   SectionHeader,
+  TextField,
   confirmDestructive,
 } from '../components';
 import { Numpad, NumpadField } from '../Numpad';
 import { sessionProgress } from '../../workout/sessionProgress';
 import { loadSessionDetail } from '../../data/history';
+import { saveSessionNote } from '../../data/notes';
 import { calculateSessionLoad, gramRepsToKgReps } from '../../analytics/load';
 import { formatCount } from '../../utils/units';
 import { TempoActiveCard, TempoReadyCard } from '../TempoTrainer';
@@ -189,6 +191,8 @@ export function WorkoutScreen() {
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Completed-session summary (duration / sets / volume) for the save screen.
   const [summary, setSummary] = useState<SessionSummary | null>(null);
+  // Post-workout session note — loaded with the completed view, saved on Done.
+  const [noteText, setNoteText] = useState('');
 
   // RIR autoregulation — runtime ephemeral only (never mutates definition/snapshots).
   const [autoregEnabled, setAutoregEnabled] = useState(false);
@@ -261,6 +265,7 @@ export function WorkoutScreen() {
           sets: load.completedSetCount,
           volumeGramReps: load.resistanceGramReps,
         });
+        setNoteText(detail.note ?? '');
       })
       .catch(() => {});
     return () => {
@@ -839,12 +844,32 @@ export function WorkoutScreen() {
               unit={strings.load.kgReps}
             />
           </View>
-          <View className="mt-8 w-full max-w-sm">
+          <View className="mt-6 w-full max-w-sm">
+            <TextField
+              label={strings.notes.label}
+              multiline
+              numberOfLines={3}
+              value={noteText}
+              onChangeText={setNoteText}
+              placeholder={strings.notes.placeholder}
+              textAlignVertical="top"
+            />
+          </View>
+          <View className="mt-6 w-full max-w-sm">
             <Button
               label={strings.common.done}
               onPress={() => {
-                setSession(null, null);
-                pop();
+                void (async () => {
+                  if (rt?.sessionId) {
+                    try {
+                      await saveSessionNote(database, rt.sessionId, noteText);
+                    } catch {
+                      // Best-effort: never block leaving the summary over a note write.
+                    }
+                  }
+                  setSession(null, null);
+                  pop();
+                })();
               }}
             />
           </View>

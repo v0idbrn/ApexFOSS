@@ -3,18 +3,18 @@ import { migrations } from './migrations';
 
 /**
  * Migration / data-version sanity for Phase 2J.
- * Goal: prove the installed schema is v4, migrations infrastructure is wired,
+ * Goal: prove the installed schema is v5, migrations infrastructure is wired,
  * routine_blocks carries optional interval_json, readiness_tests and
- * equipment_items exist.
+ * equipment_items exist, and workout_sessions carries optional note.
  *
  * WatermelonDB shape: schema.tables is a name→table map;
  * schemaMigrations() returns { sortedMigrations, minVersion, maxVersion, validated }.
  */
 
 describe('migration / data version sanity', () => {
-  it('schemaVersion is 4 (Phase 2J equipment inventory)', () => {
-    expect(schemaVersion).toBe(4);
-    expect(schema.version).toBe(4);
+  it('schemaVersion is 5 (Phase 2J equipment inventory + session notes)', () => {
+    expect(schemaVersion).toBe(5);
+    expect(schema.version).toBe(5);
   });
 
   it('all eleven release tables are present with expected names', () => {
@@ -37,14 +37,15 @@ describe('migration / data version sanity', () => {
     expect(names).toHaveLength(11);
   });
 
-  it('migrations infrastructure is validated; v1→v2, v2→v3 and v3→v4 steps', () => {
+  it('migrations infrastructure is validated; v1→v2 through v4→v5 steps', () => {
     expect(migrations.validated).toBe(true);
     expect(migrations.minVersion).toBe(1);
-    expect(migrations.maxVersion).toBe(4);
-    expect(migrations.sortedMigrations).toHaveLength(3);
+    expect(migrations.maxVersion).toBe(5);
+    expect(migrations.sortedMigrations).toHaveLength(4);
     expect(migrations.sortedMigrations[0].toVersion).toBe(2);
     expect(migrations.sortedMigrations[1].toVersion).toBe(3);
     expect(migrations.sortedMigrations[2].toVersion).toBe(4);
+    expect(migrations.sortedMigrations[3].toVersion).toBe(5);
   });
 
   it('routine_blocks has optional interval_json', () => {
@@ -90,6 +91,13 @@ describe('migration / data version sanity', () => {
     ]) {
       expect(cols).toContain(required);
     }
+  });
+
+  it('workout_sessions has optional note (schema v5 session notes)', () => {
+    const t = schema.tables['workout_sessions'];
+    const byName = new Map(t.columnArray.map((c) => [c.name, c]));
+    expect(byName.get('note')?.isOptional).toBe(true);
+    expect(byName.get('note')?.type).toBe('string');
   });
 
   it('set_logs retains nullable optional measurement columns', () => {

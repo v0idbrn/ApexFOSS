@@ -206,6 +206,12 @@ export const strings = {
     durationWork: 'Duration work',
     compare: 'Compare with previous',
   },
+  notes: {
+    label: 'Workout note',
+    placeholder: 'How did it go? Wins, pain, adjustments…',
+    save: 'Save note',
+    saved: 'Note saved.',
+  },
   integrity: {
     title: 'Routine checks',
     ok: 'No problems found.',

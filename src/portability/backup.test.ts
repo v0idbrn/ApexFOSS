@@ -11,6 +11,7 @@ import { buildRoutinePackageFromDraft, serializeRoutinePackage, parseRoutinePack
 import { importRoutinePackage, previewRoutineImport, uniqueRoutineName } from './importRoutine';
 import { createBackup, restoreBackup, parseBackup, serializeBackup, backupSummary, validateBackup } from './backup';
 import { replaceEquipmentItems, loadEquipmentItems } from '../data/equipment';
+import { loadSessionNote, saveSessionNote, NOTE_MAX_LENGTH } from '../data/notes';
 import { PortabilityError, BACKUP_FORMAT_VERSION } from './types';
 import { semanticChecksum } from './canonical';
 
@@ -512,6 +513,132 @@ describe('equipment inventory portability (schema v4)', () => {
     badBool.checksum = semanticChecksum(badBool.data);
     expect(() => parseBackup(JSON.stringify(badBool))).toThrow(
       expect.objectContaining({ code: 'invalid_boolean' }),
+    );
+  });
+});
+
+describe('session notes portability (schema v5)', () => {
+  async function createSession(db: Database, name = 'Noted Session'): Promise<string> {
+    let id = '';
+    await db.write(async () => {
+      const row = await db.get<any>('workout_sessions').create((rec: any) => {
+        rec.routineId = null;
+        rec.name = name;
+        rec.startedAt = 1_700_000_000_000;
+        rec.endedAt = 1_700_000_600_000;
+        rec.sessionStatus = 'completed';
+        rec.definitionJson = JSON.stringify({ id: 'r1', name, blocks: [] });
+        rec.cursorJson = JSON.stringify({ status: 'completed' });
+        rec.note = null;
+        rec.currentBlockIndex = 0;
+        rec.currentStepId = null;
+        rec.currentRound = 1;
+        rec.currentSetIndex = 0;
+        rec.timerExpiresAt = null;
+        rec.createdAt = 1;
+        rec.updatedAt = 1;
+      });
+      id = row.id;
+    });
+    return id;
+  }
+
+  it('session note round-trips through create → validate → restore', async () => {
+    const db = makeDb();
+    const id = await createSession(db);
+    await saveSessionNote(db, id, 'Grip felt off, used straps on the last set');
+
+    const b = await createBackup(db);
+    expect(b.data.sessions).toHaveLength(1);
+    expect(b.data.sessions[0].note).toBe('Grip felt off, used straps on the last set');
+
+    const parsed = parseBackup(serializeBackup(b));
+    expect(parsed.data.sessions[0].note).toBe('Grip felt off, used straps on the last set');
+
+    const target = makeDb();
+    await restoreBackup(target, serializeBackup(b));
+    const rows = (await target.get('workout_sessions').query().fetch()) as unknown as Array<{
+      id: string;
+      note: string | null;
+    }>;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].note).toBe('Grip felt off, used straps on the last set');
+    expect(await loadSessionNote(target, rows[0].id)).toBe('Grip felt off, used straps on the last set');
+  });
+
+  it('backups without a note field remain valid (pre-v5)', async () => {
+    const b = await createBackup(makeDb());
+    const legacy = JSON.parse(serializeBackup(b)) as any;
+    legacy.data.sessions.push({
+      routineIndex: null,
+      name: 'Legacy Session',
+      startedAt: 1_700_000_000_000,
+      endedAt: null,
+      status: 'completed',
+      definitionJson: '{"id":"r1","name":"Legacy","blocks":[]}',
+      cursorJson: '{"status":"completed"}',
+      currentBlockIndex: 0,
+      currentStepId: null,
+      currentRound: 1,
+      currentSetIndex: 0,
+      timerExpiresAt: null,
+    });
+    legacy.checksum = semanticChecksum(legacy.data);
+
+    const parsed = parseBackup(JSON.stringify(legacy));
+    expect(parsed.data.sessions[0].note).toBeUndefined();
+
+    const target = makeDb();
+    await restoreBackup(target, JSON.stringify(legacy));
+    const rows = (await target.get('workout_sessions').query().fetch()) as unknown as Array<{
+      note: string | null;
+    }>;
+    expect(rows[0].note).toBeNull();
+  });
+
+  it('rejects non-string and oversized session notes before the checksum', async () => {
+    const b = await createBackup(makeDb());
+
+    const badType = JSON.parse(serializeBackup(b)) as any;
+    badType.data.sessions.push({
+      routineIndex: null,
+      name: 'S',
+      startedAt: 1,
+      endedAt: null,
+      status: 'completed',
+      definitionJson: '{}',
+      cursorJson: '{}',
+      currentBlockIndex: 0,
+      currentStepId: null,
+      currentRound: 1,
+      currentSetIndex: 0,
+      timerExpiresAt: null,
+      note: 123,
+    });
+    badType.checksum = semanticChecksum(badType.data);
+    expect(() => parseBackup(JSON.stringify(badType))).toThrow(
+      expect.objectContaining({ code: 'invalid_string' }),
+    );
+
+    const tooLong = JSON.parse(serializeBackup(b)) as any;
+    tooLong.data.sessions.push({
+      routineIndex: null,
+      name: 'S',
+      startedAt: 1,
+      endedAt: null,
+      status: 'completed',
+      definitionJson: '{}',
+      cursorJson: '{}',
+      currentBlockIndex: 0,
+      currentStepId: null,
+      currentRound: 1,
+      currentSetIndex: 0,
+      timerExpiresAt: null,
+      note: 'x'.repeat(NOTE_MAX_LENGTH + 1),
+    });
+    tooLong.checksum = semanticChecksum(tooLong.data);
+    expect(() => parseBackup(JSON.stringify(tooLong))).toThrow(
+      expect.objectContaining({ code: 'invalid_string' }),
     );
   });
 });

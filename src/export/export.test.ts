@@ -9,6 +9,7 @@ function makeDetail(overrides?: Partial<HistoryDetail>): HistoryDetail {
     endedAt: 1_700_000_600_000,
     durationMs: 600_000,
     status: 'completed',
+    note: null,
     definition: {
       id: 'r1',
       name: 'Push Day',

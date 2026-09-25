@@ -106,6 +106,7 @@ export class WorkoutSession extends Model {
   @text('session_status') sessionStatus!: string;
   @text('definition_json') definitionJson!: string;
   @text('cursor_json') cursorJson!: string;
+  @text('note') note!: string | null;
   @field('current_block_index') currentBlockIndex!: number;
   @text('current_step_id') currentStepId!: string | null;
   @field('current_round') currentRound!: number;

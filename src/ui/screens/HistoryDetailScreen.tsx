@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { loadSessionDetail, type HistoryDetail } from '../../data/history';
+import { saveSessionNote } from '../../data/notes';
 import { strings } from '../../constants/strings';
 import { formatKg } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps, msToSeconds } from '../../analytics/load';
 import { useNav } from '../navigation';
-import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
+import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, TextField } from '../components';
 
 function formatWhen(ts: number): string {
   try {
@@ -95,6 +96,26 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
     load();
   }, [load]);
 
+  // Session note editing — initialized from the loaded detail, independent of reloads.
+  const [noteText, setNoteText] = useState('');
+  const [noteSaved, setNoteSaved] = useState(false);
+  useEffect(() => {
+    if (!detail) return;
+    setNoteText(detail.note ?? '');
+    setNoteSaved(false);
+  }, [detail]);
+
+  const saveNote = useCallback(async () => {
+    if (!detail) return;
+    try {
+      const value = await saveSessionNote(database, detail.id, noteText);
+      setNoteText(value ?? '');
+      setNoteSaved(true);
+    } catch {
+      setNoteSaved(false);
+    }
+  }, [detail, noteText]);
+
   const sessionLoad = useMemo(() => {
     if (!detail) return null;
     return calculateSessionLoad({
@@ -150,6 +171,30 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
             <Text className="mt-0.5 text-sm text-dim">
               {strings.history.sets}: {detail.totalCompletedSets}
             </Text>
+          </Card>
+
+          <Card className="mt-3">
+            <TextField
+              label={strings.notes.label}
+              multiline
+              numberOfLines={3}
+              value={noteText}
+              onChangeText={(t) => {
+                setNoteText(t);
+                setNoteSaved(false);
+              }}
+              placeholder={strings.notes.placeholder}
+              textAlignVertical="top"
+            />
+            <Button
+              label={strings.notes.save}
+              variant="secondary"
+              className="mt-2"
+              onPress={() => void saveNote()}
+            />
+            {noteSaved ? (
+              <Text className="mt-1.5 text-sm text-accent-ink">{strings.notes.saved}</Text>
+            ) : null}
           </Card>
 
           {sessionLoad && sessionLoad.completedSetCount > 0 ? (

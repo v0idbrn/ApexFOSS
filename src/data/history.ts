@@ -68,6 +68,8 @@ export interface HistoryDetail {
   endedAt: number | null;
   durationMs: number | null;
   status: string;
+  /** Post-workout session note (schema v5); null when absent. */
+  note: string | null;
   definition: RoutineDefinition;
   blocks: HistoryBlockView[];
   totalCompletedSets: number;
@@ -200,6 +202,7 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
       endedAt: session.endedAt,
       durationMs: durationOf(session.startedAt, session.endedAt),
       status: session.sessionStatus,
+      note: session.note ?? null,
       definition,
       blocks,
       totalCompletedSets,

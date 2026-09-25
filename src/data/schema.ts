@@ -7,8 +7,9 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
  * v2 (Phase 2C): optional routine_blocks.interval_json for interval block programming.
  * v3 (Phase 2E): readiness_tests for tap-test baseline history.
  * v4 (Phase 2J): equipment_items for persistent gym inventory (per-side plates etc).
+ * v5 (Phase 2J): optional workout_sessions.note — post-workout session notes.
  */
-export const schemaVersion = 4;
+export const schemaVersion = 5;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -96,6 +97,7 @@ export const schema = appSchema({
         { name: 'session_status', type: 'string', isIndexed: true },
         { name: 'definition_json', type: 'string' },
         { name: 'cursor_json', type: 'string' },
+        { name: 'note', type: 'string', isOptional: true },
         { name: 'current_block_index', type: 'number' },
         { name: 'current_step_id', type: 'string', isOptional: true },
         { name: 'current_round', type: 'number' },

@@ -12,6 +12,10 @@ import { schemaMigrations, addColumns, createTable } from '@nozbe/watermelondb/S
  * v3 → v4 (Phase 2J): new equipment_items table for persistent gym inventory.
  * Older installs start with an empty inventory; backups without equipment
  * remain valid (optional field in BackupData).
+ *
+ * v4 → v5 (Phase 2J): optional workout_sessions.note for post-workout
+ * session notes. Older rows simply read null; backups without a note
+ * remain valid (optional field on BackupSession).
  */
 export const migrations = schemaMigrations({
   migrations: [
@@ -52,6 +56,15 @@ export const migrations = schemaMigrations({
             { name: 'created_at', type: 'number' },
             { name: 'updated_at', type: 'number' },
           ],
+        }),
+      ],
+    },
+    {
+      toVersion: 5,
+      steps: [
+        addColumns({
+          table: 'workout_sessions',
+          columns: [{ name: 'note', type: 'string', isOptional: true }],
         }),
       ],
     },

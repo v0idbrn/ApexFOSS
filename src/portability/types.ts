@@ -120,6 +120,11 @@ export interface BackupSession {
   startedAt: number;
   endedAt: number | null;
   status: string;
+  /**
+   * Post-workout session note (schema v5). Absent on backups created before
+   * v5 — restore treats missing as null.
+   */
+  note?: string | null;
   definitionJson: string;
   cursorJson: string;
   currentBlockIndex: number;
