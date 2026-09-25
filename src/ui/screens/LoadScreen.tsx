@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
-import { listCompletedSessions, loadSessionDetail, type HistoryDetail } from '../../data/history';
+import { loadAnalyticsSnapshot, type AnalyticsSession } from '../../data/analytics';
 import { strings } from '../../constants/strings';
 import {
   calculateDateRangeLoad,
@@ -9,27 +9,16 @@ import {
   gramRepsToKgReps,
   msToSeconds,
   type DateRangeKind,
-  type DatedSession,
-  type SetLoadInput,
 } from '../../analytics/load';
+import {
+  calculateWindowTotals,
+  compareWindows,
+  currentWindow,
+  previousWindow,
+  type WindowComparison,
+} from '../../analytics/trends';
 import { useNav } from '../navigation';
 import { AppHeader, Card, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
-
-function toSetInputs(detail: HistoryDetail): DatedSession['exercises'] {
-  return detail.blocks.map((block) => ({
-    exerciseName: block.steps.map((s) => s.exerciseName).filter(Boolean).join(' / ') || strings.common.none,
-    sets: block.steps.flatMap((step) =>
-      step.logs.map(
-        (log): SetLoadInput => ({
-          weightGrams: log.weightGrams,
-          reps: log.reps,
-          durationMs: log.durationMs,
-          isCompleted: true,
-        }),
-      ),
-    ),
-  }));
-}
 
 const RANGES: DateRangeKind[] = ['today', '7d', '28d'];
 
@@ -39,9 +28,43 @@ function rangeLabel(kind: DateRangeKind): string {
   return strings.load.last28;
 }
 
+function changeLabel(comparison: WindowComparison): string {
+  if (comparison.percentChange === null) return strings.load.trends.noPrevious;
+  const value = comparison.percentChange;
+  return `${value > 0 ? '+' : ''}${value}%`;
+}
+
+function TrendCard({
+  title,
+  previousLabel,
+  comparison,
+}: {
+  title: string;
+  previousLabel: string;
+  comparison: WindowComparison;
+}) {
+  return (
+    <Card>
+      <Text className="text-xs font-semibold uppercase tracking-wider text-dim">{title}</Text>
+      <Text className="mt-3 text-xl font-bold text-fg">
+        {gramRepsToKgReps(comparison.current.resistanceGramReps)} {strings.load.kgReps}
+      </Text>
+      <Text className="mt-1 text-sm text-dim">
+        {previousLabel}: {gramRepsToKgReps(comparison.previous.resistanceGramReps)} {strings.load.kgReps}
+      </Text>
+      <Text className="mt-0.5 text-sm text-dim">
+        {strings.load.trends.change}: {changeLabel(comparison)}
+      </Text>
+      <Text className="mt-0.5 text-xs text-dim">
+        {strings.load.trends.sessions}: {comparison.current.sessionCount}
+      </Text>
+    </Card>
+  );
+}
+
 export function LoadScreen() {
   const { pop } = useNav();
-  const [sessions, setSessions] = useState<DatedSession[]>([]);
+  const [sessions, setSessions] = useState<AnalyticsSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<DateRangeKind>('7d');
@@ -50,21 +73,8 @@ export function LoadScreen() {
     setLoading(true);
     setError(null);
     try {
-      const items = await listCompletedSessions(database);
-      const detailed: DatedSession[] = [];
-      for (const item of items) {
-        const detail = await loadSessionDetail(database, item.id);
-        if (!detail) continue;
-        detailed.push({
-          sessionId: detail.id,
-          name: detail.name,
-          timestampMs: detail.endedAt ?? detail.startedAt,
-          startedAt: detail.startedAt,
-          endedAt: detail.endedAt,
-          exercises: toSetInputs(detail),
-        });
-      }
-      setSessions(detailed);
+      const snapshot = await loadAnalyticsSnapshot(database);
+      setSessions(snapshot.sessions);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -76,7 +86,20 @@ export function LoadScreen() {
     reload();
   }, [reload]);
 
-  const agg = useMemo(() => calculateDateRangeLoad(sessions, dateRange(kind, Date.now())), [sessions, kind]);
+  const agg = useMemo(
+    () => calculateDateRangeLoad(sessions, dateRange(kind, Date.now())),
+    [sessions, kind],
+  );
+
+  const now = Date.now();
+  const trend7 = compareWindows(
+    calculateWindowTotals(sessions, currentWindow(now, 7)),
+    calculateWindowTotals(sessions, previousWindow(now, 7)),
+  );
+  const trend28 = compareWindows(
+    calculateWindowTotals(sessions, currentWindow(now, 28)),
+    calculateWindowTotals(sessions, previousWindow(now, 28)),
+  );
 
   if (loading) {
     return (
@@ -143,6 +166,21 @@ export function LoadScreen() {
             <Text className="text-center text-sm text-dim">{strings.load.noData}</Text>
           </View>
         ) : null}
+
+        <View className="px-4">
+          <SectionHeader title={strings.load.trends.section} />
+          <TrendCard
+            title={strings.load.trends.current7}
+            previousLabel={strings.load.trends.previous7}
+            comparison={trend7}
+          />
+          <View className="h-2" />
+          <TrendCard
+            title={strings.load.trends.current28}
+            previousLabel={strings.load.trends.previous28}
+            comparison={trend28}
+          />
+        </View>
       </ScrollView>
     </Screen>
   );

@@ -18,6 +18,7 @@ export type Route =
   | { name: 'portability' }
   | { name: 'importPreview'; encoded: string }
   | { name: 'load' }
+  | { name: 'muscles' }
   | { name: 'inventory' }
   | { name: 'readiness' };
 

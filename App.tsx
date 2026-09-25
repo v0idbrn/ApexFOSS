@@ -16,6 +16,7 @@ import { HistoryListScreen } from './src/ui/screens/HistoryListScreen';
 import { HistoryDetailScreen } from './src/ui/screens/HistoryDetailScreen';
 import { PortabilityScreen } from './src/ui/screens/PortabilityScreen';
 import { LoadScreen } from './src/ui/screens/LoadScreen';
+import { MuscleScreen } from './src/ui/screens/MuscleScreen';
 import { InventoryScreen } from './src/ui/screens/InventoryScreen';
 import { ReadinessScreen } from './src/ui/screens/ReadinessScreen';
 import { parseImportDeepLink } from './src/portability/encoding';
@@ -45,6 +46,8 @@ function renderRoute(route: Route) {
       return <PortabilityScreen />;
     case 'load':
       return <LoadScreen />;
+    case 'muscles':
+      return <MuscleScreen />;
     case 'inventory':
       return <InventoryScreen />;
     case 'readiness':

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { loadActiveWorkout } from '../../workout/runner';
@@ -31,7 +31,8 @@ export function HomeScreen() {
 
   return (
     <Screen>
-      <View className="flex-1 px-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
+        <View className="px-4">
         <View className="mb-8 mt-10">
           <Text className="text-3xl font-bold text-fg">{strings.home.title}</Text>
           <Text className="mt-1 text-sm text-dim">{strings.home.tagline}</Text>
@@ -91,6 +92,14 @@ export function HomeScreen() {
         </Pressable>
         <Pressable
           accessibilityRole="button"
+          onPress={() => push({ name: 'muscles' })}
+          className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
+        >
+          <Text className="text-lg font-medium text-fg">{strings.athleteTools.muscles}</Text>
+          <Text className="text-xl text-dim">›</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
           onPress={() => push({ name: 'inventory' })}
           className="mb-3 h-16 min-h-16 flex-row items-center justify-between rounded-xl border border-line bg-surface px-4"
         >
@@ -121,7 +130,8 @@ export function HomeScreen() {
           <Text className="text-lg font-medium text-fg">{strings.portability.title}</Text>
           <Text className="text-xl text-dim">›</Text>
         </Pressable>
-      </View>
+        </View>
+      </ScrollView>
     </Screen>
   );
 }
