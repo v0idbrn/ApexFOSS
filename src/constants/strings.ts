@@ -322,6 +322,13 @@ export const strings = {
       sessions: 'Sessions',
       load: 'Load',
     },
+    ratio: {
+      label: '7d / 28d load ratio',
+      currentWeek: 'Current week',
+      baselineWeek: 'Baseline (previous 28 days ÷ 4)',
+      noBaseline: 'No baseline sessions in the previous 28 days',
+      zeroBaseline: 'Baseline window has no resistance load',
+    },
   },
   muscles: {
     title: 'Muscle distribution',

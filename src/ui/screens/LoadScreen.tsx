@@ -11,6 +11,7 @@ import {
   type DateRangeKind,
 } from '../../analytics/load';
 import {
+  calculateLoadRatio,
   calculateWindowTotals,
   compareWindows,
   currentWindow,
@@ -100,6 +101,11 @@ export function LoadScreen() {
     calculateWindowTotals(sessions, currentWindow(now, 28)),
     calculateWindowTotals(sessions, previousWindow(now, 28)),
   );
+  const loadRatio = calculateLoadRatio(
+    trend7.current.resistanceGramReps,
+    trend28.previous.resistanceGramReps,
+    trend28.previous.sessionCount,
+  );
 
   if (loading) {
     return (
@@ -180,6 +186,31 @@ export function LoadScreen() {
             previousLabel={strings.load.trends.previous28}
             comparison={trend28}
           />
+          <View className="h-2" />
+          <Card>
+            <Text className="text-xs font-semibold uppercase tracking-wider text-dim">
+              {strings.load.ratio.label}
+            </Text>
+            {loadRatio.status === 'ok' ? (
+              <View>
+                <Text className="mt-3 text-2xl font-bold text-fg">{loadRatio.ratio?.toFixed(2)}</Text>
+                <Text className="mt-1 text-sm text-dim">
+                  {strings.load.ratio.currentWeek}:{' '}
+                  {gramRepsToKgReps(loadRatio.acuteWeeklyGramReps)} {strings.load.kgReps}
+                </Text>
+                <Text className="mt-0.5 text-sm text-dim">
+                  {strings.load.ratio.baselineWeek}:{' '}
+                  {gramRepsToKgReps(loadRatio.chronicWeeklyGramReps ?? 0)} {strings.load.kgReps}
+                </Text>
+              </View>
+            ) : (
+              <Text className="mt-3 text-sm text-dim">
+                {loadRatio.status === 'no_baseline'
+                  ? strings.load.ratio.noBaseline
+                  : strings.load.ratio.zeroBaseline}
+              </Text>
+            )}
+          </Card>
         </View>
       </ScrollView>
     </Screen>

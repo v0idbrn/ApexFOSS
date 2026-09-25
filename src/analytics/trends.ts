@@ -98,3 +98,57 @@ export function compareWindows(current: WindowTotals, previous: WindowTotals): W
       : null;
   return { current, previous, absoluteChange, percentChange };
 }
+
+export type LoadRatioStatus = 'ok' | 'no_baseline' | 'zero_baseline';
+
+export interface LoadRatio {
+  status: LoadRatioStatus;
+  /** acute (current 7d) ÷ chronic (previous 28d ÷ 4), rounded to 2 decimals; null when unavailable. */
+  ratio: number | null;
+  /** Total resistance load of the current 7-day window (gram-reps). */
+  acuteWeeklyGramReps: number;
+  /** Average weekly baseline: previous 28 days ÷ 4 (gram-reps); null without baseline sessions. */
+  chronicWeeklyGramReps: number | null;
+  acuteDays: number;
+  chronicDays: number;
+}
+
+/**
+ * Descriptive 7d / 28d training-load ratio (ACWR-style arithmetic only —
+ * no interpretation, zones, colors or claims of any kind).
+ *
+ * - Chronic baseline uses ONLY the previous 28 days and never includes the
+ *   current acute week.
+ * - No completed sessions in the baseline → 'no_baseline' (insufficient baseline).
+ * - Baseline sessions without resistance load → 'zero_baseline'.
+ * - ratio is always finite or null — never Infinity/NaN.
+ */
+export function calculateLoadRatio(
+  current7GramReps: number,
+  previous28GramReps: number,
+  previous28SessionCount: number,
+): LoadRatio {
+  const acuteWeeklyGramReps =
+    Number.isFinite(current7GramReps) && current7GramReps > 0 ? Math.round(current7GramReps) : 0;
+  const base = { acuteWeeklyGramReps, acuteDays: 7, chronicDays: 28 };
+
+  if (!Number.isFinite(previous28SessionCount) || previous28SessionCount <= 0) {
+    return { ...base, status: 'no_baseline', ratio: null, chronicWeeklyGramReps: null };
+  }
+  const previousTotal = Number.isFinite(previous28GramReps) ? previous28GramReps : 0;
+  if (previousTotal <= 0) {
+    return { ...base, status: 'zero_baseline', ratio: null, chronicWeeklyGramReps: 0 };
+  }
+
+  const chronicWeekly = previousTotal / 4;
+  const ratio = acuteWeeklyGramReps / chronicWeekly;
+  if (!Number.isFinite(ratio)) {
+    return { ...base, status: 'zero_baseline', ratio: null, chronicWeeklyGramReps: Math.round(chronicWeekly) };
+  }
+  return {
+    ...base,
+    status: 'ok',
+    ratio: Math.round(ratio * 100) / 100,
+    chronicWeeklyGramReps: Math.round(chronicWeekly),
+  };
+}
