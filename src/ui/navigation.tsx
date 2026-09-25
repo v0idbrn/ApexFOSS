@@ -15,6 +15,7 @@ export type Route =
   | { name: 'workout' }
   | { name: 'history' }
   | { name: 'historyDetail'; sessionId: string }
+  | { name: 'compare'; sessionId: string }
   | { name: 'portability' }
   | { name: 'importPreview'; encoded: string }
   | { name: 'load' }

@@ -6,7 +6,7 @@ import { strings } from '../../constants/strings';
 import { formatKg } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps, msToSeconds } from '../../analytics/load';
 import { useNav } from '../navigation';
-import { AppHeader, Card, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
+import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
 
 function formatWhen(ts: number): string {
   try {
@@ -68,7 +68,7 @@ function actualLine(l: {
 }
 
 export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
-  const { pop } = useNav();
+  const { pop, push } = useNav();
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +169,14 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
               </Text>
             </Card>
           ) : null}
+
+          <View className="mt-3">
+            <Button
+              label={strings.history.compare}
+              variant="secondary"
+              onPress={() => push({ name: 'compare', sessionId })}
+            />
+          </View>
         </View>
 
         {detail.blocks.map((block) => (

@@ -14,6 +14,7 @@ import { RoutineEditorScreen } from './src/ui/screens/RoutineEditorScreen';
 import { WorkoutScreen } from './src/ui/screens/WorkoutScreen';
 import { HistoryListScreen } from './src/ui/screens/HistoryListScreen';
 import { HistoryDetailScreen } from './src/ui/screens/HistoryDetailScreen';
+import { CompareScreen } from './src/ui/screens/CompareScreen';
 import { PortabilityScreen } from './src/ui/screens/PortabilityScreen';
 import { LoadScreen } from './src/ui/screens/LoadScreen';
 import { MuscleScreen } from './src/ui/screens/MuscleScreen';
@@ -42,6 +43,8 @@ function renderRoute(route: Route) {
       return <HistoryListScreen />;
     case 'historyDetail':
       return <HistoryDetailScreen sessionId={route.sessionId} />;
+    case 'compare':
+      return <CompareScreen sessionId={route.sessionId} />;
     case 'portability':
       return <PortabilityScreen />;
     case 'importPreview':
