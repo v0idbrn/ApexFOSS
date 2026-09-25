@@ -49,31 +49,36 @@ const withWatermelonJsiFix = (config) => {
 
       let contents = fs.readFileSync(mainAppPath, 'utf8');
       const original = contents;
+      const eol = contents.includes('\r\n') ? '\r\n' : '\n';
 
-      // 1) Remove the dead import (any trailing whitespace variant).
+      // 1) Remove the dead import (any trailing whitespace/EOL variant).
       contents = contents.replace(
         /^[ \t]*import com\.facebook\.react\.bridge\.JSIModulePackage;[ \t]*\r?\n?/m,
         '',
       );
 
-      // 2) Ensure the WatermelonDB JSI package import exists.
+      // 2) Ensure the WatermelonDB JSI package import exists (CRLF-safe splice:
+      //    never prepend before the package declaration — that breaks Kotlin).
       if (!contents.includes('import com.nozbe.watermelondb.jsi.WatermelonDBJSIPackage;')) {
-        if (/^import android\.app\.Application;[ \t]*$/m.test(contents)) {
-          contents = contents.replace(
-            /^import android\.app\.Application;[ \t]*$/m,
-            'import android.app.Application;\nimport com.nozbe.watermelondb.jsi.WatermelonDBJSIPackage;',
-          );
+        const lines = contents.split(/\r?\n/);
+        const anchor = lines.findIndex((l) => l.trim() === 'import android.app.Application;');
+        const importLine = 'import com.nozbe.watermelondb.jsi.WatermelonDBJSIPackage;';
+        if (anchor >= 0) {
+          lines.splice(anchor + 1, 0, importLine);
         } else {
-          contents =
-            'import com.nozbe.watermelondb.jsi.WatermelonDBJSIPackage;\n' + contents;
+          // Fall back to inserting directly after the package line.
+          const pkg = lines.findIndex((l) => l.trimStart().startsWith('package '));
+          if (pkg < 0) throw new Error('withWatermelonJsiFix: cannot locate import/package anchor');
+          lines.splice(pkg + 1, 0, '', importLine);
         }
+        contents = lines.join(eol);
       }
 
       // 3) Register the package so the JSI bridge NativeModule is instantiated.
       if (!contents.includes('add(WatermelonDBJSIPackage())')) {
         contents = contents.replace(
           /(PackageList\(this\)\.packages\.apply\s*\{)/,
-          '$1\n          add(WatermelonDBJSIPackage())',
+          `$1${eol}          add(WatermelonDBJSIPackage())`,
         );
       }
 

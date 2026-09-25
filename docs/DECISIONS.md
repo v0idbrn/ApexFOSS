@@ -848,3 +848,318 @@ dependency, out of scope). Jest is unaffected (no metro config).
 - CSS animations/transitions stay unsupported (documented; app uses none).
 - Third commit deviation from "exactly 5 commits" reported in the phase 2F
   section 36 summary.
+
+---
+
+## D-032 - Apply the ApexFOSS six-color palette as a migration (Phase 2G, 2026-09-25)
+
+**Status:** Accepted
+
+**Context.** Phase 2G §1 requires migrating every screen to the approved
+six-color AMOLED-first palette without redesigning the UI: NIGHT RIDER
+`#020101`, AUBERGINE `#3D0B0D`, MAHOGANY `#53080E`, DARK BURGUNDY `#72090F`,
+POHUTUKAWA `#930510`, ROOF TERRACOTTA `#B21F29`. The old tokens
+(`#0a0a0a/#141414/#262626` surfaces, `#22d3ee` cyan, `#4ade80` green,
+`#f87171` danger) had to go, but pure palette colors are all dark: none can
+carry AA text.
+
+**Decision.** One token layer (`tailwind.config.js` + `global.css` +
+`src/theme/index.ts`) with the exact six palette colors plus documented
+readability exceptions: `fg #F5F5F5` / `dim #A3A3A3` (neutral text),
+`accent-ink #E3675F` and `danger #F87171` (light tints of the same red hue),
+`success` = neutral (no positive-state hue exists in the palette; completion
+is conveyed by weight/label, not color). All former `text-accent` usage (28
+sites) renamed to `text-accent-ink`; primary Button label `text-black` ->
+`text-fg`; ActivityIndicator cyan -> accent. Contrast floors pinned in tests
+(`src/security/palette.test.ts`): fg/bg 19.1:1, accent-ink >= 4.5:1 on
+bg/surface/surface-2, fg on accent fill 6.2:1, accent fill >= 3:1 for
+non-text UI. QrGrid keeps pure black/white (scanner contrast exception).
+app.json splash/backgroundColor -> `#020101` (takes effect at next prebuild).
+
+**Consequences.**
+
+- Single palette, dark theme preserved, no gradients/redesign; every token is
+  either one of the six colors or a documented exception (pinned by test).
+- On-device palette verification deferred (no device this phase).
+
+---
+
+## D-033 - Remove INTERNET from release builds via manifest-merger marker (Phase 2G, 2026-09-25)
+
+**Status:** Accepted (verified on the built release APK)
+
+**Context.** Static audit found zero network APIs in `src/` (no fetch/XHR/
+WebSocket/axios), expo-updates disabled, local-only notifications, and
+user-intent share exports - yet release APKs declared `INTERNET`. Spec §0
+warns against blind permission removal; the evidence supported removal, with
+one trap: `expo-file-system`'s own manifest re-declares INTERNET, so a naive
+strip is silently undone at Gradle merge time.
+
+**Decision.** New config plugin `plugins/withNetworkHardening.js` writes an
+`android.permission.INTERNET` entry with `tools:node="remove"` into the main
+manifest (suppresses all library contributions), while
+`android/app/src/debug/AndroidManifest.xml` re-declares INTERNET with an
+explicit `tools:node="merge"` so Metro and expo-dev-client keep working in
+debug. Final authority: `aapt dump badging` on both APKs - release has no
+INTERNET, debug does. Kept: ACCESS_NETWORK_STATE (state only), VIBRATE,
+POST_NOTIFICATIONS, RECEIVE_BOOT_COMPLETED, WAKE_LOCK, legacy storage <= 32.
+
+**Consequences.**
+
+- Release app cannot make network calls; any future library that tries fails
+  with SecurityException (loud failure by design).
+- Dormant Firebase/FCM components merged in by expo-notifications become
+  doubly unreachable (no google-services.json + no INTERNET) - disclosed, not
+  hidden (SECURITY_AUDIT F-14).
+- Debug workflow unchanged.
+
+---
+
+## D-034 - Keep `allowBackup=true` and disclose it (Phase 2G, 2026-09-25)
+
+**Status:** Accepted (explicit non-change)
+
+**Context.** OS Auto Backup can copy app data (including the SQLite database)
+to the user's configured cloud backup provider. Spec §0 forbids blindly
+disabling Android backup; disabling would silently remove users' only
+automatic backup path.
+
+**Decision.** Keep `allowBackup=true` without extraction-rule restrictions,
+document the third-party processing channel in `docs/PRIVACY.md` and
+`docs/DATA_MAP.md`, and record the exact scope as OS-dependent (SECURITY_AUDIT
+F-04, KNOWN_LIMITATIONS 12). Revisit explicit `dataExtractionRules` in a
+future phase after per-version verification on a device.
+
+**Consequences.**
+
+- Users keep automatic backups; the privacy surface is disclosed rather than
+  papered over.
+- Backup scope remains device-dependent - listed as manual review.
+
+---
+
+## D-035 - Permission and exported-component inventory: keep, document, defer risky removals (Phase 2G, 2026-09-25)
+
+**Status:** Accepted
+
+**Context.** The merged release manifest carries components this app never
+declares directly: SYSTEM_ALERT_WINDOW (from react-native/ReactAndroid),
+READ/WRITE_EXTERNAL_STORAGE maxSdk 32 (expo-file-system), badge permissions +
+ShortcutBadger (expo-notifications), launcher/notification receivers, a
+FileProvider, and Firebase/Play-services classes. Spec §0 forbids blind
+`exported=false` flips; no device is connected to observe breakage.
+
+**Decision.** Inventory each item in `docs/SECURITY_AUDIT.md` (origin,
+exploitability, verdict) instead of mass-editing. Keep SYSTEM_ALERT_WINDOW
+(never requested at runtime; removal needs device verification), keep legacy
+storage (inert on API 33+), keep notification/boot permissions (required),
+record every exported component and its guard (permission or non-exported).
+MainActivity stays exported (launcher + apexfoss scheme by design); its
+intent path is hardened by caps/preview/confirm (D-036) instead.
+
+**Consequences.**
+
+- No speculative breakage; every kept permission has a written justification.
+- SYSTEM_ALERT_WINDOW removal is queued as future device-verified work
+  (Play scrutiny noted in DISTRIBUTION.md).
+
+---
+
+## D-036 - Strengthen input boundaries with size caps instead of a schema library (Phase 2G, 2026-09-25)
+
+**Status:** Accepted (tested)
+
+**Context.** Existing validators already enforce types/ranges/structural caps
+(reqStr/reqInt, MAX_BLOCKS/STEPS/EXERCISES, checksums), but pasted JSON hit
+`JSON.parse` unbounded (resource exhaustion), and PortabilityScreen had a
+second, ad-hoc deep-link regex path outside the hardened parser. Spec §0
+explicitly discourages adding Zod/Valibot reflexively.
+
+**Decision.** (1) Byte ceilings checked BEFORE parsing:
+`MAX_ROUTINE_JSON_BYTES = 5 MB`, `MAX_BACKUP_JSON_BYTES = 32 MB` via
+`utf8ByteLength` (UTF-8 bytes, not characters). (2) PortabilityScreen's
+`apexfoss://` branch now calls `parseImportDeepLink` (scheme/host/charset +
+`MAX_PORTABLE_PAYLOAD_BYTES + 64` transport cap) instead of its own regex.
+(3) No new validation dependency.
+
+**Consequences.**
+
+- Hostile multi-MB pastes are rejected before allocation; deep-link decoding
+  has one hardened implementation.
+- Boundary behavior (exact cap / over cap / byte semantics) is pinned by
+  `src/security/inputBoundaries.test.ts`.
+
+---
+
+## D-037 - Full local-data wipe through the Trust Center (Phase 2G, 2026-09-25)
+
+**Status:** Accepted (tested)
+
+**Context.** Per-entity deletes existed for exercises/routines, but there was
+no way to remove everything at once (spec §14).
+
+**Decision.** `src/data/deletion.ts` adds `countLocalData`,
+`wipeAllLocalData` (destroys every row of every table with
+`destroyPermanently` - no tombstones remain) and `deleteAllLocalData` (adds
+cancel-all of scheduled rest notifications, `useTimerStore.clear()`,
+active-session mirror reset). Exposed in the Trust Center behind
+`confirmDestructive` with "cannot be undone / create a backup first" copy;
+starter exercises re-seed next launch (app content). Explicitly documented as
+NOT forensic erasure.
+
+**Consequences.**
+
+- One confirmed action empties the app; runtime mirrors and notifications
+  cannot leak stale state (tests cover wipe, counts, restart+reseed,
+  notification cancellation).
+
+---
+
+## D-038 - License remains an owner decision (Phase 2G, 2026-09-25)
+
+**Status:** Open (owner decision)
+
+**Context.** The repository has no `LICENSE` file while README calls the
+project open source. Audit cannot invent a license.
+
+**Decision.** Do not add or guess a license. Document the inconsistency
+(SECURITY_AUDIT F-18, KNOWN_LIMITATIONS 14, TERMS_OF_USE §3,
+THIRD_PARTY_LICENSES header, DISTRIBUTION blockers) and require owner/legal
+resolution before any public distribution.
+
+**Consequences.**
+
+- F-Droid is blocked until resolved; "open source" claims carry a written
+  caveat.
+
+---
+
+## D-039 - npm audit findings: document, do not force-fix (Phase 2G, 2026-09-25)
+
+**Status:** Accepted (deferred)
+
+**Context.** `npm audit`: 12 moderate, 0 high/critical across 1040 deps. All
+are indirect chains (`@babel/runtime < 7.26.10` under WatermelonDB; `@expo/cli`
+/ config tooling under expo). npm's suggested fixes are semver-major
+DOWNGRADES (WatermelonDB 0.25.5, expo 46) - unacceptable on a frozen stack.
+
+**Decision.** No dependency upgrades this phase; no `audit fix --force`.
+Advisories, exploitability notes (build-time tooling vs runtime, no
+Babel-generated regex over user input) and the re-evaluation trigger are
+recorded in SECURITY_AUDIT F-19.
+
+**Consequences.**
+
+- Known advisories stay visible with rationale instead of being silently
+  ignored or "fixed" into a broken tree.
+
+---
+
+## D-040 - Health language: boundary statement, no regulatory classification (Phase 2G, 2026-09-25)
+
+**Status:** Accepted
+
+**Context.** The app records workouts and shows locally computed readiness -
+classic general-fitness territory. Repository audit found no user-facing
+medical claims (only neutral code comments phrased as prohibitions). Spec §0
+forbids claiming regulatory classification or legal immunity.
+
+**Decision.** Write `docs/HEALTH_AND_FITNESS.md` as a boundary document: what
+the software is (fitness logging/timing), what it is not (no diagnosis,
+treatment, monitoring, prediction; no wearable/health data; no advice), the
+arithmetic nature of computed metrics, plus explicit "no regulatory
+classification claims" language. No invented certifications.
+
+**Consequences.**
+
+- Store questionnaires and legal drafts can be answered from a single,
+  non-overclaiming source (D-042, TERMS_OF_USE).
+
+---
+
+## D-041 - In-app Trust, Safety & Legal center as a plain offline screen (Phase 2G, 2026-09-25)
+
+**Status:** Accepted (tested)
+
+**Context.** Spec §19 requires an in-app Trust/Safety/Legal area without
+adding WebView, network, analytics or tracking.
+
+**Decision.** `src/ui/screens/TrustScreen.tsx` (route `trust`, Home entry
+`home-trust`) rendered with native Text/View only, sections: Privacy, Terms
+(draft), Health & Fitness, Data & Storage (live counts + destructive full
+wipe), Security (points to SECURITY.md process), Known Limitations, Open
+Source & Licenses, About. Copy comes from `strings.trust` - concise summaries
+linking to the canonical docs, no medical/legal claims. Visual language uses
+the D-032 tokens (the accent-muted border keeps POHUTUKAWA present).
+
+**Consequences.**
+
+- All §19 surfaces ship in the binary, offline; deletion UX lives exactly
+  where users look for it (Data & Storage).
+
+---
+
+## D-042 - Distribution: document channels and blockers, submit nowhere (Phase 2G, 2026-09-25)
+
+**Status:** Accepted
+
+**Context.** §22/§23 require analyzing Play (health/privacy questionnaire
+surface) and F-Droid (FOSS policy) implications without making submissions or
+compliance claims.
+
+**Decision.** `docs/DISTRIBUTION.md` maps each questionnaire area to honest
+answers sourced from HEALTH_AND_FITNESS/DATA_MAP, lists channel blockers
+(license first, legal review, device validation, SYSTEM_ALERT_WINDOW
+scrutiny, F-Droid source-build recipe), and states in writing that zero
+submissions/registrations occurred. No store-compliance claims anywhere.
+
+**Consequences.**
+
+- Distribution work is a checklist away from execution without any premature
+  commitment or overclaim.
+
+---
+
+## D-043 - Neutralize spreadsheet formula injection in CSV exports (Phase 2G, 2026-09-25)
+
+**Status:** Accepted (tested)
+
+**Context.** Routine/exercise names can arrive from imported portable
+packages (untrusted content). Re-exported to CSV and opened in a spreadsheet,
+a leading `=`/`+`/`@`/`-` can become a live formula (CSV injection). §13
+requires the export surface to be hardened.
+
+**Decision.** `escapeCsvField` prefixes such values with an apostrophe
+(literal-text marker in Excel/Sheets), except `-` followed by a digit/dot so
+legitimate negative numbers stay numeric. JSON export keeps raw fidelity
+(guard is CSV-only). RFC 4180 quoting behavior unchanged.
+
+**Consequences.**
+
+- Imported hostile names cannot execute as formulas from our exports;
+  numeric columns remain numeric (tests in `src/security/exportSecurity.test.ts`).
+
+---
+
+## D-044 - Make the prebuild Kotlin injection CRLF-safe (Phase 2G, 2026-09-25)
+
+**Status:** Accepted (build fix)
+
+**Context.** `plugins/withWatermelonJsiFix.js` inserted the
+`WatermelonDBJSIPackage` import using a `$`-anchored regex that did not
+consume `\r`. On a CRLF-generated `MainApplication.kt` the anchor failed and
+the plugin fell back to PREPENDING the import before `package`, producing a
+file that `compileDebugKotlin` rejected (this blocked the first Phase 2G
+build attempt).
+
+**Decision.** Replace regex insertion with line-based splicing (split on
+`\r?\n`, insert after the `import android.app.Application` line, or after
+`package` as fallback, rejoining with the file's original EOL), and throw a
+clear error if no anchor exists instead of silently corrupting the file.
+Keep the plugin idempotent.
+
+**Consequences.**
+
+- `expo prebuild --clean` now yields a compilable `MainApplication.kt` on any
+  line-ending regime; `assembleDebug`/`assembleRelease` succeeded after the
+  fix (both APKs produced, release signed and audit-verified).
