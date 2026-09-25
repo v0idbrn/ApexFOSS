@@ -537,7 +537,7 @@ versioning, validation, atomicity/rollback, checksum, tests.
 
 ---
 
-## D-019 — Pure training load categories (Phase 2E, 2026-09-24)
+## D-019 ï¿½ Pure training load categories (Phase 2E, 2026-09-24)
 
 **Status:** Accepted
 
@@ -545,19 +545,19 @@ versioning, validation, atomicity/rollback, checksum, tests.
 fabricating tonnage for timed/interval work.
 
 **Decision.** `src/analytics/load.ts` is pure TS with integer units only:
-resistance volume = weightGrams × reps (gram-reps), duration work = durationMs,
+resistance volume = weightGrams ï¿½ reps (gram-reps), duration work = durationMs,
 kept as separate categories. Incomplete sets contribute nothing. Date windows
 today/7d/28d use local-calendar midnight semantics (`startOfLocalDay`).
 
 **Consequences.**
 
 - Interval/timed sets never inflate resistance volume.
-- No DB/React in math — UI adapters in screens call pure functions.
-- Display converts gram-reps ? kg·reps at the edge.
+- No DB/React in math ï¿½ UI adapters in screens call pure functions.
+- Display converts gram-reps ? kgï¿½reps at the edge.
 
 ---
 
-## D-020 — Inventory solver semantics (Phase 2E, 2026-09-24)
+## D-020 ï¿½ Inventory solver semantics (Phase 2E, 2026-09-24)
 
 **Status:** Accepted
 
@@ -565,7 +565,7 @@ today/7d/28d use local-calendar midnight semantics (`startOfLocalDay`).
 hardcoded Olympic plates).
 
 **Decision.** `solveLoadInventory` is bounded-knapsack DP over grams.
-`LoadItem {name, weightGrams, quantity, perSide?}`; perSide contributes ×2.
+`LoadItem {name, weightGrams, quantity, perSide?}`; perSide contributes ï¿½2.
 Tie-break: (1) exact over closest, (2) smallest |diff|, (3) prefer = target,
 (4) fewer units, (5) ascending item index. Status: exact / closest /
 impossible (no items and base < target).
@@ -573,11 +573,11 @@ impossible (no items and base < target).
 **Consequences.**
 
 - Same input always yields same allocation on any device.
-- No persistence — inventory is a session tool.
+- No persistence ï¿½ inventory is a session tool.
 
 ---
 
-## D-021 — RIR autoregulation is runtime-only and opt-in (Phase 2E, 2026-09-24)
+## D-021 ï¿½ RIR autoregulation is runtime-only and opt-in (Phase 2E, 2026-09-24)
 
 **Status:** Accepted
 
@@ -598,7 +598,7 @@ input, display suggestion card. No DB write, no definition_json change.
 
 ---
 
-## D-022 — Readiness tap test: neutral score + personal baseline (Phase 2E, 2026-09-24)
+## D-022 ï¿½ Readiness tap test: neutral score + personal baseline (Phase 2E, 2026-09-24)
 
 **Status:** Accepted
 
@@ -607,9 +607,9 @@ fabricate scores without history.
 
 **Decision.** 10-second tap test via RN touch events + Date.now timestamps.
 Baseline = rolling median of last up-to-10 prior tests; minimum 3 samples
-before any score. Score = round(100 × current / baseline) clamped [0, 200];
+before any score. Score = round(100 ï¿½ current / baseline) clamped [0, 200];
 deviation = percent vs baseline. Schema v3 adds `readiness_tests`
-(tested_at, duration_ms, tap_count). Backup field `readinessTests` optional —
+(tested_at, duration_ms, tap_count). Backup field `readinessTests` optional ï¿½
 older backups restore as empty. Pure calcs in `src/analytics/readiness.ts`.
 
 **Consequences.**
@@ -621,17 +621,17 @@ older backups restore as empty. Pure calcs in `src/analytics/readiness.ts`.
 
 ---
 
-## D-023 — Scope cuts for Phase 2E (Phase 2E, 2026-09-24)
+## D-023 ï¿½ Scope cuts for Phase 2E (Phase 2E, 2026-09-24)
 
 **Status:** Accepted
 
 **Context.** Phase 2E scope risk: charts, dashboards, gamification, extra
 autoreg strategies, persistence for inventory.
 
-**Decision.** Cut order: (1) no charts/dashboard/gamification — numeric cards
+**Decision.** Cut order: (1) no charts/dashboard/gamification ï¿½ numeric cards
 only, (2) autoregulation is RIR-only (no VBT/RPE/1RM/ML/HRV), (3) inventory
 not persisted (in-session tool), (4) readiness baseline window fixed at 10
-(not configurable in UI), (5) ACWR is not presented — 7d/28d loads exposed as
+(not configurable in UI), (5) ACWR is not presented ï¿½ 7d/28d loads exposed as
 primitives only. **Never cut:** pure math modules, deterministic tie-breaks,
 immutability of definitions/snapshots, schema migration tests, medical-language
 guard, backup backward compatibility.
@@ -639,4 +639,178 @@ guard, backup backward compatibility.
 **Consequences.**
 
 - Future phases can add presentation layers without touching math.
-- No hidden heuristics — all autoreg constants live in AutoregConfig.
+- No hidden heuristics ï¿½ all autoreg constants live in AutoregConfig.
+
+---
+
+## D-024 - Controlled muscle vocabulary and contribution weights (Phase 2F, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Muscle distribution needs a deterministic exercise-to-muscle
+mapping. There is no medical anatomy requirement; the vocabulary must be
+stable, testable and extendable.
+
+**Decision.** Fixed 17-group training vocabulary (chest, upper_back, lats,
+front_delts, side_delts, rear_delts, biceps, triceps, forearms, abs, obliques,
+lower_back, glutes, quads, hamstrings, calves, adductors) defined in pure
+`src/analytics/muscles.ts`. Every built-in exercise carries product
+contribution weights as integer basis points summing to 10000 (e.g. Bench
+Press: chest 6000, triceps 2500, front_delts 1500). Weights live next to the
+seed catalog in `scripts/seed-exercises.ts` and are documented as product
+decisions, not science.
+
+**Consequences.**
+
+- Vocabulary is closed and exhaustively tested (17 groups, all maps sum to
+  10000, no unknown/duplicate muscles).
+- Adding a muscle or remapping an exercise is a data-only change with test
+  coverage already in place.
+
+---
+
+## D-025 - Mapping keyed by stable exercise identity, never display names (Phase 2F, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Historical sessions reference exercises through definition
+snapshots; renaming an exercise must not break history; custom exercises must
+never be guessed.
+
+**Decision.** Seeds are inserted with deterministic ids (`seed_bench_press`,
+...) via `prepareCreateFromDirtyRaw`. Resolution order in
+`resolveContributions`: (1) deterministic seed id, (2) exact portable record
+key (name+category+equipment+metricFlags, normalized - the app's existing
+import identity), (3) null. The record-key step covers installs seeded before
+deterministic ids and backup/restore rows whose generated ids differ. Custom,
+deleted or unknown exercises resolve to null (displayed as "Muscle data
+unavailable"); no fuzzy matching, no display-name lookup, no ML/LLM.
+
+**Consequences.**
+
+- Renamed seed exercises keep their mapping on current installs (id path).
+- Renamed legacy-install rows degrade safely to unmapped (never wrong data).
+- Sessions recorded before a backup/restore may show unmapped muscle detail
+  afterwards (old snapshot ids no longer resolve); new sessions are unaffected.
+- Future manual classification can layer a user override map on top without
+  touching the built-in catalog.
+
+---
+
+## D-026 - Muscle mappings are application metadata: schema stays v3 (Phase 2F, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Mappings could be persisted as a new exercise column (schema v4 +
+backup/restore changes) or kept as built-in application metadata.
+
+**Decision.** No migration. Built-in mappings are derived from the seed
+catalog at runtime (`muscleCatalog()` memoized in `src/data/analytics.ts`);
+exercises table, backup format v1 and schemaVersion 3 are unchanged. Persisted
+custom classifications (Exercise Editor muscle UI) are explicitly out of scope
+and reserved for a future phase.
+
+**Consequences.**
+
+- All 359 pre-2F tests remain untouched and green; migration tests unchanged.
+- Backup/restore and routine portability are unaffected.
+- Custom user mappings require a future schema/backup decision.
+
+---
+
+## D-027 - Heatmap counts resistance volume only, with integer conservation (Phase 2F, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Phase 2E established resistance (gram-reps) and duration (ms) as
+separate units; tonnage must never be fabricated from timed work.
+
+**Decision.** Muscle heatmap volume = completed resistance sets only
+(weight x reps, gram-reps). Timed/interval work (Plank, Wall Sit, Rowing
+Interval...) contributes no volume and is excluded from exercise/region counts;
+duration is never converted to kilograms. Per-set distribution across muscles
+uses largest-remainder integer allocation so region loads always sum exactly to
+the source load; region shares are integer basis points summing to exactly
+10000. Sets are attributed to every muscle an exercise engages (counts may
+overlap regions; only loads are conserved).
+
+**Consequences.**
+
+- Conservation is property-tested across awkward totals (1, 999997, ...).
+- Pure functions only - no DB/React imports in `src/analytics/muscles.ts`.
+
+---
+
+## D-028 - Local-calendar current/previous windows; chronic excludes current week (Phase 2F, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Trend comparisons need unambiguous, testable date windows that
+follow the app's local-calendar convention (spec section 16).
+
+**Decision.** `currentWindow(now, days)` = today + preceding (days-1) local
+calendar days (start local midnight, exclusive end = next local midnight);
+`previousWindow(now, days)` = the equally long window immediately before it
+(adjacent, no gap, no overlap). Current week = 7 days, current month-ish = 28
+days; the chronic baseline uses only `previousWindow(28)` and therefore never
+contains the current acute week. Session timestamps use endedAt ?? startedAt
+with half-open [start, end) membership.
+
+**Consequences.**
+
+- Boundary behavior (midnight edges, DST drift) is covered by tests.
+- All windows are reusable primitives; screens pass `Date.now()` once per
+  render.
+
+---
+
+## D-029 - Descriptive 7d / 28d load ratio without interpretation (Phase 2F, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** An ACWR-style ratio is requested as a math foundation, but any
+medical/risk framing (zones, colors, "injury risk", "overtraining") is out of
+scope.
+
+**Decision.** `calculateLoadRatio(current7, previous28, previous28Sessions)`
+returns status 'ok' | 'no_baseline' | 'zero_baseline' with ratio rounded to 2
+decimals: ratio = acute weekly load / (previous 28-day load / 4). No baseline
+sessions yield 'no_baseline' (insufficient baseline); baseline sessions
+without resistance load yield 'zero_baseline'; both render as explicit
+unavailable messages, never Infinity/NaN. UI label is the neutral "7d / 28d
+load ratio"; no risk zones, colors or advice.
+
+**Consequences.**
+
+- Ratio is a pure primitive - future phases can add presentation without
+  touching the math.
+- Hostile inputs (0, negative, NaN, Infinity) are property-tested to stay
+  finite or null.
+
+---
+
+## D-030 - Single normalized analytics snapshot + Phase 2F scope cuts (Phase 2F, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Load, trends and muscle screens must not run N+1 queries or
+per-muscle DB reads, and Phase 2F scope must stay bounded.
+
+**Decision.** `loadAnalyticsSnapshot(db)` performs a fixed number of batched
+queries (exercises, completed sessions, session_exercises, set_logs) and
+resolves muscle mapping once per step; screens feed the result into pure
+aggregations and render once (never on the 100ms timer tick). LoadScreen now
+uses this snapshot (same aggregate semantics as before). Cut order for 2F:
+(1) no SVG/chart libraries - structured grid with RN-native bars, (2) no
+4-week bar chart, (3) no persisted custom mapping / Exercise Editor muscle UI,
+(4) no History-detail muscle breakdown (session load card untouched), (5) no
+drill-down navigation stack - detail expands inline. **Never cut:** pure
+math, deterministic mapping, unmapped safety, window semantics, ratio edge
+cases, tests, backup compatibility, existing functionality.
+
+**Consequences.**
+
+- 68 new tests (427 total) cover mapping, conservation, windows, ratio edge
+  cases, loader data quality and UI/navigation.
+- Future phases can add history-detail breakdown or custom mappings as
+  additive work on top of the same snapshot.

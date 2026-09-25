@@ -105,14 +105,17 @@ export async function loadAnalyticsSnapshot(db: Database): Promise<AnalyticsSnap
           .query(Q.where('session_exercise_id', Q.oneOf(seRows.map((r) => r.id))))
           .fetch();
 
-  const logsByStep = new Map<string, SetLoadInput[]>();
+  const logsByStep = new Map<string, Array<{ round: number; setIndex: number; input: SetLoadInput }>>();
   for (const log of logs) {
     const sessionId = sessionBySeId.get(log.sessionExerciseId);
     if (!sessionId) continue;
     const key = `${sessionId}:${log.blockIndex}:${log.stepIndex}`;
     const list = logsByStep.get(key) ?? [];
-    list.push(toSetLoadInput(log));
+    list.push({ round: log.round, setIndex: log.setIndex, input: toSetLoadInput(log) });
     logsByStep.set(key, list);
+  }
+  for (const list of logsByStep.values()) {
+    list.sort((a, b) => a.round - b.round || a.setIndex - b.setIndex);
   }
 
   const catalog = muscleCatalog();
@@ -131,7 +134,8 @@ export async function loadAnalyticsSnapshot(db: Database): Promise<AnalyticsSnap
     for (const [blockIndex, block] of definition.blocks.entries()) {
       if (!Array.isArray(block?.steps)) continue;
       for (const [stepIndex, step] of block.steps.entries()) {
-        const stepSets = logsByStep.get(`${session.id}:${blockIndex}:${stepIndex}`) ?? [];
+        const stepSets =
+          logsByStep.get(`${session.id}:${blockIndex}:${stepIndex}`)?.map((entry) => entry.input) ?? [];
         if (stepSets.length === 0) continue;
 
         const row = step.exerciseId ? exerciseById.get(step.exerciseId) : undefined;
