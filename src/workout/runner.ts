@@ -29,13 +29,14 @@ async function clearSessionNotification(sessionId: string): Promise<void> {
 /**
  * Reconcile the local notification with the canonical cursor timer.
  * Called on load / app-resume / process-death recovery — never invents timer state.
+ * Paused timers hold no pending alert (expiresAt is rewritten on resume).
  */
 export async function reconcileTimerNotification(
   sessionId: string,
   timer: TimerState | null,
   now: number,
 ): Promise<void> {
-  if (!timer || timer.expiresAt <= now) {
+  if (!timer || timer.pausedAt != null || timer.expiresAt <= now) {
     await clearSessionNotification(sessionId);
     return;
   }
@@ -129,7 +130,8 @@ export async function discardWorkout(db: Database, rt: WorkoutRuntime): Promise<
   await actions.discardSession(rt.session);
 }
 
-/** Frozen rule: truth is cursor.timer.expiresAt; UI recomputes remaining from Date.now(). */
+/** Frozen rule: truth is cursor.timer.expiresAt; UI recomputes remaining from Date.now(). Paused timers never expire. */
 export function isTimerExpired(cursor: ExecutionCursor, now: number): boolean {
-  return cursor.timer !== null && cursor.timer.expiresAt <= now;
+  const t = cursor.timer;
+  return t !== null && t.pausedAt == null && t.expiresAt <= now;
 }

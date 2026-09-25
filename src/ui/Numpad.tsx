@@ -175,7 +175,7 @@ export function NumpadField({
       >
         <Text
           numberOfLines={1}
-          className={`flex-1 text-base font-semibold ${display === '' ? 'text-dim' : 'text-fg'}`}
+          className={`flex-1 font-mono text-metric ${display === '' ? 'text-dim' : 'text-fg'}`}
         >
           {display === '' ? '—' : display}
         </Text>

@@ -52,8 +52,24 @@ import {
   releaseTempoKeepAwake,
 } from '../../tempo/feedback';
 import { useNav } from '../navigation';
-import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, confirmDestructive } from '../components';
+import {
+  AppHeader,
+  Badge,
+  Button,
+  Card,
+  ErrorState,
+  LoadingState,
+  MetricCard,
+  Progress,
+  Screen,
+  SectionHeader,
+  confirmDestructive,
+} from '../components';
 import { Numpad, NumpadField } from '../Numpad';
+import { sessionProgress } from '../../workout/sessionProgress';
+import { loadSessionDetail } from '../../data/history';
+import { calculateSessionLoad, gramRepsToKgReps } from '../../analytics/load';
+import { formatCount } from '../../utils/units';
 import { TempoActiveCard, TempoReadyCard } from '../TempoTrainer';
 import { IntervalActiveCard, IntervalReadyCard } from '../IntervalTrainer';
 import {
@@ -72,6 +88,25 @@ const emptyInputs = (): NumpadInput => ({ weightKg: '', reps: '', durationS: '',
 
 /** Visual refresh for tempo countdown only — not a second authoritative timer. */
 const TEMPO_UI_TICK_MS = 100;
+
+/** Small prescription tile — training numbers stay scannable at a glance. */
+function TargetTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
+  return (
+    <View className="min-w-20 rounded-lg border border-line bg-bg px-3 py-2">
+      <Text className="text-overline uppercase text-dim">{label}</Text>
+      <View className="mt-0.5 flex-row items-baseline">
+        <Text className="font-mono text-metric text-fg">{value}</Text>
+        {unit ? <Text className="ml-1 text-caption text-dim">{unit}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+interface SessionSummary {
+  durationMs: number | null;
+  sets: number;
+  volumeGramReps: number;
+}
 
 const toPayload = (step: StepDef, input: NumpadInput): SetPayload => {
   const p = step.prescription;
@@ -149,6 +184,11 @@ export function WorkoutScreen() {
   const intervalRef = useRef<IntervalRuntime>(intervalRt);
   intervalRef.current = intervalRt;
   const persistIntervalRef = useRef<(next: IntervalRuntime) => void>(() => {});
+  // Completion micro-interaction: brief progress flash after a logged set.
+  const [flash, setFlash] = useState(false);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Completed-session summary (duration / sets / volume) for the save screen.
+  const [summary, setSummary] = useState<SessionSummary | null>(null);
 
   // RIR autoregulation — runtime ephemeral only (never mutates definition/snapshots).
   const [autoregEnabled, setAutoregEnabled] = useState(false);
@@ -184,12 +224,49 @@ export function WorkoutScreen() {
   }, [load]);
 
   // Reconcile notification whenever an active timer is loaded (covers process death).
+  // Paused timers reconcile to "no notification" (runner handles pausedAt).
   useEffect(() => {
     const c = rt?.cursor;
     if (!c || c.status !== 'active') return;
     void reconcileTimerNotification(rt.sessionId, c.timer, Date.now());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rt?.sessionId, rt?.cursor.timer?.expiresAt, rt?.cursor.status]);
+  }, [rt?.sessionId, rt?.cursor.timer?.expiresAt, rt?.cursor.timer?.pausedAt, rt?.cursor.status]);
+
+  // Completed view: one narrow load for duration / sets / volume summary.
+  useEffect(() => {
+    if (!completedView || !rt) return;
+    let cancelled = false;
+    loadSessionDetail(database, rt.sessionId)
+      .then((detail) => {
+        if (cancelled || !detail) return;
+        const load = calculateSessionLoad({
+          sessionId: detail.id,
+          name: detail.name,
+          startedAt: detail.startedAt,
+          endedAt: detail.endedAt,
+          exercises: detail.blocks.flatMap((b) =>
+            b.steps.map((s) => ({
+              exerciseName: s.exerciseName,
+              sets: s.logs.map((l) => ({
+                weightGrams: l.weightGrams,
+                reps: l.reps,
+                durationMs: l.durationMs,
+                isCompleted: true,
+              })),
+            })),
+          ),
+        });
+        setSummary({
+          durationMs: detail.durationMs,
+          sets: load.completedSetCount,
+          volumeGramReps: load.resistanceGramReps,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [completedView, rt?.sessionId]);
 
   // Reset actual inputs whenever the target set/step changes.
   const step = rt && rt.cursor.status === 'active' ? rt.definition.blocks[rt.cursor.blockIndex]?.steps[rt.cursor.stepIndex] : undefined;
@@ -287,11 +364,12 @@ export function WorkoutScreen() {
     return () => sub.remove();
   }, [applyTempoTick]);
 
-  // Unmount: never leak keep-awake or leave a running tempo/interval reference.
+  // Unmount: never leak keep-awake, flash timers or a running tempo/interval reference.
   useEffect(() => {
     return () => {
       releaseTempoKeepAwake();
       releaseIntervalKeepAwake();
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
     };
   }, []);
 
@@ -443,6 +521,7 @@ export function WorkoutScreen() {
   };
 
   // Timer: truth is cursor.timer.expiresAt. setTimeout only drives UI refresh / expiry event.
+  // Paused timers (cursor pausedAt) schedule nothing: the countdown is frozen at expiresAt − pausedAt.
   const applyRef = useRef<(event: EngineEvent) => Promise<void>>(async () => {});
   useEffect(() => {
     const c = rt?.cursor;
@@ -451,6 +530,7 @@ export function WorkoutScreen() {
       return;
     }
     timer.setFromCursor(c.timer);
+    if (c.timer.pausedAt != null) return;
     if (isTimerExpired(c, Date.now())) {
       applyRef.current({ type: 'TIMER_EXPIRE', now: Date.now() });
       return;
@@ -465,7 +545,7 @@ export function WorkoutScreen() {
       clearInterval(tick);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rt?.cursor.timer?.expiresAt, rt?.cursor.timer?.kind, rt?.cursor.status]);
+  }, [rt?.cursor.timer?.expiresAt, rt?.cursor.timer?.kind, rt?.cursor.timer?.pausedAt, rt?.cursor.status]);
 
   // Background/resume: re-read persisted cursor (A2–A4). Never trust in-memory UI state.
   const reloadForResume = useCallback(async () => {
@@ -528,6 +608,12 @@ export function WorkoutScreen() {
         }
         const next = await applyWorkoutEvent(database, current, event);
         setRt(next);
+        if (event.type === 'COMPLETE_SET') {
+          // Micro-interaction: short progress flash (interruptible, no loop).
+          setFlash(true);
+          if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+          flashTimerRef.current = setTimeout(() => setFlash(false), 450);
+        }
         if (next.cursor.status === 'completed') {
           setCompletedView(true);
           timer.clear();
@@ -596,6 +682,35 @@ export function WorkoutScreen() {
     if (!rt) return;
     if (rt.cursor.timer) void apply({ type: 'SKIP_TIMER', now: Date.now() });
     else void apply({ type: 'SKIP_STEP', now: Date.now() });
+  };
+
+  /**
+   * Pause / resume the rest timer as an application-layer write to the canonical
+   * cursor (same pattern as interval persistence). Pause freezes remaining =
+   * expiresAt − pausedAt; resume rewrites expiresAt = now + remaining. No second
+   * timer source of truth is introduced.
+   */
+  const onPauseResume = () => {
+    const current = rtRef.current;
+    const t = current?.cursor.timer;
+    if (!current || !t || current.cursor.status !== 'active') return;
+    const now = Date.now();
+    const nextTimer =
+      t.pausedAt != null
+        ? { ...t, expiresAt: now + Math.max(0, t.expiresAt - t.pausedAt), pausedAt: null }
+        : { ...t, pausedAt: now };
+    const cursor = { ...current.cursor, timer: nextTimer };
+    void current.session
+      .update((rec) => {
+        rec.cursorJson = JSON.stringify(cursor);
+        rec.updatedAt = now;
+      })
+      .then(() => reconcileTimerNotification(current.sessionId, cursor.timer, now))
+      .catch(() => {
+        // fail-soft: reload on next resume reconciles the canonical cursor
+      });
+    rtRef.current = { ...current, cursor };
+    setRt((prev) => (prev && prev.sessionId === current.sessionId ? { ...prev, cursor } : prev));
   };
 
   const onUndo = () => {
@@ -694,14 +809,36 @@ export function WorkoutScreen() {
   const intervalSpec: IntervalSpec | null =
     cursor.status === 'active' && block?.kind === 'interval' && block.interval ? block.interval : null;
   const showInterval = !!intervalSpec && !hasTimer && hasActiveInterval(intervalSpec);
+  const progress = sessionProgress(definition, cursor);
+  const timerRemainingMs = hasTimer && cursor.timer
+    ? cursor.timer.pausedAt != null
+      ? Math.max(0, cursor.timer.expiresAt - cursor.timer.pausedAt)
+      : timer.remainingMs || Math.max(0, cursor.timer.expiresAt - Date.now())
+    : 0;
 
   if (completedView || cursor.status === 'completed') {
     return (
       <Screen>
         <AppHeader title={definition.name} />
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-2xl font-bold text-fg">{strings.workout.sessionSaved}</Text>
-          <Text className="mt-2 text-sm text-dim">{definition.name}</Text>
+          <Text className="text-overline uppercase text-accent-ink">{strings.workout.summary}</Text>
+          <Text className="mt-1.5 text-title text-fg">{strings.workout.sessionSaved}</Text>
+          <Text className="mt-1 text-caption text-dim">{definition.name}</Text>
+          <View className="mt-6 w-full flex-row gap-2">
+            <MetricCard
+              size="sm"
+              label={strings.history.duration}
+              value={summary ? String(Math.round((summary.durationMs ?? 0) / 60000)) : '—'}
+              unit={strings.home.weekTimeUnit}
+            />
+            <MetricCard size="sm" label={strings.workout.setsCompleted} value={summary ? String(summary.sets) : '—'} />
+            <MetricCard
+              size="sm"
+              label={strings.history.volume}
+              value={summary ? formatCount(gramRepsToKgReps(summary.volumeGramReps)) : '—'}
+              unit={strings.load.kgReps}
+            />
+          </View>
           <View className="mt-8 w-full max-w-sm">
             <Button
               label={strings.common.done}
@@ -729,44 +866,103 @@ export function WorkoutScreen() {
         <ScrollView contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
         <View className="px-4 pt-4">
           <View className="flex-row items-center justify-between">
-            <Text className="text-sm text-dim">
+            <Text className="text-overline uppercase text-dim" numberOfLines={1}>
               {strings.workout.block} {cursor.blockIndex + 1}/{definition.blocks.length}
               {block ? ` · ${block.name}` : ''}
             </Text>
-            <Text className="text-sm text-dim">
-              {strings.workout.round} {cursor.round}/{block?.rounds ?? 1}
-            </Text>
+            <Badge
+              label={`${strings.workout.round} ${cursor.round}/${block?.rounds ?? 1}`}
+              tone="neutral"
+            />
           </View>
-          <Text className="mt-1 text-sm text-dim">
-            {strings.workout.set} {Math.min(cursor.setIndex, targetSets)} {strings.workout.of} {targetSets}
-          </Text>
+          <View
+            className={`mt-2 rounded-lg border px-2 py-2 ${flash ? 'border-accent bg-accent/10' : 'border-transparent bg-transparent'}`}
+          >
+            <Progress
+              value={progress.ratio}
+              label={`${progress.doneSets} of ${progress.totalSets} ${strings.workout.plannedSets}`}
+              testID="session-progress"
+            />
+            <View className="mt-1.5 flex-row items-center justify-between">
+              <Text className="font-mono text-body text-fg">
+                {strings.workout.set} {Math.min(cursor.setIndex, targetSets)} {strings.workout.of} {targetSets}
+              </Text>
+              <Text className="text-caption text-dim">
+                {progress.doneSets}/{progress.totalSets} {strings.workout.plannedSets}
+              </Text>
+            </View>
+          </View>
         </View>
 
         {hasTimer && cursor.timer ? (
           <View className="mt-6 px-4">
-            <Card>
-              <Text className="text-xs font-semibold uppercase tracking-wider text-accent-ink">
-                {cursor.timer.kind === 'rest' ? strings.timer.rest : strings.timer.autoAdvance}
+            <Card tone="accent">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-overline uppercase text-accent-ink">
+                  {cursor.timer.kind === 'rest' ? strings.timer.rest : strings.timer.autoAdvance}
+                </Text>
+                {cursor.timer.pausedAt != null ? <Badge label={strings.workout.paused} tone="strong" /> : null}
+              </View>
+              <Text className="mt-1.5 font-mono text-metric-xl text-fg">
+                {formatCountdown(timerRemainingMs)}
               </Text>
-              <Text className="mt-2 font-mono text-5xl font-bold text-fg">
-                {formatCountdown(timer.remainingMs || Math.max(0, cursor.timer.expiresAt - Date.now()))}
-              </Text>
-              <Text className="mt-2 text-sm text-dim">
-                {(() => {
-                  const t = definition.blocks[cursor.timer.target.blockIndex]?.steps[cursor.timer.target.stepIndex];
-                  return t ? `${strings.workout.next}: ${t.exerciseName}` : strings.workout.next;
-                })()}
-              </Text>
-              <View className="mt-4">
-                <Button label={strings.workout.skipRest} variant="secondary" onPress={onSkip} disabled={busy} />
+              <View className="mt-2.5">
+                <Progress
+                  value={cursor.timer.durationMs > 0 ? Math.max(0, Math.min(1, timerRemainingMs / cursor.timer.durationMs)) : 0}
+                  label={`${formatCountdown(timerRemainingMs)} ${cursor.timer.kind === 'rest' ? strings.timer.rest : strings.timer.autoAdvance}`}
+                  testID="rest-progress"
+                />
+              </View>
+              {(() => {
+                const t = definition.blocks[cursor.timer.target.blockIndex]?.steps[cursor.timer.target.stepIndex];
+                if (!t) {
+                  return <Text className="mt-3 text-caption text-dim">{strings.workout.next}</Text>;
+                }
+                const p = t.prescription;
+                const parts: string[] = [];
+                if (p.targetSets !== null) parts.push(`${p.targetSets} ×`);
+                if (p.targetRepsMin !== null) {
+                  parts.push(`${p.targetRepsMin}${p.targetRepsMax !== null ? `–${p.targetRepsMax}` : ''}`);
+                }
+                if (p.targetWeightGrams !== null) parts.push(`@ ${formatKg(p.targetWeightGrams)} ${strings.workout.weight}`);
+                if (p.targetDurationMs !== null) parts.push(`${Math.round(p.targetDurationMs / 1000)}${strings.units.seconds}`);
+                return (
+                  <View className="mt-3 rounded-lg border border-line bg-bg px-3 py-2">
+                    <Text className="text-overline uppercase text-dim" numberOfLines={1}>
+                      {strings.workout.nextUp}: {t.exerciseName}
+                    </Text>
+                    {parts.length > 0 ? (
+                      <Text className="mt-0.5 font-mono text-body text-fg">{parts.join(' ')}</Text>
+                    ) : null}
+                  </View>
+                );
+              })()}
+              <View className="mt-4 flex-row gap-2">
+                <Button
+                  label={cursor.timer.pausedAt != null ? strings.workout.resume : strings.workout.pause}
+                  variant="secondary"
+                  onPress={onPauseResume}
+                  disabled={busy}
+                  className="flex-1"
+                />
+                <Button label={strings.workout.skipRest} variant="secondary" onPress={onSkip} disabled={busy} className="flex-1" />
               </View>
             </Card>
           </View>
-        ) : currentStep ? (
+          ) : currentStep ? (
           <View className="mt-6 px-4">
-            <Card>
-              <Text className="text-2xl font-bold text-fg">{currentStep.exerciseName || strings.common.none}</Text>
-              <Text className="mt-1 text-sm text-dim">{block?.name}</Text>
+            <Card tone={flash ? 'accent' : 'default'}>
+              <View className="flex-row items-start justify-between gap-2">
+                <View className="flex-1">
+                  <Text className="text-title text-fg">{currentStep.exerciseName || strings.common.none}</Text>
+                  <Text className="mt-0.5 text-caption text-dim">{block?.name}</Text>
+                </View>
+                <View className="flex-row gap-1.5">
+                  {block && block.kind !== 'normal' ? (
+                    <Badge label={strings.routines.blockKind[block.kind]} tone="accent" />
+                  ) : null}
+                </View>
+              </View>
 
               {showInterval && intervalSpec ? (
                 <View className="mt-4">
@@ -797,34 +993,37 @@ export function WorkoutScreen() {
               <SectionHeader title={strings.workout.target} />
               <View className="flex-row flex-wrap gap-2">
                 {currentStep.prescription.targetSets !== null ? (
-                  <Text className="text-sm text-dim">
-                    {strings.routines.prescription.sets}: {currentStep.prescription.targetSets}
-                  </Text>
+                  <TargetTile
+                    label={strings.routines.prescription.sets}
+                    value={String(currentStep.prescription.targetSets)}
+                  />
                 ) : null}
                 {currentStep.prescription.targetRepsMin !== null ? (
-                  <Text className="text-sm text-dim">
-                    {strings.routines.prescription.reps}: {currentStep.prescription.targetRepsMin}
-                    {currentStep.prescription.targetRepsMax !== null ? `–${currentStep.prescription.targetRepsMax}` : ''}
-                  </Text>
+                  <TargetTile
+                    label={strings.routines.prescription.reps}
+                    value={`${currentStep.prescription.targetRepsMin}${
+                      currentStep.prescription.targetRepsMax !== null ? `–${currentStep.prescription.targetRepsMax}` : ''
+                    }`}
+                  />
                 ) : null}
                 {currentStep.prescription.targetWeightGrams !== null ? (
-                  <Text className="text-sm text-dim">
-                    {strings.routines.prescription.weight}: {formatKg(currentStep.prescription.targetWeightGrams)}
-                  </Text>
+                  <TargetTile
+                    label={strings.exercises.metricWeight}
+                    value={formatKg(currentStep.prescription.targetWeightGrams)}
+                    unit={strings.workout.weight}
+                  />
                 ) : null}
                 {currentStep.prescription.targetDurationMs !== null ? (
-                  <Text className="text-sm text-dim">
-                    {strings.routines.prescription.duration}: {Math.round(currentStep.prescription.targetDurationMs / 1000)}s
-                  </Text>
+                  <TargetTile
+                    label={strings.exercises.metricDuration}
+                    value={String(Math.round(currentStep.prescription.targetDurationMs / 1000))}
+                    unit={strings.units.seconds}
+                  />
                 ) : null}
                 {currentStep.prescription.targetRir !== null ? (
-                  <Text className="text-sm text-dim">
-                    {strings.workout.rir}: {currentStep.prescription.targetRir}
-                  </Text>
+                  <TargetTile label={strings.workout.rir} value={String(currentStep.prescription.targetRir)} />
                 ) : null}
-                <Text className="text-sm text-dim">
-                  {strings.workout.tempo}: {formatTempo(currentStep.prescription.tempo)}
-                </Text>
+                <TargetTile label={strings.workout.tempo} value={formatTempo(currentStep.prescription.tempo)} />
               </View>
 
               {currentStep.prescription.targetRir !== null ? (

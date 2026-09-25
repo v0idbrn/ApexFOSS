@@ -77,6 +77,13 @@ export interface TimerState {
   expiresAt: number;
   /** Position the cursor jumps to when the timer expires / is skipped. */
   target: CursorPosition;
+  /**
+   * Application-layer pause marker (Phase 2J): when set, the countdown is
+   * frozen and remaining = expiresAt − pausedAt. expiresAt remains the single
+   * expiry source of truth; resume rewrites it to now + remaining and clears
+   * this field. Absent/null = running (engine-produced timers never set it).
+   */
+  pausedAt?: number | null;
 }
 
 export interface ReversibleSet {

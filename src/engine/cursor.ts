@@ -19,6 +19,12 @@ export function parseCursor(json: string): ExecutionCursor {
   if (typeof cursor.blockIndex !== 'number' || typeof cursor.round !== 'number' || typeof cursor.setIndex !== 'number') {
     throw new Error('corrupt cursor_json');
   }
+  // Timer pause marker is optional; drop malformed payloads rather than crash.
+  if (cursor.timer && (typeof cursor.timer.pausedAt !== 'number' || !Number.isFinite(cursor.timer.pausedAt))) {
+    if (cursor.timer.pausedAt !== null && cursor.timer.pausedAt !== undefined) {
+      cursor.timer.pausedAt = null;
+    }
+  }
   // Interval runtime is optional; discard malformed payloads rather than crash.
   if (cursor.interval && typeof cursor.interval !== 'object') {
     cursor.interval = null;
