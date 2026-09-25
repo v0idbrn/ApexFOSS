@@ -11,6 +11,7 @@ import { ExerciseListScreen } from './src/ui/screens/ExerciseListScreen';
 import { ExerciseEditorScreen } from './src/ui/screens/ExerciseEditorScreen';
 import { RoutineListScreen } from './src/ui/screens/RoutineListScreen';
 import { RoutineEditorScreen } from './src/ui/screens/RoutineEditorScreen';
+import { RoutinePreviewScreen } from './src/ui/screens/RoutinePreviewScreen';
 import { WorkoutScreen } from './src/ui/screens/WorkoutScreen';
 import { HistoryListScreen } from './src/ui/screens/HistoryListScreen';
 import { HistoryDetailScreen } from './src/ui/screens/HistoryDetailScreen';
@@ -37,6 +38,8 @@ function renderRoute(route: Route) {
       return <RoutineListScreen />;
     case 'routineEditor':
       return <RoutineEditorScreen routineId={route.routineId} />;
+    case 'routinePreview':
+      return <RoutinePreviewScreen draft={route.draft} />;
     case 'workout':
       return <WorkoutScreen />;
     case 'history':

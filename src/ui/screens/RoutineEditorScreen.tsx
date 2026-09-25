@@ -31,7 +31,7 @@ const TRANSITIONS: { type: TransitionType; label: string }[] = [
 ];
 
 export function RoutineEditorScreen({ routineId }: { routineId: string | null }) {
-  const { pop, setBackInterceptor } = useNav();
+  const { pop, push, setBackInterceptor } = useNav();
   const [draft, setDraft] = useState<RoutineDraft>(() => emptyDraft());
   const [loading, setLoading] = useState(routineId !== null);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +106,15 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
   };
 
   const update = (fn: (d: RoutineDraft) => RoutineDraft) => setDraft((d) => fn(clone(d)));
+
+  const preview = () => {
+    const name = draft.name.trim();
+    if (!name) {
+      setNameError(strings.routines.nameRequired);
+      return;
+    }
+    push({ name: 'routinePreview', draft: { ...draft, name } });
+  };
 
   const addBlock = () =>
     update((d) => ({
@@ -211,15 +220,26 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
         title={routineId ? draft.name || strings.routines.editTitle : strings.routines.newRoutine}
         onBack={requestClose}
         right={
-          <Text
-            accessibilityRole="button"
-            accessibilityLabel={strings.common.save}
-            onPress={save}
-            className="flex-row items-center px-4 text-base font-semibold text-accent-ink"
-            style={{ minHeight: 48 }}
-          >
-            {saving ? strings.common.saving : strings.common.save}
-          </Text>
+          <View className="flex-row items-center">
+            <Text
+              accessibilityRole="button"
+              accessibilityLabel={strings.preview.open}
+              onPress={preview}
+              className="flex-row items-center px-3 text-base font-semibold text-dim"
+              style={{ minHeight: 48 }}
+            >
+              {strings.preview.open}
+            </Text>
+            <Text
+              accessibilityRole="button"
+              accessibilityLabel={strings.common.save}
+              onPress={save}
+              className="flex-row items-center px-4 text-base font-semibold text-accent-ink"
+              style={{ minHeight: 48 }}
+            >
+              {saving ? strings.common.saving : strings.common.save}
+            </Text>
+          </View>
         }
       />
       <ScrollView contentContainerClassName="gap-4 p-4 pb-12" keyboardShouldPersistTaps="handled">

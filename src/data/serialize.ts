@@ -1,6 +1,7 @@
 import { Database, Q } from '@nozbe/watermelondb';
 import { Routine, RoutineBlock, RoutineBlockStep, Prescription, BlockTransition, WorkoutSession } from './models';
 import { RoutineDefinition, ExecutionCursor, IntervalSpec } from '../types/engine';
+import type { RoutineDraft } from '../types/draft';
 import { parseCursor } from '../engine/cursor';
 
 function parseIntervalJson(raw: string | null): IntervalSpec | null {
@@ -22,6 +23,52 @@ function parseIntervalJson(raw: string | null): IntervalSpec | null {
 }
 
 /** Snapshot (§11): the executed definition is frozen at session start. */
+
+/**
+ * Pure draft → definition conversion (Phase 2J §14) mirroring exactly what
+ * saveRoutineDraft persists (rounds clamps, transition delays, work roles) so
+ * the routine preview simulates the editor's current state with the real engine.
+ */
+export function definitionFromDraft(draft: RoutineDraft): RoutineDefinition {
+  const name = draft.name.trim();
+  return {
+    id: draft.id ?? 'draft-preview',
+    name: name || 'Untitled',
+    blocks: draft.blocks.map((b, bi) => ({
+      id: b.localId,
+      name: b.name.trim() || `Block ${bi + 1}`,
+      kind: b.kind,
+      rounds: b.kind === 'interval' ? 1 : Math.max(1, Math.round(b.rounds || 1)),
+      steps: b.steps.map((s) => ({
+        id: s.localId,
+        role: 'work' as const,
+        exerciseId: s.exerciseId,
+        exerciseName: s.exerciseName,
+        prescription: {
+          targetSets: s.prescription.targetSets,
+          targetRepsMin: s.prescription.targetRepsMin,
+          targetRepsMax: s.prescription.targetRepsMax,
+          targetDurationMs: s.prescription.targetDurationMs,
+          targetWeightGrams: s.prescription.targetWeightGrams,
+          targetRir: s.prescription.targetRir,
+          tempo: {
+            eccentricMs: s.prescription.tempo.eccentricMs,
+            pauseBottomMs: s.prescription.tempo.pauseBottomMs,
+            concentricMs: s.prescription.tempo.concentricMs,
+            pauseTopMs: s.prescription.tempo.pauseTopMs,
+          },
+        },
+      })),
+      transitions: b.steps.map((s) => ({
+        fromStepId: s.localId,
+        toStepId: null,
+        delayMs: s.transition.type === 'immediate' ? 0 : Math.max(0, Math.round(s.transition.delayMs)),
+        type: s.transition.type,
+      })),
+      interval: b.kind === 'interval' ? b.interval ?? null : null,
+    })),
+  };
+}
 
 export async function serializeRoutine(db: Database, routine: Routine): Promise<RoutineDefinition> {
   const blocks = await db

@@ -1,5 +1,6 @@
 import { BackHandler } from 'react-native';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { RoutineDraft } from '../types/draft';
 
 /**
  * Minimal stack navigator (Day 2). No navigation framework dependency —
@@ -12,6 +13,7 @@ export type Route =
   | { name: 'exerciseEditor'; exerciseId: string | null }
   | { name: 'routines' }
   | { name: 'routineEditor'; routineId: string | null }
+  | { name: 'routinePreview'; draft: RoutineDraft }
   | { name: 'workout' }
   | { name: 'history' }
   | { name: 'historyDetail'; sessionId: string }
