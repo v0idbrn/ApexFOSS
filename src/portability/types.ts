@@ -182,3 +182,15 @@ export interface ApexBackup {
 
 /** Compact payload size ceiling for single QR / deep-link transport (bytes of UTF-8). */
 export const MAX_PORTABLE_PAYLOAD_BYTES = 2000;
+
+/**
+ * Hard ceilings for pasted TEXT inputs (spec sections 9/10/12).
+ * Checked before JSON.parse so hostile multi-MB pastes are rejected
+ * without allocating the parsed object. See D-036.
+ * - Routine JSON: structural maxima allow pathological packages, but any
+ *   realistic routine (hundreds of steps) is far below 5 MB.
+ * - Backup JSON: ~2 KB per session row pair; 32 MB covers very large
+ *   histories while bounding JSON.parse memory on low-RAM devices.
+ */
+export const MAX_ROUTINE_JSON_BYTES = 5_000_000;
+export const MAX_BACKUP_JSON_BYTES = 33_554_432;

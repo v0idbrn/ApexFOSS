@@ -9,8 +9,8 @@ import type {
   PortableExercise,
   PortableRoutine,
 } from './types';
-import { BACKUP_FORMAT, BACKUP_FORMAT_VERSION, PortabilityError } from './types';
-import { canonicalJson, semanticChecksum } from './canonical';
+import { BACKUP_FORMAT, MAX_BACKUP_JSON_BYTES, BACKUP_FORMAT_VERSION, PortabilityError } from './types';
+import { canonicalJson, semanticChecksum, utf8ByteLength } from './canonical';
 import { schemaVersion } from '../data/schema';
 
 const APP_VERSION = '0.1.0';
@@ -230,6 +230,9 @@ export function serializeBackup(backup: ApexBackup): string {
 }
 
 export function parseBackup(json: string): ApexBackup {
+  if (utf8ByteLength(json) > MAX_BACKUP_JSON_BYTES) {
+    throw new PortabilityError('too_large');
+  }
   let raw: unknown;
   try {
     raw = JSON.parse(json);

@@ -12,7 +12,7 @@ import {
 } from '../../portability/routinePackage';
 import { previewRoutineImport, importRoutinePackage } from '../../portability/importRoutine';
 import { createBackup, restoreBackup, parseBackup, backupSummary } from '../../portability/backup';
-import { buildImportDeepLink, decodeRoutineTransport } from '../../portability/encoding';
+import { buildImportDeepLink, decodeRoutineTransport, parseImportDeepLink } from '../../portability/encoding';
 import { fitsQr, encodeQr } from '../../portability/qr';
 import { takePendingDeepLink } from '../../portability/pendingDeepLink';
 import { QrGrid } from '../QrGrid';
@@ -97,9 +97,9 @@ export function PortabilityScreen() {
     try {
       let json = text;
       if (text.startsWith('apexfoss://')) {
-        const m = /[?&]d=([A-Za-z0-9_-]+)/.exec(text);
-        if (!m) throw new Error(strings.portability.invalidPayload);
-        json = serializeRoutinePackage(decodeRoutineTransport(m[1]));
+        const parsed = parseImportDeepLink(text);
+        if (!parsed.ok) throw new Error(strings.portability.invalidPayload);
+        json = serializeRoutinePackage(decodeRoutineTransport(parsed.encoded));
       }
       parseRoutinePackage(json);
       const preview = await previewRoutineImport(database, json);
@@ -192,7 +192,7 @@ export function PortabilityScreen() {
       <AppHeader title={strings.portability.title} onBack={pop} />
       <ScrollView keyboardShouldPersistTaps="handled" className="flex-1 px-4 pb-8">
         <Text className="mt-3 text-sm text-dim">{strings.portability.subtitle}</Text>
-        {status ? <Text className="mt-2 text-sm text-accent">{status}</Text> : null}
+        {status ? <Text className="mt-2 text-sm text-accent-ink">{status}</Text> : null}
 
         <SectionHeader title={strings.portability.exportRoutine} />
         <Card>

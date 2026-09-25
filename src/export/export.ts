@@ -31,7 +31,15 @@ export const CSV_HEADER = [
 
 function escapeCsvField(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '';
-  const s = String(value);
+  let s = String(value);
+  // Spreadsheet formula-injection guard (SECURITY_AUDIT, spec section 13):
+  // exercise/routine names can arrive from imported packages, so a leading
+  // =, +, @, tab or CR (or a minus that is not a number) is prefixed with
+  // an apostrophe, which Excel/Sheets render as literal text. Numeric
+  // negatives are left untouched to keep numeric columns numeric.
+  if (/^[=+@\t\r]/.test(s) || /^-(?![\d.])/.test(s)) {
+    s = `'${s}`;
+  }
   if (/[",\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }

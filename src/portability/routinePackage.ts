@@ -7,8 +7,8 @@ import type {
   PortableRoutine,
   PortableStep,
 } from './types';
-import { ROUTINE_FORMAT, ROUTINE_FORMAT_VERSION, PortabilityError } from './types';
-import { canonicalJson, semanticChecksum } from './canonical';
+import { MAX_ROUTINE_JSON_BYTES, ROUTINE_FORMAT, ROUTINE_FORMAT_VERSION, PortabilityError } from './types';
+import { canonicalJson, semanticChecksum, utf8ByteLength } from './canonical';
 import { validateRoutinePackage } from './validate';
 import { makeDbActions } from '../data/actions';
 
@@ -191,9 +191,13 @@ export function serializeRoutinePackage(pkg: ApexRoutinePackage): string {
 
 /**
  * Parse untrusted routine package JSON.
+ * Size ceiling is enforced BEFORE JSON.parse (hostile paste DoS guard).
  * Throws PortabilityError — never partially trusts input.
  */
 export function parseRoutinePackage(json: string): ApexRoutinePackage {
+  if (utf8ByteLength(json) > MAX_ROUTINE_JSON_BYTES) {
+    throw new PortabilityError('too_large');
+  }
   let raw: unknown;
   try {
     raw = JSON.parse(json);
