@@ -57,6 +57,7 @@ import {
   Badge,
   Button,
   Card,
+  EmptyState,
   ErrorState,
   LoadingState,
   MetricCard,
@@ -1159,9 +1160,7 @@ export function WorkoutScreen() {
           </View>
         ) : (
           <View className="mt-6 px-4">
-            <Card>
-              <Text className="text-base text-dim">{strings.workout.emptyRoutine}</Text>
-            </Card>
+            <EmptyState message={strings.workout.emptyRoutine} />
           </View>
         )}
 

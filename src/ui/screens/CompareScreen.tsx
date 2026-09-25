@@ -12,6 +12,7 @@ import {
 } from '../../analytics/compare';
 import { useNav } from '../navigation';
 import { AppHeader, Badge, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
+import { Enter } from '../motion';
 
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -196,6 +197,7 @@ export function CompareScreen({ sessionId }: { sessionId: string }) {
   return (
     <Screen>
       <AppHeader title={strings.compare.title} onBack={pop} />
+      <Enter className="flex-1">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 pt-4">
           <Card>
@@ -246,6 +248,7 @@ export function CompareScreen({ sessionId }: { sessionId: string }) {
           </View>
         </View>
       </ScrollView>
+      </Enter>
     </Screen>
   );
 }

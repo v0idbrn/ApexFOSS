@@ -7,6 +7,7 @@ import { simulateRoutine, type SimulationResult } from '../../engine/simulator';
 import type { RoutineDraft } from '../../types/draft';
 import { useNav } from '../navigation';
 import { AppHeader, Badge, Card, EmptyState, MetricCard, Screen, SectionHeader } from '../components';
+import { Enter } from '../motion';
 
 function issueKey(issue: IntegrityIssue, index: number): string {
   return `${issue.code}-${issue.blockId ?? ''}-${issue.stepId ?? ''}-${index}`;
@@ -51,6 +52,7 @@ export function RoutinePreviewScreen({ draft }: { draft: RoutineDraft }) {
   return (
     <Screen>
       <AppHeader title={strings.preview.title} onBack={pop} />
+      <Enter className="flex-1">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 pt-4">
           <Text className="text-caption text-dim">{strings.preview.how}</Text>
@@ -127,6 +129,7 @@ export function RoutinePreviewScreen({ draft }: { draft: RoutineDraft }) {
           </View>
         </View>
       </ScrollView>
+      </Enter>
     </Screen>
   );
 }

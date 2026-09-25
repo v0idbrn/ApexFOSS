@@ -6,6 +6,7 @@ import { collectCompletedDetails, reportExportError, shareCsvExport, shareJsonEx
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
 import { AppHeader, Button, EmptyState, ErrorState, ListRow, LoadingState, Screen } from '../components';
+import { Enter } from '../motion';
 
 function formatWhen(startedAt: number): string {
   try {
@@ -77,6 +78,7 @@ export function HistoryListScreen() {
   return (
     <Screen>
       <AppHeader title={strings.history.title} onBack={pop} />
+      <Enter className="flex-1">
       {loading ? (
         <LoadingState />
       ) : error ? (
@@ -97,6 +99,7 @@ export function HistoryListScreen() {
           )}
         />
       )}
+      </Enter>
       {rows.length > 0 && !loading && !error ? (
         <View className="border-t border-line px-4 py-2">
           <Text className="mb-2 text-xs text-dim">

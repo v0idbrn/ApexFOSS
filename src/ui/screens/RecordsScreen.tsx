@@ -7,6 +7,7 @@ import { formatKg, mmToM } from '../../utils/units';
 import { exercisePrs, prHistory, type ExercisePr, type PrEvent, type PrMetric } from '../../analytics/records';
 import { useNav } from '../navigation';
 import { AppHeader, Badge, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
+import { Enter } from '../motion';
 
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -167,6 +168,7 @@ export function RecordsScreen() {
   return (
     <Screen>
       <AppHeader title={strings.records.title} onBack={pop} />
+      <Enter className="flex-1">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         {prs.length === 0 ? (
           <View className="px-4 pt-8">
@@ -189,6 +191,7 @@ export function RecordsScreen() {
           </View>
         )}
       </ScrollView>
+      </Enter>
     </Screen>
   );
 }

@@ -8,6 +8,7 @@ import { formatKg } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps, msToSeconds } from '../../analytics/load';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, TextField } from '../components';
+import { Enter } from '../motion';
 
 function formatWhen(ts: number): string {
   try {
@@ -158,6 +159,7 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
   return (
     <Screen>
       <AppHeader title={detail.name} onBack={pop} />
+      <Enter className="flex-1">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 pt-4">
           <Card>
@@ -255,6 +257,7 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
           </View>
         ))}
       </ScrollView>
+      </Enter>
     </Screen>
   );
 }

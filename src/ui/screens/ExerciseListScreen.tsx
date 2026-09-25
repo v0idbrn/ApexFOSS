@@ -7,6 +7,7 @@ import { MetricFlag, type ExerciseMeta } from '../../types';
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
 import { AppHeader, EmptyState, ErrorState, HeaderButton, ListRow, LoadingState, Screen, TextField, confirmDestructive } from '../components';
+import { Enter } from '../motion';
 
 function metricSummary(flags: number): string {
   const parts: string[] = [];
@@ -86,6 +87,7 @@ export function ExerciseListScreen() {
           returnKeyType="search"
         />
       </View>
+      <Enter className="flex-1">
       {loading ? (
         <LoadingState />
       ) : error ? (
@@ -133,6 +135,7 @@ export function ExerciseListScreen() {
           )}
         />
       )}
+      </Enter>
     </Screen>
   );
 }

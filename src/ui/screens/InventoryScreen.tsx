@@ -7,6 +7,7 @@ import { solveLoadInventory, type InventorySolveResult, type LoadItem } from '..
 import { kgToGrams, gramsToKg } from '../../utils/units';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, Screen, SectionHeader, TextField } from '../components';
+import { Enter } from '../motion';
 
 interface DraftItem {
   id: string | null;
@@ -133,6 +134,7 @@ export function InventoryScreen() {
   return (
     <Screen>
       <AppHeader title={strings.inventory.title} onBack={pop} />
+      <Enter className="flex-1">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 pt-4">
           <Card>
@@ -255,6 +257,7 @@ export function InventoryScreen() {
           ) : null}
         </View>
       </ScrollView>
+      </Enter>
     </Screen>
   );
 }

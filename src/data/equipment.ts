@@ -61,6 +61,18 @@ function rowToItem(row: any): EquipmentItem {
   };
 }
 
+/**
+ * Strictly monotonic created_at for batch creates: two rows created in the
+ * same millisecond would otherwise tie in loadEquipmentItems and fall back to
+ * id order (random), breaking input-order determinism within one replace call.
+ */
+let lastCreatedAt = 0;
+function nextCreatedAt(): number {
+  const t = Date.now();
+  lastCreatedAt = t > lastCreatedAt ? t : lastCreatedAt + 1;
+  return lastCreatedAt;
+}
+
 export async function loadEquipmentItems(db: Database): Promise<EquipmentItem[]> {
   const rows = await db.get<any>('equipment_items').query(Q.sortBy('created_at', 'asc')).fetch();
   const byCreated = new Map(rows.map((r: any) => [r.id, r.createdAt as number]));
@@ -114,7 +126,7 @@ export async function replaceEquipmentItems(
           rec.weightGrams = value.weightGrams;
           rec.quantity = value.quantity;
           rec.perSide = value.perSide ? 1 : 0;
-          rec.createdAt = Date.now();
+          rec.createdAt = nextCreatedAt();
           rec.updatedAt = Date.now();
         });
       }

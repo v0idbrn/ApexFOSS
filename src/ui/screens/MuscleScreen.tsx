@@ -11,7 +11,8 @@ import {
 } from '../../analytics/muscles';
 import { dateRange, gramRepsToKgReps, type DateRangeKind } from '../../analytics/load';
 import { useNav } from '../navigation';
-import { AppHeader, Card, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
+import { AppHeader, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
+import { Enter } from '../motion';
 
 const RANGES: DateRangeKind[] = ['7d', '28d'];
 
@@ -91,6 +92,7 @@ export function MuscleScreen() {
   return (
     <Screen>
       <AppHeader title={strings.muscles.title} onBack={pop} />
+      <Enter className="flex-1">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="flex-row gap-2 px-4 pt-4">
           {RANGES.map((r) => (
@@ -132,7 +134,7 @@ export function MuscleScreen() {
 
         {empty || heatmap.regions.length === 0 ? (
           <View className="px-4 pt-6">
-            <Text className="text-center text-sm text-dim">{strings.muscles.noData}</Text>
+            <EmptyState message={strings.muscles.noData} />
           </View>
         ) : (
           <View className="px-4 pt-4">
@@ -204,6 +206,7 @@ export function MuscleScreen() {
           </View>
         ) : null}
       </ScrollView>
+      </Enter>
     </Screen>
   );
 }

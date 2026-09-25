@@ -20,7 +20,8 @@ import {
   type WindowComparison,
 } from '../../analytics/trends';
 import { useNav } from '../navigation';
-import { AppHeader, Card, ErrorState, LoadingState, MetricCard, Screen, SectionHeader } from '../components';
+import { AppHeader, Card, EmptyState, ErrorState, LoadingState, MetricCard, Screen, SectionHeader } from '../components';
+import { Enter } from '../motion';
 import { BarChart } from '../Charts';
 import { formatCount } from '../../utils/units';
 
@@ -141,6 +142,7 @@ export function LoadScreen() {
   return (
     <Screen>
       <AppHeader title={strings.load.title} onBack={pop} />
+      <Enter className="flex-1">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="flex-row gap-2 px-4 pt-4">
           {RANGES.map((r) => (
@@ -180,7 +182,7 @@ export function LoadScreen() {
 
         {empty ? (
           <View className="px-4 pt-6">
-            <Text className="text-center text-sm text-dim">{strings.load.noData}</Text>
+            <EmptyState message={strings.load.noData} />
           </View>
         ) : null}
 
@@ -268,6 +270,7 @@ export function LoadScreen() {
           </Card>
         </View>
       </ScrollView>
+      </Enter>
     </Screen>
   );
 }

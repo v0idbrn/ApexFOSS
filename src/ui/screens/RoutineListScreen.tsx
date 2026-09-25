@@ -7,6 +7,7 @@ import { useActiveSessionStore } from '../../state/activeSessionStore';
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
 import { AppHeader, EmptyState, ErrorState, HeaderButton, ListRow, LoadingState, Screen, confirmDestructive } from '../components';
+import { Enter } from '../motion';
 
 interface RoutineRow {
   id: string;
@@ -87,6 +88,7 @@ export function RoutineListScreen() {
         onBack={pop}
         right={<HeaderButton label={strings.routines.newRoutine} onPress={() => push({ name: 'routineEditor', routineId: null })} />}
       />
+      <Enter className="flex-1">
       {loading ? (
         <LoadingState />
       ) : error ? (
@@ -137,6 +139,7 @@ export function RoutineListScreen() {
           )}
         />
       )}
+      </Enter>
     </Screen>
   );
 }

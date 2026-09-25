@@ -13,6 +13,7 @@ import {
 } from '../../analytics/readiness';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
+import { Enter } from '../motion';
 
 interface TestRow {
   id: string;
@@ -162,6 +163,7 @@ export function ReadinessScreen() {
   return (
     <Screen>
       <AppHeader title={strings.readiness.title} onBack={pop} />
+      <Enter className="flex-1">
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 pt-4">
           <Card>
@@ -234,6 +236,7 @@ export function ReadinessScreen() {
           )}
         </View>
       </ScrollView>
+      </Enter>
     </Screen>
   );
 }
