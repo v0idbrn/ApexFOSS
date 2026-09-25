@@ -142,14 +142,17 @@ export function makeDbActions(db: Database): DbActions {
         if (count > 0) return 0;
         let inserted = 0;
         for (const seed of SEED_EXERCISES) {
-          await exercisesCol().create((ex) => {
-            ex.name = seed.name;
-            ex.category = seed.category;
-            ex.equipment = seed.equipment;
-            ex.metricFlags = seed.metricFlags;
-            ex.createdAt = now();
-            ex.updatedAt = now();
+          // Deterministic seed ids: primary key for built-in muscle mapping (Phase 2F).
+          const rec = exercisesCol().prepareCreateFromDirtyRaw({
+            id: seed.id,
+            name: seed.name,
+            category: seed.category,
+            equipment: seed.equipment,
+            metric_flags: seed.metricFlags,
+            created_at: now(),
+            updated_at: now(),
           });
+          await db.batch(rec);
           inserted += 1;
         }
         return inserted;
