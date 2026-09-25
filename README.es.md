@@ -136,7 +136,11 @@ npm test                # suite de pruebas Jest
 npm run typecheck       # tsc --noEmit
 ```
 
-`npm run android` requiere un dispositivo o emulador conectado. El repositorio no contiene secretos; la configuración de firma se genera localmente con un plugin de configuración.
+`npm run android` requiere un dispositivo o emulador conectado.
+
+### Firma de la versión final
+
+El repositorio no contiene secretos. La firma de la versión final se inyecta en tiempo de prebuild mediante un plugin de configuración (`plugins/withApexSigning.js`) que lee `~/.apexfoss/apexfoss-signing.properties` (claves: `storeFile`, `storePassword`, `keyAlias`, `keyPassword`) apuntando a un keystore guardado **fuera del repositorio**. `npm run prebuild` falla de inmediato si ese archivo no existe, así que crea tu propio keystore y archivo de propiedades antes si quieres producir un APK de versión final.
 
 ## Pruebas
 

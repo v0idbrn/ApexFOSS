@@ -136,7 +136,11 @@ npm test                # Jest test suite
 npm run typecheck       # tsc --noEmit
 ```
 
-`npm run android` requires a connected device or emulator. The repository contains no secrets; signing configuration is generated locally by a config plugin.
+`npm run android` requires a connected device or emulator.
+
+### Release signing
+
+The repository contains no secrets. Release signing is injected at prebuild time by a config plugin (`plugins/withApexSigning.js`) that reads `~/.apexfoss/apexfoss-signing.properties` (keys: `storeFile`, `storePassword`, `keyAlias`, `keyPassword`) pointing to a keystore stored **outside the repository**. `npm run prebuild` fails fast when that file is missing, so create your own keystore and properties file first if you want to produce a release APK.
 
 ## Testing
 

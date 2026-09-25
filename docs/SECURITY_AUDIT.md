@@ -182,6 +182,7 @@ Every external input in this app follows: **EXTERNAL INPUT → VALIDATE → PREV
 ### Findings
 - **F-17 (INFORMATIONAL):** Positive controls confirmed (external keystore, no secrets in repo/APK, single-arch ABIs, non-debuggable release).
 - **F-18 (LOW, unresolved):** **No `LICENSE` file exists** while `README.md` describes the project as open source — a licensing inconsistency the codebase cannot resolve by itself (D-038, owner decision). Also tracked in `docs/KNOWN_LIMITATIONS.md`.
+  - *Status update (Phase 2I, 2026-09-25):* the README wording cited above was corrected in Phase 2H (commit `b56b8b3`) — both READMEs now state "license: pending" and make no open-source claim. The core finding (no `LICENSE` file, owner decision D-038) **remains open**.
 
 ---
 

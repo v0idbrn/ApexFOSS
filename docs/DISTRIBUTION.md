@@ -7,7 +7,7 @@ Channels under consideration: **GitHub Releases**, **F-Droid**, **Google Play**.
 
 ## Common prerequisites (all channels)
 
-- [ ] Resolve licensing: add a `LICENSE` file or stop describing the project as open source (D-038; F-Droid *requires* a recognized FOSS license, Play does not).
+- [ ] Resolve licensing: add a `LICENSE` file (D-038; the READMEs have described the license as pending since Phase 2H — no open-source claim remains in them; F-Droid *requires* a recognized FOSS license, Play does not).
 - [ ] Legal review: `docs/TERMS_OF_USE.md` (fill identity/contact/governing law), `docs/PRIVACY.md` review, `docs/HEALTH_AND_FITNESS.md` consistency (D-042 scope).
 - [ ] Provision a real security contact (see `SECURITY.md`) and a privacy contact.
 - [ ] Device validation of Phase 2G surfaces (deep links, notification permission flow, Trust Center) — **skipped this phase: no device connected**.
@@ -39,7 +39,7 @@ Play's health/fitness and data-safety questionnaires will effectively ask:
 
 ### Play-specific blockers/risks
 
-1. `SYSTEM_ALERT_WINDOW` (F-08/D-035) may trigger permission-review scrutiny — preferred path: device-verify removal in a future phase.
+1. `SYSTEM_ALERT_WINDOW` (D-035) may trigger permission-review scrutiny — preferred path: device-verify removal in a future phase.
 2. The FCM/Firebase classes merged in by `expo-notifications` (F-14) exist without `google-services.json` — harmless (no INTERNET anyway) but reviewers may ask; the security audit documents it.
 3. Signing: Play App Signing enrollment must be decided (upload key = current `CN=ApexFOSS` keystore vs. Google-managed key).
 4. `versionCode` is 1 — every upload needs a bump (process decision; currently manual).

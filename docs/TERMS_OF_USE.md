@@ -18,7 +18,7 @@
 
 ## 3. License
 
-The project's licensing status is **currently undeclared**: no `LICENSE` file exists at the time of this draft (tracked as an open item in `docs/KNOWN_LIMITATIONS.md`, decision D-038). **Until the owner declares a license, all rights are reserved by the copyright holder, and "open source" statements in the README should be read as intent, not grant.** The owner must resolve this before any public distribution claim.
+The project's licensing status is **currently undeclared**: no `LICENSE` file exists at the time of this draft (tracked as an open item in `docs/KNOWN_LIMITATIONS.md`, decision D-038). **Until the owner declares a license, all rights are reserved by the copyright holder, and the READMEs state the license as pending (they make no open-source claim — Phase 2H).** The owner must resolve this before any public distribution claim.
 
 ## 4. Nature of the relationship
 
