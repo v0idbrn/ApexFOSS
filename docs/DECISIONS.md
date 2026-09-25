@@ -814,3 +814,37 @@ cases, tests, backup compatibility, existing functionality.
   cases, loader data quality and UI/navigation.
 - Future phases can add history-detail breakdown or custom mappings as
   additive work on top of the same snapshot.
+
+---
+
+## D-031 - Restore NativeWind JSX runtime on device; stub reanimated (Phase 2F, 2026-09-24)
+
+**Status:** Accepted
+
+**Context.** Commit dcecda2 (Phase 2E) removed `nativewind/babel` while fixing
+a Metro issue. Without `jsxImportSource: 'nativewind'`, every `className`
+prop was silently ignored: the app compiled and tested green but rendered
+unstyled (white/black-on-black, effectively invisible on the dark theme).
+Device validation exposed it. Additionally, `react-native-css-interop`
+hard-requires its declared peer `react-native-reanimated` (only used by
+animate-*/transition-* helpers this app never uses).
+
+**Decision.** 6th commit beyond the planned 5, because unstyled UI makes the
+product and section 27 validation unusable. (1) `babel.config.js`:
+`['babel-preset-expo', { jsxImportSource: 'nativewind' }]` routes JSX through
+`nativewind/jsx-runtime`. (2) Do NOT re-add the `nativewind/babel` preset
+(it pulls the missing `react-native-reanimated/plugin`). (3) Metro
+`resolver.extraNodeModules` maps `react-native-reanimated` to
+`stubs/react-native-reanimated.js` (no-op CJS stub) - chosen over
+`resolveRequest` so NativeWind's interop doctor never sees a custom
+resolution, and over installing reanimated (native module + jest setup, new
+dependency, out of scope). Jest is unaffected (no metro config).
+
+**Consequences.**
+
+- `className` styles now apply on device; verified visually (Home, Training
+  load, Muscle distribution) after a `--clear` bundle; full jest 427/427
+  green with the new babel config.
+- CSS animations/transitions stay unsupported (documented; app uses none).
+- Third commit deviation from "exactly 5 commits" reported in the phase 2F
+  section 36 summary.
