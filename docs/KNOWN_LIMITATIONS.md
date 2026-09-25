@@ -36,4 +36,5 @@
 
 19. **Frozen stack**: Expo 55 / RN 0.83.10 / WatermelonDB 0.28 (JSI) / NativeWind 4 / schema v3. Upgrades are deliberate, large and out of scope for maintenance phases.
 20. **Per-entity deletion exists for exercises/routines; sessions have no per-item delete UI** — full wipe is the only way to remove history (until a future phase adds history deletion UX).
-21. **No device validation performed in Phase 2G** — "Device validation skipped: no device connected."
+21. **No device validation performed in Phase 2G** — "Device validation skipped: no device connected." (Still none connected in Phase 2I.)
+22. **No React error boundary or global crash handler** (Phase 2I): an uncaught render error in a release build exits the app to the launcher with no in-app recovery screen. Data is not corrupted by such a crash — every engine action commits to the database before the UI advances, and timers restore from persisted `cursor_json.expiresAt` on relaunch.
