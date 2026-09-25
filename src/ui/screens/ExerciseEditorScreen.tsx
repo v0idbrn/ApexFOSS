@@ -1,11 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { makeDbActions } from '../../data/actions';
+import { muscleCatalog } from '../../data/analytics';
+import { resolveContributions } from '../../analytics/muscles';
 import { MetricFlag } from '../../types';
 import { strings } from '../../constants/strings';
+import type { SubstitutionExercise } from '../../analytics/substitutions';
 import { useNav } from '../navigation';
-import { AppHeader, Button, Chip, ErrorState, LoadingState, Screen, TextField, confirmDestructive } from '../components';
+import { SubstitutionList } from '../SubstitutionList';
+import {
+  AppHeader,
+  Button,
+  Chip,
+  ErrorState,
+  LoadingState,
+  Screen,
+  SectionHeader,
+  TextField,
+  confirmDestructive,
+} from '../components';
 
 interface FormState {
   name: string;
@@ -23,6 +37,60 @@ export function ExerciseEditorScreen({ exerciseId }: { exerciseId: string | null
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [candidates, setCandidates] = useState<SubstitutionExercise[]>([]);
+
+  const toSubstitution = useCallback((row: any): SubstitutionExercise => {
+    const catalog = muscleCatalog();
+    const metricFlags = typeof row.metricFlags === 'number' ? row.metricFlags : 0;
+    return {
+      id: row.id ?? null,
+      name: row.name ?? '',
+      category: row.category ?? '',
+      equipment: row.equipment ?? '',
+      metricFlags,
+      contributions: resolveContributions(catalog, {
+        id: row.id ?? null,
+        name: row.name ?? '',
+        category: row.category ?? '',
+        equipment: row.equipment ?? '',
+        metricFlags,
+      }),
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await makeDbActions(database).listExercises();
+        if (cancelled) return;
+        setCandidates(rows.map((row: any) => toSubstitution(row)));
+      } catch {
+        if (!cancelled) setCandidates([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [toSubstitution]);
+
+  const target = useMemo<SubstitutionExercise>(
+    () => ({
+      id: exerciseId,
+      name: form.name.trim(),
+      category: form.category.trim(),
+      equipment: form.equipment.trim(),
+      metricFlags: form.metricFlags,
+      contributions: resolveContributions(muscleCatalog(), {
+        id: exerciseId,
+        name: form.name.trim(),
+        category: form.category.trim(),
+        equipment: form.equipment.trim(),
+        metricFlags: form.metricFlags,
+      }),
+    }),
+    [exerciseId, form],
+  );
 
   const load = useCallback(async () => {
     if (!exerciseId) return;
@@ -129,6 +197,13 @@ export function ExerciseEditorScreen({ exerciseId }: { exerciseId: string | null
               <Chip label={strings.exercises.metricDistance} active={!!(form.metricFlags & MetricFlag.DISTANCE)} onPress={() => toggleMetric(MetricFlag.DISTANCE)} />
             </View>
           </View>
+          {form.name.trim() ? (
+            <View>
+              <SectionHeader title={strings.substitutions.title} />
+              <Text className="mb-2 text-caption text-dim">{strings.substitutions.note}</Text>
+              <SubstitutionList target={target} candidates={candidates} />
+            </View>
+          ) : null}
           <Button label={saving ? '…' : strings.common.save} onPress={save} disabled={saving} />
           {exerciseId ? (
             <View className="mt-4">

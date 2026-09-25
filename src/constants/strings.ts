@@ -222,6 +222,17 @@ export const strings = {
       duplicate_step_id: 'Two steps in this block share the same id.',
     },
   },
+  substitutions: {
+    title: 'Substitutions',
+    note: 'Similar exercises by movement, equipment and muscle mapping.',
+    none: 'No similar exercises found yet.',
+    reasons: {
+      pattern: 'Same movement',
+      equipment: 'Same equipment',
+      muscles: 'Similar muscles',
+      category: 'Same category',
+    },
+  },
   preview: {
     title: 'Routine preview',
     open: 'Preview',
