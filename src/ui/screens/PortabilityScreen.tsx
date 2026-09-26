@@ -192,7 +192,11 @@ export function PortabilityScreen() {
       <AppHeader title={strings.portability.title} onBack={pop} />
       <ScrollView keyboardShouldPersistTaps="handled" className="flex-1 px-4 pb-8">
         <Text className="mt-3 text-sm text-dim">{strings.portability.subtitle}</Text>
-        {status ? <Text className="mt-2 text-sm text-accent-ink">{status}</Text> : null}
+        {status ? (
+          <Text accessibilityLiveRegion="polite" className="mt-2 text-sm text-accent-ink" testID="portability-status">
+            {status}
+          </Text>
+        ) : null}
 
         <SectionHeader title={strings.portability.exportRoutine} />
         <Card>
@@ -213,9 +217,19 @@ export function PortabilityScreen() {
               className="flex-1"
             />
           </View>
-          {qrError ? <Text className="mt-2 text-sm text-danger">{qrError}</Text> : null}
+          {qrError ? (
+            <Text accessibilityRole="alert" className="mt-2 text-sm text-danger" testID="portability-qr-error">
+              {qrError}
+            </Text>
+          ) : null}
           {qrMatrix ? (
-            <View className="mt-3 items-center">
+            <View
+              className="mt-3 items-center"
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={strings.common.qrCode}
+              testID="portability-qr"
+            >
               <QrGrid matrix={qrMatrix} />
             </View>
           ) : null}
@@ -225,6 +239,7 @@ export function PortabilityScreen() {
         <Card>
           <TextField
             label={strings.portability.importPasteTitle}
+            accessibilityLabel={strings.portability.importPasteTitle}
             multiline
             numberOfLines={4}
             value={importText}
@@ -258,6 +273,7 @@ export function PortabilityScreen() {
           <Text className="mb-2 text-sm text-danger">{strings.portability.restoreBackupHint}</Text>
           <TextField
             label={strings.portability.restoreBackup}
+            accessibilityLabel={strings.portability.restoreBackup}
             multiline
             numberOfLines={4}
             value={backupText}

@@ -943,7 +943,7 @@ export function WorkoutScreen() {
         title={definition.name}
         onBack={pop}
         right={
-          <Button label={strings.workout.discard} variant="danger" onPress={onDiscard} className="mr-1 h-10 px-2" />
+          <Button label={strings.workout.discard} variant="danger" onPress={onDiscard} className="mr-1 px-2" />
         }
       />
       <View className="flex-1">

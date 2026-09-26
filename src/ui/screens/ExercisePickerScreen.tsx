@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Q } from '@nozbe/watermelondb';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
+import { useNav } from '../navigation';
 import { EmptyState, ErrorState, ListRow, LoadingState, TextField } from '../components';
 
 interface Option {
@@ -20,6 +21,7 @@ export function ExercisePickerScreen({
   onPick: (exerciseId: string, exerciseName: string) => void;
   onCancel: () => void;
 }) {
+  const { push } = useNav();
   const [rows, setRows] = useState<Option[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,20 +54,25 @@ export function ExercisePickerScreen({
     <Modal visible animationType="slide" onRequestClose={onCancel} presentationStyle="fullScreen">
       <SafeAreaView edges={['top', 'left', 'right']} className="flex-1 bg-bg">
         <View className="h-14 min-h-14 flex-row items-center border-b border-line px-1">
-          <Text className="flex-1 px-3 text-lg font-semibold text-fg">{strings.exercises.selectTitle}</Text>
-          <Text
+          <Text accessibilityRole="header" className="flex-1 px-3 text-lg font-semibold text-fg">
+            {strings.exercises.selectTitle}
+          </Text>
+          <Pressable
             accessibilityRole="button"
             accessibilityLabel={strings.common.cancel}
             onPress={onCancel}
-            className="h-12 min-h-12 flex-row items-center px-4 text-base text-accent-ink"
+            hitSlop={8}
+            style={({ pressed }) => (pressed ? { opacity: 0.7 } : undefined)}
+            className="h-12 min-h-12 min-w-12 items-center justify-center px-4"
           >
-            {strings.common.cancel}
-          </Text>
+            <Text className="text-base text-accent-ink">{strings.common.cancel}</Text>
+          </Pressable>
         </View>
         <View className="px-4 pt-3">
           <TextField
             value={query}
             onChangeText={setQuery}
+            accessibilityLabel={strings.exercises.search}
             placeholder={strings.exercises.search}
             autoCapitalize="none"
             autoCorrect={false}
@@ -77,7 +84,16 @@ export function ExercisePickerScreen({
         ) : error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : rows.length === 0 ? (
-          <EmptyState message={strings.exercises.selectEmpty} />
+          // Nothing exists to search yet, so the search field cannot be the
+          // next step — the empty state carries the documented follow-up.
+          <EmptyState
+            message={strings.exercises.selectEmpty}
+            actionLabel={strings.exercises.emptyAction}
+            onAction={() => {
+              onCancel();
+              push({ name: 'exerciseEditor', exerciseId: null });
+            }}
+          />
         ) : (
           <FlatList
             className="mt-3"
@@ -85,9 +101,9 @@ export function ExercisePickerScreen({
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
-              <View className="items-center py-8">
-                <Text className="text-dim">{strings.common.noMatches}</Text>
-              </View>
+              // A query with no hits: refining it in the search field above is
+              // the next step, so this state deliberately offers no action.
+              <EmptyState message={strings.common.noMatches} />
             }
             renderItem={({ item }) => (
               <ListRow

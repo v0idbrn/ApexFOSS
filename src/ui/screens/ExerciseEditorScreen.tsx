@@ -164,9 +164,14 @@ export function ExerciseEditorScreen({ exerciseId }: { exerciseId: string | null
         <ErrorState message={error} onRetry={load} />
       ) : (
         <ScrollView contentContainerClassName="gap-4 p-4 pb-10" keyboardShouldPersistTaps="handled">
-          {error ? <Text className="text-sm text-danger">{error}</Text> : null}
+          {error ? (
+            <Text accessibilityRole="alert" accessibilityLiveRegion="polite" className="text-sm text-danger">
+              {error}
+            </Text>
+          ) : null}
           <TextField
             label={strings.exercises.name}
+            accessibilityLabel={strings.exercises.name}
             value={form.name}
             onChangeText={(t) => {
               setForm((f) => ({ ...f, name: t }));
@@ -178,18 +183,22 @@ export function ExerciseEditorScreen({ exerciseId }: { exerciseId: string | null
           />
           <TextField
             label={strings.exercises.category}
+            accessibilityLabel={strings.exercises.category}
             value={form.category}
             onChangeText={(t) => setForm((f) => ({ ...f, category: t }))}
             placeholder={strings.exercises.categoryPlaceholder}
           />
           <TextField
             label={strings.exercises.equipment}
+            accessibilityLabel={strings.exercises.equipment}
             value={form.equipment}
             onChangeText={(t) => setForm((f) => ({ ...f, equipment: t }))}
             placeholder={strings.exercises.equipmentPlaceholder}
           />
           <View>
-            <Text className="mb-2 text-sm text-dim">{strings.exercises.metrics}</Text>
+            <Text accessibilityRole="header" className="mb-2 text-sm text-dim">
+              {strings.exercises.metrics}
+            </Text>
             <View className="flex-row flex-wrap gap-2">
               <Chip label={strings.exercises.metricWeight} active={!!(form.metricFlags & MetricFlag.WEIGHT)} onPress={() => toggleMetric(MetricFlag.WEIGHT)} />
               <Chip label={strings.exercises.metricReps} active={!!(form.metricFlags & MetricFlag.REPS)} onPress={() => toggleMetric(MetricFlag.REPS)} />
@@ -204,7 +213,11 @@ export function ExerciseEditorScreen({ exerciseId }: { exerciseId: string | null
               <SubstitutionList target={target} candidates={candidates} />
             </View>
           ) : null}
-          <Button label={saving ? '…' : strings.common.save} onPress={save} disabled={saving} />
+          <Button
+            label={saving ? strings.common.saving : strings.common.save}
+            onPress={save}
+            disabled={saving}
+          />
           {exerciseId ? (
             <View className="mt-4">
               <Button label={strings.common.delete} variant="danger" onPress={remove} />

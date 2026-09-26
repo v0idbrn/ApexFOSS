@@ -15,7 +15,9 @@ import { AppHeader, Button, Screen, SectionHeader, confirmDestructive } from '..
 function InfoCard({ title, body, testID }: { title: string; body: string; testID?: string }) {
   return (
     <View className="mb-4" testID={testID}>
-      <Text className="mb-1.5 text-sm font-semibold text-accent-ink">{title}</Text>
+      <Text accessibilityRole="header" className="mb-1.5 text-sm font-semibold text-accent-ink">
+        {title}
+      </Text>
       <Text className="text-sm leading-5 text-dim">{body}</Text>
     </View>
   );
@@ -23,7 +25,11 @@ function InfoCard({ title, body, testID }: { title: string; body: string; testID
 
 function CountRow({ label, value }: { label: string; value: number }) {
   return (
-    <View className="flex-row items-center justify-between py-1">
+    <View
+      className="flex-row items-center justify-between py-1"
+      accessible
+      accessibilityLabel={`${label}: ${value}`}
+    >
       <Text className="text-sm text-dim">{label}</Text>
       <Text className="text-sm font-semibold text-fg" testID={`count-${label}`}>
         {value}
@@ -88,12 +94,20 @@ export function TrustScreen() {
           />
           <Text className="mt-2 text-xs text-dim">{strings.trust.reseedNote}</Text>
           {status ? (
-            <Text className="mt-2 text-sm text-accent-ink" testID="trust-status">
+            <Text
+              accessibilityLiveRegion="polite"
+              className="mt-2 text-sm text-accent-ink"
+              testID="trust-status"
+            >
               {status}
             </Text>
           ) : null}
           {failed ? (
-            <Text className="mt-2 text-sm text-danger" testID="trust-error">
+            <Text
+              accessibilityRole="alert"
+              className="mt-2 text-sm text-danger"
+              testID="trust-error"
+            >
               {strings.trust.deleteAllFailed}
             </Text>
           ) : null}

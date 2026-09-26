@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { Navigator } from '../navigation';
+import { Navigator, useNav, type Route } from '../navigation';
+import { Badge, EmptyState } from '../components';
 import { RoutinePreviewScreen } from './RoutinePreviewScreen';
 import { strings } from '../../constants/strings';
 import { emptyDraft, emptyPrescription, type RoutineDraft } from '../../types/draft';
@@ -54,6 +55,17 @@ async function renderPreview(draft: RoutineDraft): Promise<ReactTestRenderer> {
     );
   });
   return renderer;
+}
+
+/** Mounts the preview on top of a home entry so the empty action can pop back. */
+function PreviewLauncher({ launched }: { launched: { value: boolean } }) {
+  const { push } = useNav();
+  useEffect(() => {
+    if (launched.value) return;
+    launched.value = true;
+    push({ name: 'routinePreview', draft: emptyDraft() });
+  }, [launched, push]);
+  return <Text testID="home-route" />;
 }
 
 describe('RoutinePreviewScreen (Phase 2J §14)', () => {
@@ -133,5 +145,99 @@ describe('RoutinePreviewScreen (Phase 2J §14)', () => {
     expect(joined).toContain(strings.integrity.messages.empty_routine);
     expect(joined).toContain('Assist');
     expect(joined).toContain(strings.integrity.error);
+  });
+});
+
+describe('RoutinePreviewScreen accessibility (Phase 2L STAGE H)', () => {
+  function buttonsOf(renderer: ReactTestRenderer) {
+    return renderer.root.findAll(
+      (node) => typeof node.type === 'string' && node.props?.accessibilityRole === 'button',
+    );
+  }
+
+  function emptyPreview(renderer: ReactTestRenderer) {
+    return renderer.root
+      .findAllByType(EmptyState)
+      .find((node) => node.props.title === strings.preview.empty);
+  }
+
+  it('labels the empty preview and both back affordances', async () => {
+    const renderer = await renderPreview(emptyDraft());
+    const empty = emptyPreview(renderer);
+    expect(empty).toBeDefined();
+    expect(empty!.props.message).toBe(strings.preview.how);
+    expect(empty!.props.actionLabel).toBe(strings.common.back);
+    expect(typeof empty!.props.onAction).toBe('function');
+
+    const buttons = buttonsOf(renderer);
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    for (const node of buttons) {
+      expect(node.props.accessibilityLabel).toBe(strings.common.back);
+      expect(node.props.accessibilityState).toBeDefined();
+      expect(typeof node.props.className).toBe('string');
+      expect(/\bh-(12|14|16|20|24|32)\b/.test(node.props.className)).toBe(true);
+    }
+  });
+
+  it('sends the empty-preview action back to the editor stack', async () => {
+    const routes: Route[] = [];
+    const launched = { value: false };
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(
+        <Navigator>
+          {(route) => {
+            routes.push(route);
+            if (route.name === 'routinePreview') return <RoutinePreviewScreen draft={emptyDraft()} />;
+            if (route.name === 'home') return <PreviewLauncher launched={launched} />;
+            return null;
+          }}
+        </Navigator>,
+      );
+    });
+    expect(routes[routes.length - 1]).toEqual(expect.objectContaining({ name: 'routinePreview' }));
+
+    const empty = emptyPreview(renderer);
+    expect(empty).toBeDefined();
+    await act(async () => {
+      empty!.props.onAction();
+    });
+
+    expect(routes[routes.length - 1]).toEqual(expect.objectContaining({ name: 'home' }));
+    expect(renderer.root.findAllByProps({ testID: 'home-route' }).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('announces the routine-checks and per-exercise sections as headings', async () => {
+    const renderer = await renderPreview(draftWithSteps());
+    const headers = renderer.root
+      .findAll((node) => node.props?.accessibilityRole === 'header')
+      .map((node) => flatten(node.props.children));
+    expect(headers).toContain(strings.integrity.title);
+    expect(headers).toContain(strings.preview.byExercise);
+  });
+
+  it('labels integrity severity with words instead of colour alone', async () => {
+    const warnedDraft = draftWithSteps();
+    warnedDraft.blocks[0].steps[1] = {
+      ...warnedDraft.blocks[0].steps[1],
+      prescription: { ...emptyPrescription(), targetSets: null },
+    };
+    const warned = await renderPreview(warnedDraft);
+    const warningLabels = warned.root.findAllByType(Badge).map((badge) => badge.props.label);
+    expect(warningLabels).toContain(strings.integrity.warning);
+    expect(warningLabels).not.toContain(strings.integrity.error);
+
+    const errorDraft = draftWithSteps();
+    errorDraft.blocks.push({
+      localId: 'blk-2',
+      name: 'Assist',
+      kind: 'normal',
+      rounds: 1,
+      steps: [],
+      interval: null,
+    });
+    const failed = await renderPreview(errorDraft);
+    const errorLabels = failed.root.findAllByType(Badge).map((badge) => badge.props.label);
+    expect(errorLabels).toContain(strings.integrity.error);
   });
 });

@@ -43,7 +43,14 @@ export function RoutinePreviewScreen({ draft }: { draft: RoutineDraft }) {
       <Screen>
         <AppHeader title={strings.preview.title} onBack={pop} />
         <View className="flex-1 items-center justify-center px-6">
-          <EmptyState title={strings.preview.empty} message={strings.preview.how} />
+          {/* The draft lives in the editor, so returning there is the only
+              meaningful next step — it uses the shared Back action. */}
+          <EmptyState
+            title={strings.preview.empty}
+            message={strings.preview.how}
+            actionLabel={strings.common.back}
+            onAction={pop}
+          />
         </View>
       </Screen>
     );
@@ -88,7 +95,9 @@ export function RoutinePreviewScreen({ draft }: { draft: RoutineDraft }) {
 
           {simulation.truncated ? (
             <Card tone="tonal" className="mt-3">
-              <Text className="text-sm text-danger">{strings.preview.truncated}</Text>
+              <Text accessibilityRole="alert" className="text-sm text-danger">
+                {strings.preview.truncated}
+              </Text>
             </Card>
           ) : null}
 
