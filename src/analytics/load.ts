@@ -165,7 +165,7 @@ export interface DatedSession {
   timestampMs: number;
   startedAt: number;
   endedAt: number | null;
-  exercises: Array<{ exerciseName: string; sets: SetLoadInput[] }>;
+  exercises: Array<{ exerciseName: string; exerciseId?: string | null; sets: SetLoadInput[] }>;
 }
 
 /**

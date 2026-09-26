@@ -83,9 +83,27 @@ export interface ComparabilityEvidence {
   tempoAvailable: boolean;
 }
 
+/** Historical prescription targets recorded for a session exercise
+ *  (from the immutable definition_json snapshot). Shape = PrescriptionTarget:
+ *  it IS a prescription target, just one that was recorded historically. */
+export type HistoricalPrescription = PrescriptionTarget;
+
+/** Per-session, per-exercise prescription context used for comparability.
+ *  Keyed by `${sessionId}|${exerciseName}` in AnalyzeProgressionInput. */
+export interface SessionExercisePrescription {
+  exerciseName: string;
+  exerciseId: string | null;
+  prescription: HistoricalPrescription;
+  equipmentClass: string;
+  /** True when this logged exercise was a substitute, not the prescribed one. */
+  isSubstitution: boolean;
+}
+
 /** Reason why performances are not comparable. */
 export type ComparabilityReason =
   | 'different_exercise'
+  | 'current_substitution'
+  | 'previous_substitution'
   | 'different_equipment_class'
   | 'prescription_mismatch'
   | 'missing_rir_both'
@@ -147,10 +165,11 @@ export interface ProgressionEvidence {
     min: number | null;
     max: number | null;
   };
-  /** Weight progression opportunity (grams) if applicable. */
+  /** Weight progression opportunity (grams) if a data-derived increment exists. */
   suggestedWeightGrams?: number;
-  /** Source of weight increment if suggested. */
-  weightIncrementSource?: 'prescription_step' | 'equipment_step' | 'default_step' | 'none';
+  /** Provenance of the increment. 'none' = no reliable source: the opportunity
+   *  is real but the engine refuses to invent a step (UI should ask the athlete). */
+  weightIncrementSource?: 'equipment_inventory' | 'none';
 }
 
 /** Input for progression analysis. */
@@ -175,6 +194,13 @@ export interface AnalyzeProgressionInput {
   availableExercises?: SubstitutionExercise[];
   /** Now timestamp for window calculations. */
   now: number;
+  /** Caller-derived next achievable weight for this exercise (grams), computed from
+   *  REAL data — e.g. the persistent equipment inventory (schema v4, src/data/equipment.ts)
+   *  resolved through solveLoadInventory (src/analytics/inventory.ts).
+   *  The engine NEVER invents increments: when absent/null/not greater than the current
+   *  target weight, no suggestion is made and the progression opportunity is still
+   *  reported with weightIncrementSource 'none'. */
+  achievableNextWeightGrams?: number | null;
 }
 
 /**
@@ -215,7 +241,12 @@ function extractPerformances(
 
   for (const session of sessions) {
     for (const exercise of session.exercises) {
-      const isTarget = exercise.exerciseName === exerciseName;
+      // Include by exact name OR by matching stable ID (an exercise may be
+      // displayed under a different name across versions). Identity quality is
+      // judged later by checkComparability — inclusion here is deliberately broad.
+      const isTarget =
+        exercise.exerciseName === exerciseName ||
+        (exerciseId !== null && exercise.exerciseId === exerciseId);
       const isSub = substitutionNames.has(exercise.exerciseName);
 
       // Get historical prescription for this specific exercise in this session
@@ -272,10 +303,22 @@ function checkComparability(
 ): ComparabilityEvidence {
   const mismatches: ComparabilityMismatch[] = [];
 
-  // Exercise identity
+  // Exercise identity — ID-first semantics (docs/PROGRESSION_ENGINE.md):
+  // - both IDs present: equal → match; different → NOT a match (same display
+  //   name never overrides two distinct valid IDs);
+  // - ID missing on either side: safe fallback to exact display-name equality;
+  // - no fuzzy matching, ever.
   let identityMatch: ComparabilityEvidence['identityMatch'] = 'none';
-  if (current.exerciseId && historical.exerciseId && current.exerciseId === historical.exerciseId) {
-    identityMatch = 'seed_id';
+  if (current.exerciseId !== null && historical.exerciseId !== null) {
+    if (current.exerciseId === historical.exerciseId) {
+      identityMatch = 'seed_id';
+    } else {
+      mismatches.push({
+        field: 'exercise',
+        expected: current.exerciseName,
+        actual: historical.exerciseName,
+      });
+    }
   } else if (current.exerciseName === historical.exerciseName) {
     identityMatch = 'name_only';
   } else {
@@ -296,11 +339,13 @@ function checkComparability(
     });
   }
 
-  // Prescription match (compare targets)
+  // Prescription match: same rep-range scheme and RIR target. The target
+  // WEIGHT is deliberately excluded — it legitimately changes between sessions
+  // (that is what progression is), and requiring equality would reject the
+  // very history double progression needs to evaluate.
   const prescriptionMatch =
     current.prescription.targetRepsMin === historical.prescription.targetRepsMin &&
     current.prescription.targetRepsMax === historical.prescription.targetRepsMax &&
-    current.prescription.targetWeightGrams === historical.prescription.targetWeightGrams &&
     current.prescription.targetRir === historical.prescription.targetRir;
 
   if (!prescriptionMatch) {
@@ -330,10 +375,11 @@ function checkComparability(
 
   let reason: ComparabilityReason | undefined;
   if (identityMatch === 'none') reason = 'different_exercise';
+  else if (current.isSubstitution && historical.isSubstitution) reason = 'different_exercise';
+  else if (current.isSubstitution) reason = 'current_substitution';
+  else if (historical.isSubstitution) reason = 'previous_substitution';
   else if (!equipmentMatch) reason = 'different_equipment_class';
   else if (!prescriptionMatch) reason = 'prescription_mismatch';
-  else if (current.isSubstitution) reason = 'different_exercise';
-  else if (historical.isSubstitution) reason = 'different_exercise';
 
   return {
     comparable,
@@ -355,20 +401,40 @@ function findBaseline(
   currentPrescription: PrescriptionTarget,
   currentEquipmentClass: string,
 ): { baseline: SetPerformance; comparability: ComparabilityEvidence } | null {
-  // Filter to performances before the last one (assuming last is current)
+  if (performances.length < 2) return null;
+  const current = performances[performances.length - 1];
   const historical = performances.slice(0, -1);
-  if (historical.length === 0) return null;
 
   // Find the most recent comparable performance
   for (let i = historical.length - 1; i >= 0; i--) {
     const candidate = historical[i];
-    const comparability = checkComparability(performances[performances.length - 1], candidate, currentPrescription);
+    const comparability = checkComparability(current, candidate, currentPrescription);
     if (comparability.comparable) {
       return { baseline: candidate, comparability };
     }
   }
 
   return null;
+}
+
+/**
+ * Resolve the next-weight suggestion STRICTLY from caller-provided achievable
+ * load (derived from real data, e.g. the persistent equipment inventory via
+ * solveLoadInventory). The engine never invents an increment: without a
+ * data-derived source the opportunity stands but no suggestion is made.
+ */
+function resolveWeightIncrement(
+  targetWeightGrams: number,
+  achievableNextWeightGrams: number | null | undefined,
+): { suggestedWeightGrams?: number; source: ProgressionEvidence['weightIncrementSource'] } {
+  if (
+    achievableNextWeightGrams != null &&
+    Number.isFinite(achievableNextWeightGrams) &&
+    achievableNextWeightGrams > targetWeightGrams
+  ) {
+    return { suggestedWeightGrams: Math.round(achievableNextWeightGrams), source: 'equipment_inventory' };
+  }
+  return { source: 'none' };
 }
 
 /**
@@ -384,6 +450,7 @@ function evaluateDoubleProgression(
   current: SetPerformance,
   currentPrescription: PrescriptionTarget,
   currentWeightGrams: number | null,
+  achievableNextWeightGrams: number | null | undefined,
 ): ProgressionEvidence {
   const minReps = currentPrescription.targetRepsMin ?? 0;
   const maxReps = currentPrescription.targetRepsMax ?? 0;
@@ -469,15 +536,19 @@ function evaluateDoubleProgression(
       };
     }
 
-    // At target weight and hit upper bound → progression opportunity
-    // Weight increment: prefer prescription step, then equipment step, then default 2.5kg
-    let suggestedWeightGrams = targetWeight + 2500; // default 2.5kg
-    let weightIncrementSource: ProgressionEvidence['weightIncrementSource'] = 'default_step';
+    // At target weight and hit upper bound → progression opportunity exists.
+    // The suggested next weight comes ONLY from caller-provided achievable load
+    // (real data). No hardcoded increment: without a source the opportunity is
+    // still reported, with weightIncrementSource 'none'.
+    const { suggestedWeightGrams, source } = resolveWeightIncrement(targetWeight, achievableNextWeightGrams);
 
     return {
       state: 'progress',
       reason: 'REPS_RANGE_COMPLETED',
-      explanation: `Reps ${repsAchieved} reached upper bound ${maxReps} at target weight ${targetWeight}g.`,
+      explanation:
+        suggestedWeightGrams != null
+          ? `Reps ${repsAchieved} reached upper bound ${maxReps} at target weight ${targetWeight}g; next achievable load ${suggestedWeightGrams}g from equipment inventory.`
+          : `Reps ${repsAchieved} reached upper bound ${maxReps} at target weight ${targetWeight}g; progression opportunity confirmed, no equipment-derived next load available.`,
       baseline,
       current,
       comparableCount: 1,
@@ -485,7 +556,7 @@ function evaluateDoubleProgression(
       atTargetWeight: true,
       repsVsRange: { achieved: repsAchieved, min: minReps, max: maxReps },
       suggestedWeightGrams,
-      weightIncrementSource,
+      weightIncrementSource: source,
     };
   }
 
@@ -505,18 +576,23 @@ function evaluateDoubleProgression(
       };
     }
 
+    const { suggestedWeightGrams, source } = resolveWeightIncrement(targetWeight, achievableNextWeightGrams);
+
     return {
       state: 'progress',
       reason: 'REPS_EXCEEDED_RANGE',
-      explanation: `Reps ${repsAchieved} exceeded upper bound ${maxReps} at target weight ${targetWeight}g.`,
+      explanation:
+        suggestedWeightGrams != null
+          ? `Reps ${repsAchieved} exceeded upper bound ${maxReps} at target weight ${targetWeight}g; next achievable load ${suggestedWeightGrams}g from equipment inventory.`
+          : `Reps ${repsAchieved} exceeded upper bound ${maxReps} at target weight ${targetWeight}g; progression opportunity confirmed, no equipment-derived next load available.`,
       baseline,
       current,
       comparableCount: 1,
       currentPrescription,
       atTargetWeight: true,
       repsVsRange: { achieved: repsAchieved, min: minReps, max: maxReps },
-      suggestedWeightGrams: targetWeight + 2500,
-      weightIncrementSource: 'default_step',
+      suggestedWeightGrams,
+      weightIncrementSource: source,
     };
   }
 
@@ -547,6 +623,7 @@ export function analyzeProgression(input: AnalyzeProgressionInput): ProgressionE
     currentExerciseId,
     historicalPrescriptions,
     availableExercises,
+    achievableNextWeightGrams,
     now,
   } = input;
 
@@ -580,10 +657,26 @@ export function analyzeProgression(input: AnalyzeProgressionInput): ProgressionE
   // The latest performance is the "current" one
   const current = performances[performances.length - 1];
 
-  // Find comparable baseline
-  const baselineResult = findBaseline(performances, currentPrescription, currentEquipmentClass);
+  const repsVsRange = {
+    achieved: current.reps,
+    min: currentPrescription.targetRepsMin ?? 0,
+    max: currentPrescription.targetRepsMax ?? 0,
+  };
 
-  if (!baselineResult) {
+  // A single performance cannot be compared against anything.
+  if (performances.length < 2) {
+    if (current.isSubstitution) {
+      return {
+        state: 'insufficient_data',
+        reason: 'NO_COMPARABLE_PERFORMANCE',
+        explanation: `Only ${performances.length} performance(s) found and it is a substitution; no comparable history for ${exerciseName}.`,
+        current,
+        comparableCount: performances.length,
+        currentPrescription,
+        atTargetWeight: false,
+        repsVsRange,
+      };
+    }
     return {
       state: 'insufficient_data',
       reason: 'INSUFFICIENT_HISTORY',
@@ -592,74 +685,75 @@ export function analyzeProgression(input: AnalyzeProgressionInput): ProgressionE
       comparableCount: performances.length,
       currentPrescription,
       atTargetWeight: false,
-      repsVsRange: {
-        achieved: current.reps,
-        min: currentPrescription.targetRepsMin ?? 0,
-        max: currentPrescription.targetRepsMax ?? 0,
-      },
+      repsVsRange,
     };
   }
 
-  const { baseline, comparability } = baselineResult;
-
-  // Check for substitution issues
+  // Identity gates come FIRST: a substitution is never the original exercise.
   if (current.isSubstitution) {
     return {
       state: 'insufficient_data',
       reason: 'SUBSTITUTION_USED',
       explanation: 'Latest performance used a substitution exercise; cannot evaluate progression for original exercise.',
-      baseline,
       current,
       comparableCount: performances.length,
       currentPrescription,
-      comparability,
       atTargetWeight: false,
-      repsVsRange: {
-        achieved: current.reps,
-        min: currentPrescription.targetRepsMin ?? 0,
-        max: currentPrescription.targetRepsMax ?? 0,
-      },
+      repsVsRange,
     };
   }
 
-  if (baseline.isSubstitution) {
-    return {
-      state: 'insufficient_data',
-      reason: 'PREVIOUS_SUBSTITUTION',
-      explanation: 'Baseline performance was a substitution; not comparable for progression.',
-      baseline,
-      current,
-      comparableCount: performances.length,
-      currentPrescription,
-      comparability,
-      atTargetWeight: false,
-      repsVsRange: {
-        achieved: current.reps,
-        min: currentPrescription.targetRepsMin ?? 0,
-        max: currentPrescription.targetRepsMax ?? 0,
-      },
-    };
-  }
-
-  // Check equipment match with current
+  // Equipment class of the analysed exercise must match the current context.
   if (current.equipmentClass !== currentEquipmentClass) {
     return {
       state: 'insufficient_data',
       reason: 'EQUIPMENT_MISMATCH',
       explanation: `Equipment class changed (${current.equipmentClass} → ${currentEquipmentClass}).`,
-      baseline,
       current,
       comparableCount: performances.length,
       currentPrescription,
-      comparability,
       atTargetWeight: false,
-      repsVsRange: {
-        achieved: current.reps,
-        min: currentPrescription.targetRepsMin ?? 0,
-        max: currentPrescription.targetRepsMax ?? 0,
-      },
+      repsVsRange,
     };
   }
+
+  // Find comparable baseline
+  const baselineResult = findBaseline(performances, currentPrescription, currentEquipmentClass);
+
+  if (!baselineResult) {
+    // Attach the comparability verdict against the most recent historical
+    // performance so the caller can see WHY no baseline is comparable
+    // (identity, equipment, prescription, substitution).
+    const lastHistorical = performances[performances.length - 2];
+    const lastComparability = checkComparability(current, lastHistorical, currentPrescription);
+    const allHistoricalSubs = performances.slice(0, -1).every((p) => p.isSubstitution);
+    if (allHistoricalSubs) {
+      return {
+        state: 'insufficient_data',
+        reason: 'PREVIOUS_SUBSTITUTION',
+        explanation: 'Historical performances were substitutions; not comparable for progression.',
+        current,
+        comparableCount: performances.length,
+        currentPrescription,
+        comparability: lastComparability,
+        atTargetWeight: false,
+        repsVsRange,
+      };
+    }
+    return {
+      state: 'insufficient_data',
+      reason: 'INSUFFICIENT_HISTORY',
+      explanation: `No comparable baseline found among ${performances.length - 1} historical performance(s).`,
+      current,
+      comparableCount: performances.length,
+      currentPrescription,
+      comparability: lastComparability,
+      atTargetWeight: false,
+      repsVsRange,
+    };
+  }
+
+  const { baseline, comparability } = baselineResult;
 
   // Evaluate double progression
   const currentWeight = currentPrescription.targetWeightGrams;
@@ -668,6 +762,7 @@ export function analyzeProgression(input: AnalyzeProgressionInput): ProgressionE
     current,
     currentPrescription,
     currentWeight,
+    achievableNextWeightGrams,
   );
 
   return {
@@ -676,15 +771,3 @@ export function analyzeProgression(input: AnalyzeProgressionInput): ProgressionE
     comparability,
   };
 }
-
-export type {
-  PrescriptionTarget,
-  SetPerformance,
-  ComparabilityEvidence,
-  ComparabilityReason,
-  ComparabilityMismatch,
-  ProgressionState,
-  ProgressionReason,
-  ProgressionEvidence,
-  AnalyzeProgressionInput,
-};

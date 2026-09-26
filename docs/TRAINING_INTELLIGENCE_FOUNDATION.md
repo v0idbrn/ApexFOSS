@@ -353,3 +353,8 @@ All existing tests pass. No tests added (no code changed).
 - ❌ No mass refactoring of analytics modules
 
 The existing pure analytics functions are sufficient for Phase 3 to compose intelligence without architectural changes.
+
+> **Phase 3A update:** the deterministic progression engine is implemented in
+> `src/analytics/progression.ts`. Its full contract (comparability,
+> double-progression semantics, weight-increment sourcing, reason codes and
+> limitations) is documented in `docs/PROGRESSION_ENGINE.md`.

@@ -102,6 +102,7 @@ function makeHistPrescMap(
   const map = new Map<string, SessionExercisePrescription>();
   for (const e of entries) map.set(`${e.sessionId}|${e.exerciseName}`, e.presc);
   return map;
+}
 
   describe('Comparable performance identification', () => {
     it('returns insufficient_data when no performances exist', () => {
@@ -144,6 +145,55 @@ function makeHistPrescMap(
       expect(result.baseline).toBeDefined();
       expect(result.current).toBeDefined();
       expect(result.comparability?.identityMatch).toBe('seed_id');
+    });
+
+    it('matches by seed id even when display names differ', () => {
+      const sessions = [
+        makeSessionWithPresc('s1', now - 86400000, 'Bench Press', [makeSet(50000, 10)], 'ex_bench'),
+        makeSessionWithPresc('s2', now, 'Barbell Bench Press', [makeSet(50000, 12)], 'ex_bench'),
+      ];
+      const historicalPrescriptions = makeHistPrescMap([
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Barbell Bench Press', presc: makeHistoricalPrescription('Barbell Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+      ]);
+      const input = { ...defaultInput, sessions, historicalPrescriptions, now };
+      const result = analyzeProgression(input);
+
+      expect(result.state).not.toBe('insufficient_data');
+      expect(result.comparability?.identityMatch).toBe('seed_id');
+    });
+
+    it('does NOT match different seed ids despite identical display names', () => {
+      const sessions = [
+        makeSessionWithPresc('s1', now - 86400000, 'Bench Press', [makeSet(50000, 10)], 'ex_bench_v1'),
+        makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench_v2'),
+      ];
+      const historicalPrescriptions = makeHistPrescMap([
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench_v1', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench_v2', defaultHistoricalPrescription, 'barbell') },
+      ]);
+      const input = { ...defaultInput, sessions, historicalPrescriptions, now };
+      const result = analyzeProgression(input);
+
+      // Same name must never override two distinct valid IDs.
+      expect(result.state).toBe('insufficient_data');
+      expect(result.comparability?.identityMatch).toBe('none');
+    });
+
+    it('falls back to exact name when IDs are missing on both sides', () => {
+      const sessions = [
+        makeSessionWithPresc('s1', now - 86400000, 'Bench Press', [makeSet(50000, 10)], null),
+        makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], null),
+      ];
+      const historicalPrescriptions = makeHistPrescMap([
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', null, defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', null, defaultHistoricalPrescription, 'barbell') },
+      ]);
+      const input = { ...defaultInput, sessions, historicalPrescriptions, now };
+      const result = analyzeProgression(input);
+
+      expect(result.state).not.toBe('insufficient_data');
+      expect(result.comparability?.identityMatch).toBe('name_only');
     });
 
     it('treats different exercise name as non-comparable', () => {
@@ -245,8 +295,10 @@ function makeHistPrescMap(
       expect(result.state).toBe('progress');
       expect(result.reason).toBe('REPS_RANGE_COMPLETED');
       expect(result.atTargetWeight).toBe(true);
-      expect(result.suggestedWeightGrams).toBe(52500); // 50000 + 2500 default
-      expect(result.weightIncrementSource).toBe('default_step');
+      // No data-derived increment source in this input: the opportunity stands,
+      // but the engine must NOT invent a default step (no +2500g fallback).
+      expect(result.suggestedWeightGrams).toBeUndefined();
+      expect(result.weightIncrementSource).toBe('none');
     });
 
     it('maintain when reps inside range', () => {
@@ -295,7 +347,8 @@ function makeHistPrescMap(
 
       expect(result.state).toBe('progress');
       expect(result.reason).toBe('REPS_EXCEEDED_RANGE');
-      expect(result.suggestedWeightGrams).toBe(52500);
+      // No increment source provided → opportunity without invented suggestion.
+      expect(result.suggestedWeightGrams).toBeUndefined();
     });
 
     it('maintain when reps at upper bound but not at target weight', () => {
@@ -339,7 +392,7 @@ function makeHistPrescMap(
       ];
       const historicalPrescriptions = makeHistPrescMap([
         { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = {
         ...defaultInput,
@@ -361,7 +414,7 @@ function makeHistPrescMap(
       ];
       const historicalPrescriptions = makeHistPrescMap([
         { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = {
         ...defaultInput,
@@ -383,7 +436,7 @@ function makeHistPrescMap(
       ];
       const historicalPrescriptions = makeHistPrescMap([
         { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = {
         ...defaultInput,
@@ -424,10 +477,10 @@ function makeHistPrescMap(
         makeSessionWithPresc('s4', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's3', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's4', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's3', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's4', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -445,10 +498,10 @@ function makeHistPrescMap(
         makeSessionWithPresc('s4', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's3', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's4', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's3', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's4', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -464,8 +517,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -495,8 +548,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -514,8 +567,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -533,8 +586,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -542,20 +595,38 @@ function makeHistPrescMap(
       expect(result.atTargetWeight).toBe(true);
     });
 
-    it('includes suggested weight when progress', () => {
+    it('includes suggested weight only from equipment inventory source', () => {
       const sessions = [
         makeSessionWithPresc('s1', now - 86400000, 'Bench Press', [makeSet(50000, 10)], 'ex_bench'),
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+      ]);
+      // Caller-derived next achievable load (real data, e.g. plate inventory).
+      const input = { ...defaultInput, sessions, historicalPrescriptions, achievableNextWeightGrams: 52500, now };
+      const result = analyzeProgression(input);
+
+      expect(result.suggestedWeightGrams).toBe(52500);
+      expect(result.weightIncrementSource).toBe('equipment_inventory');
+    });
+
+    it('reports increment source none when no achievable load is provided', () => {
+      const sessions = [
+        makeSessionWithPresc('s1', now - 86400000, 'Bench Press', [makeSet(50000, 10)], 'ex_bench'),
+        makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
+      ];
+      const historicalPrescriptions = makeHistPrescMap([
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
 
-      expect(result.suggestedWeightGrams).toBe(52500);
-      expect(result.weightIncrementSource).toBe('default_step');
+      expect(result.state).toBe('progress');
+      expect(result.suggestedWeightGrams).toBeUndefined();
+      expect(result.weightIncrementSource).toBe('none');
     });
 
     it('includes baseline and current performances', () => {
@@ -564,8 +635,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -582,8 +653,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -601,13 +672,13 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
 
-      expect(result.weightIncrementSource).toBe('default_step');
+      expect(result.weightIncrementSource).toBe('none');
     });
   });
 
@@ -628,7 +699,7 @@ function makeHistPrescMap(
         makeSessionWithPresc('s1', now - 86400000, 'Dumbbell Bench Press', [makeSet(25000, 10)], 'ex_db_press'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Dumbbell Bench Press', 'ex_db_press', defaultHistoricalPrescription, 'dumbbell', true) },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Dumbbell Bench Press', 'ex_db_press', defaultHistoricalPrescription, 'dumbbell', true) },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, availableExercises: subExercises, now };
       const result = analyzeProgression(input);
@@ -644,9 +715,9 @@ function makeHistPrescMap(
         makeSessionWithPresc('s3', now, 'Bench Press', [makeSet(50000, 10)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's3', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's3', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -661,15 +732,16 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 15)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
 
       expect(result.state).toBe('progress');
       expect(result.reason).toBe('REPS_EXCEEDED_RANGE');
-      expect(result.suggestedWeightGrams).toBe(52500);
+      // No increment source provided → opportunity without invented suggestion.
+      expect(result.suggestedWeightGrams).toBeUndefined();
     });
 
     it('returns maintain for reps_below_min', () => {
@@ -678,8 +750,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 5)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, now };
       const result = analyzeProgression(input);
@@ -694,8 +766,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = {
         ...defaultInput,
@@ -716,8 +788,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = {
         ...defaultInput,
@@ -738,8 +810,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = {
         ...defaultInput,
@@ -760,8 +832,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       const input = {
         ...defaultInput,
@@ -782,8 +854,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)], 'ex_bench'),
       ];
       const historicalPrescriptions = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'dumbbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'dumbbell') },
       ]);
       const input = { ...defaultInput, sessions, historicalPrescriptions, currentEquipmentClass: 'barbell', now };
       const result = analyzeProgression(input);
@@ -801,8 +873,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 12)]),
       ];
       const hist1 = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       expect(analyzeProgression({ ...defaultInput, sessions: sessions1, historicalPrescriptions: hist1, now }).state).toBe('progress');
 
@@ -812,8 +884,8 @@ function makeHistPrescMap(
         makeSessionWithPresc('s2', now, 'Bench Press', [makeSet(50000, 10)]),
       ];
       const hist2 = makeHistPrescMap([
-        { sessionId: 's1', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
-        { sessionId: 's2', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
       ]);
       expect(analyzeProgression({ ...defaultInput, sessions: sessions2, historicalPrescriptions: hist2, now }).state).toBe('maintain');
 
