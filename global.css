@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Canonical palette tokens — mirrors tailwind.config.js (D-032). */
+/* Canonical palette tokens — mirrors tailwind.config.js (D-032 + Phase 2L). */
 :root {
   --color-bg: #020101;
   --color-surface: #3d0b0d;
@@ -14,5 +14,7 @@
   --color-text: #f5f5f5;
   --color-text-dim: #a3a3a3;
   --color-danger: #f87171;
-  --color-success: #f5f5f5;
+  --color-success: #79d6a8;
+  --color-warning: #f0b35c;
+  --color-muted: #8a8a8a;
 }

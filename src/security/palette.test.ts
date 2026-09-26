@@ -21,7 +21,28 @@ const DOCUMENTED_EXCEPTIONS: Record<string, string> = {
   danger: '#F87171', // light tint of red hue (errors)
   text: '#F5F5F5', // neutral body text
   dim: '#A3A3A3', // neutral muted text
-  success: '#F5F5F5', // neutral (no positive hue in palette)
+  success: '#79D6A8', // Phase 2L: restrained completion green (>=4.5:1 on bg)
+  warning: '#F0B35C', // Phase 2L: advisory amber (>=4.5:1 on bg)
+  muted: '#8A8A8A', // Phase 2L: de-emphasized caption gray (>=4.5:1 on bg)
+};
+
+/** Phase 2L semantic roles must alias pinned colors — no free-floating hexes. */
+const SEMANTIC_ALIASES: Record<string, keyof typeof theme.colors> = {
+  background: 'bg',
+  surface: 'surface',
+  elevated: 'surface2',
+  border: 'border',
+  primary: 'accent',
+  pressed: 'accentMuted',
+  secondary: 'surface',
+  success: 'success',
+  warning: 'warning',
+  destructive: 'danger',
+  textPrimary: 'text',
+  textSecondary: 'dim',
+  textMuted: 'muted',
+  disabled: 'dim',
+  focus: 'accentInk',
 };
 
 function luminance(hex: string): number {
@@ -95,5 +116,36 @@ describe('contrast floors (WCAG 2.1 AA)', () => {
 
   it('accent-muted can carry light banner text', () => {
     expect(contrast(theme.colors.text, theme.colors.accentMuted)).toBeGreaterThanOrEqual(7);
+  });
+});
+
+describe('Phase 2L state hues (success/warning/muted)', () => {
+  it('state hues clear AA text contrast on bg and surface', () => {
+    for (const hue of ['success', 'warning', 'muted'] as const) {
+      expect(contrast(theme.colors[hue], theme.colors.bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.colors[hue], theme.colors.surface)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('state hues are visible as non-text UI against bg', () => {
+    expect(contrast(theme.colors.success, theme.colors.bg)).toBeGreaterThanOrEqual(3);
+    expect(contrast(theme.colors.warning, theme.colors.bg)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('Phase 2L semantic role layer', () => {
+  it('every semantic role aliases a pinned color (no free-floating hex)', () => {
+    expect(Object.keys(theme.semantic).sort()).toEqual(Object.keys(SEMANTIC_ALIASES).sort());
+    for (const [role, source] of Object.entries(SEMANTIC_ALIASES)) {
+      expect((theme.semantic as Record<string, string>)[role]).toBe(theme.colors[source]);
+    }
+  });
+
+  it('semantic roles carry the intended meaning', () => {
+    expect(theme.semantic.primary).toBe('#B21F29'); // ROOF TERRACOTTA action fill
+    expect(theme.semantic.pressed).toBe('#930510'); // POHUTUKAWA pressed fill
+    expect(theme.semantic.elevated).toBe('#53080E'); // MAHOGANY raised surface
+    expect(theme.semantic.destructive).toBe(theme.colors.danger);
+    expect(theme.semantic.focus).toBe(theme.colors.accentInk);
   });
 });
