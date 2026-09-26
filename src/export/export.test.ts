@@ -224,13 +224,14 @@ describe('JSON export', () => {
   });
 
   it('preserves structured data, raw integer units, and definition snapshot', () => {
-    const json = JSON.parse(sessionsToJson([makeDetail()], '2026-09-25T00:00:00.000Z'));
+    const json = JSON.parse(sessionsToJson([makeDetail({ note: 'Felt strong' })], '2026-09-25T00:00:00.000Z'));
     expect(json.sessions).toHaveLength(1);
     const s = json.sessions[0];
     expect(s.id).toBe('sess_1');
     expect(s.blocks[0].steps[0].logs[0].weightGrams).toBe(102_500); // raw grams
     expect(s.definition.blocks[0].steps[0].exerciseName).toBe('Bench Press');
     expect(s.durationMs).toBe(600_000);
+    expect(s.note).toBe('Felt strong');
   });
 
   it('handles special characters without corruption', () => {

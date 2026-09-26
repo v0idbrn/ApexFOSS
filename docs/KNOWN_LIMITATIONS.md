@@ -1,6 +1,6 @@
 # ApexFOSS — Known Limitations
 
-**Last updated: 2026-09-25 (Phase 2G).** Honest list of what this software does *not* do, *cannot* guarantee, or has deliberately left open. Cross-references: `docs/SECURITY_AUDIT.md` (finding IDs), `docs/DECISIONS.md` (decision IDs).
+**Last updated: 2026-09-25 (Phase 2J).** Honest list of what this software does *not* do, *cannot* guarantee, or has deliberately left open. Cross-references: `docs/SECURITY_AUDIT.md` (finding IDs), `docs/DECISIONS.md` (decision IDs).
 
 ## Product scope
 
@@ -34,7 +34,10 @@
 
 ## Engineering state
 
-19. **Frozen stack**: Expo 55 / RN 0.83.10 / WatermelonDB 0.28 (JSI) / NativeWind 4 / schema v3. Upgrades are deliberate, large and out of scope for maintenance phases.
+19. **Frozen stack**: Expo 55 / RN 0.83.10 / WatermelonDB 0.28 (JSI) / NativeWind 4 / schema v5. Upgrades are deliberate, large and out of scope for maintenance phases.
 20. **Per-entity deletion exists for exercises/routines; sessions have no per-item delete UI** — full wipe is the only way to remove history (until a future phase adds history deletion UX).
-21. **No device validation performed in Phase 2G** — "Device validation skipped: no device connected." (Still none connected in Phase 2I.)
+21. **No device validation performed in Phase 2G** — "Device validation skipped: no device connected." (Still none connected in Phase 2I; **Phase 2J was explicitly run without ADB/device steps** — dashboard, motion, notes, inventory and substitution UI are unit-tested but not visually validated on hardware.)
 22. **No React error boundary or global crash handler** (Phase 2I): an uncaught render error in a release build exits the app to the launcher with no in-app recovery screen. Data is not corrupted by such a crash — every engine action commits to the database before the UI advances, and timers restore from persisted `cursor_json.expiresAt` on relaunch.
+23. **Exercise substitutions are heuristics, not physiology** (Phase 2J): movement pattern is inferred from name/category/equipment keywords, muscle overlap comes from the app's own per-exercise contributions, and there is no EMG, rental, or clinical data behind the ranking. It suggests; it is never authoritative, and unknown patterns/equipment deliberately score lower rather than guessing.
+24. **Routine integrity checks are advisory** (Phase 2J): they run against the same engine semantics as the workout engine, but a routine that "checks clean" is still only validated on the dimensions encoded (rounds, transitions, targets, ids) — not on training appropriateness, safety, or medical fit.
+25. **Session notes are single-column, session-level text** (Phase 2J, schema v5): capped at 2000 characters, included in backups and history JSON export but **not** in the CSV export; there is no per-exercise note field and no rich text/search over notes yet.

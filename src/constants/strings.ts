@@ -578,7 +578,7 @@ export const strings = {
       'Built with open-source components (Expo, React Native, WatermelonDB and others). Third-party notices: docs/THIRD_PARTY_LICENSES.md. The project license itself has not been declared yet — see the repository.',
     about: 'About',
     aboutBody:
-      'ApexFOSS 0.1.0 — local-first workout engine. Database schema v3. No accounts, no subscriptions, no ads, no telemetry.',
+      'ApexFOSS 0.1.0 — local-first workout engine. Database schema v5. No accounts, no subscriptions, no ads, no telemetry.',
     localData: 'Local data',
     countExercises: 'Exercises',
     countRoutines: 'Routines',

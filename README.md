@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-480%20%2F%2029%20suites-4ade80" alt="480 tests in 29 suites" />
+  <img src="https://img.shields.io/badge/tests-663%20%2F%2047%20suites-4ade80" alt="663 tests in 47 suites" />
 </p>
 
 <p align="center">
@@ -32,6 +32,7 @@
 - **No accounts, no servers, no ads, no trackers.** Your training data lives in a local SQLite database on your phone — nothing is uploaded anywhere.
 - **Works offline by design.** The whole app — planning, execution, timers, history, exports — runs without a network connection. The release build is compiled **without the INTERNET permission** (verified; see [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
 - **A workout engine, not a UI toy.** Workout execution is a pure, deterministic engine with persistent timers that survive app restarts and process death.
+- **A coherent interface.** One shared design system (tokens, components, reduced-motion-aware motion, honest empty states) instead of per-screen styling.
 - **Honest documentation.** Known limitations, a written security audit, a data map, and draft legal documents are published next to the code — not marketing claims.
 
 ## Features
@@ -43,6 +44,8 @@ Everything below is implemented in the current codebase.
 - Block types: **normal**, **superset**, **contrast**, **circuit**, and **interval** blocks.
 - Transitions: **immediate**, **rest** (with timer), and **auto-advance**.
 - Per-phase tempo notation (eccentric / pause bottom / concentric / pause top) and **RIR targets** per prescription.
+- **Routine preview**: simulate a routine step by step (rounds, sets, planned rest) before running it.
+- **Integrity checks**: flag empty routines, missing interval specs, orphan/circular transitions, and invalid rounds.
 
 ### Workout execution
 - Persistent workout sessions with an immutable routine snapshot; execution state is saved after every action and **recovers automatically after the app is killed**.
@@ -50,6 +53,7 @@ Everything below is implemented in the current codebase.
 - **Undo last set**, skip set / skip rest, and immediate / rest / auto transitions.
 - Rest and auto timers based on absolute expiry timestamps: they keep counting while the app is backgrounded and are restored from the database on relaunch.
 - Rest-timer **notifications** as alerts — the database remains the source of truth.
+- **Workout notes**: jot down how it went on the post-workout summary; edit it later from History (stored with the session).
 
 ### Interval & tempo training
 - **Interval trainer** with HIIT, EMOM, and glycolytic interval modes (prep / work / rest phases, rounds, catch-up after interruption).
@@ -57,11 +61,15 @@ Everything below is implemented in the current codebase.
 - Keep-awake handling while a trainer is running.
 
 ### Athlete tools
-- **Training load** view plus **load trends** (7- and 28-day comparisons of volume and sessions).
+- **Athlete dashboard**: today's session, weekly volume and time, streak, and quick access to the tools below.
+- **Training load** view plus **load trends** (7- and 28-day comparisons of volume and sessions) and a **weekly rhythm** chart.
 - **Muscle distribution** map across the major muscle groups.
 - **Readiness tap test** (10-second tap count, stored locally).
 - **RIR autoregulation**: deterministic next-set load recommendations from target vs. actual RIR.
-- **Load inventory**: tell it the plates you own and it solves — or rejects — a target barbell load.
+- **Load inventory**: tell it the plates you own and it solves — or rejects — a target barbell load. The inventory **persists** between sessions.
+- **Personal records**: best sets and estimated 1RM per exercise, tracked from your logged history.
+- **Session comparison**: pick two sessions and see volume, sets, and per-exercise load side by side.
+- **Exercise substitutions**: ranked alternatives for the current exercise, with the matched reasons shown (movement pattern, equipment, muscles) — transparent heuristics, no black box.
 
 ### Data portability
 - **CSV export** of training history (spreadsheet-safe).
@@ -145,18 +153,19 @@ The repository contains no secrets. Release signing is injected at prebuild time
 ## Testing
 
 ```bash
-npm test                # 480 tests across 29 suites — engine, persistence, timers,
-                        # migrations, portability, export, security, UI
+npm test                # 663 tests across 47 suites — engine, persistence, timers,
+                        # migrations, analytics, portability, export, security, UI
 npm run typecheck       # TypeScript passes with no errors
 ```
 
 - Debug and release APKs build locally (`npm run build:apk`), and the release APK's permission set has been audited (see [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
+- GitHub Actions CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs typecheck + tests on every push and pull request to `main`.
 - The suite runs on Jest with no device attached. **Systematic physical-device testing has not yet been done** — treat device behaviour as needing validation on your own hardware.
 
 ## Project status
 
-- **Version:** 0.1.0 (pre-release), Android only, local database schema version 3.
-- **Quality gates:** 480 Jest tests / 29 suites pass; TypeScript type-check passes; debug and release APKs build locally; release signing verified.
+- **Version:** 0.1.0 (pre-release), Android only, local database schema version 5.
+- **Quality gates:** 663 Jest tests / 47 suites pass; TypeScript type-check passes; debug and release APKs build locally; release signing verified.
 - **Distribution:** no store or channel submissions have been made.
 - **Legal:** privacy, health-boundary, and terms documents exist in [docs/](docs/) — terms are a **draft pending legal review**.
 - **License:** not yet declared (see below).
@@ -180,6 +189,7 @@ npm run typecheck       # TypeScript passes with no errors
 | [SECURITY.md](SECURITY.md) | How to report vulnerabilities |
 | [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) | Security audit findings and release-APK verification |
 | [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Honest list of known gaps |
+| [docs/ATHLETE_PLATFORM.md](docs/ATHLETE_PLATFORM.md) | Phase 2J athlete-platform surface (dashboard, analytics, engine tools) |
 | [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) | Distribution channels, blockers, and requirements |
 | [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md) | Third-party component licenses |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Architecture and product decision log |

@@ -228,6 +228,7 @@ export function sessionsToJson(details: HistoryDetail[], exportedAtIso?: string)
         endedAt: d.endedAt,
         durationMs: d.durationMs,
         status: d.status,
+        note: d.note,
         totalCompletedSets: d.totalCompletedSets,
         definition: d.definition,
         blocks: d.blocks,

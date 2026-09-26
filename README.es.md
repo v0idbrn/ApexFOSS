@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-480%20%2F%2029%20suites-4ade80" alt="480 pruebas en 29 suites" />
+  <img src="https://img.shields.io/badge/tests-663%20%2F%2047%20suites-4ade80" alt="663 pruebas en 47 suites" />
 </p>
 
 <p align="center">
@@ -32,6 +32,7 @@
 - **Sin cuentas, sin servidores, sin anuncios, sin rastreadores.** Tus datos de entrenamiento viven en una base de datos local en tu teléfono — nada se sube a ningún lugar.
 - **Funciona sin conexión por diseño.** Toda la app — planificación, ejecución, temporizadores, historial y exportaciones — funciona sin red. La compilación de versión final se genera **sin el permiso INTERNET** (verificado; ver [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
 - **Un motor de entrenamiento, no una interfaz de juguete.** La ejecución de entrenamientos es un motor puro y determinista, con temporizadores persistentes que sobreviven al reinicio de la app y a la muerte del proceso.
+- **Una interfaz coherente.** Un sistema de diseño compartido (tokens, componentes, animación con respeto a la reducción de movimiento, estados vacíos honestos) en lugar de estilos por pantalla.
 - **Documentación honesta.** Limitaciones conocidas, una auditoría de seguridad escrita, un mapa de datos y documentos legales en borrador se publican junto al código — no promesas de marketing.
 
 ## Características
@@ -43,6 +44,8 @@ Todo lo siguiente está implementado en el código actual.
 - Tipos de bloque: **normal**, **superset**, **contraste**, **circuito** e **intervalo**.
 - Transiciones: **inmediata**, **descanso** (con temporizador) y **avance automático**.
 - Notación de tempo por fase (excéntrica / pausa abajo / concéntrica / pausa arriba) y **objetivos de RIR** por prescripción.
+- **Vista previa de rutina**: simula una rutina paso a paso (rondas, series, descanso planeado) antes de ejecutarla.
+- **Comprobaciones de integridad**: señala rutinas vacías, especificaciones de intervalo ausentes, transiciones huérfanas o circulares y rondas inválidas.
 
 ### Ejecución del entrenamiento
 - Sesiones persistentes con una instantánea inmutable de la rutina; el estado de ejecución se guarda tras cada acción y **se recupera automáticamente después de que la app sea cerrada**.
@@ -50,6 +53,7 @@ Todo lo siguiente está implementado en el código actual.
 - **Deshacer última serie**, saltar serie / saltar descanso, y transiciones inmediatas / con descanso / automáticas.
 - Descansos y temporizadores basados en marcas de tiempo absolutas: siguen corriendo con la app en segundo plano y se restauran desde la base de datos al reabrir.
 - **Notificaciones** de descanso como avisos — la base de datos sigue siendo la fuente de verdad.
+- **Notas de entrenamiento**: anota cómo te fue en el resumen post-entrenamiento; edítalo después desde Historial (guardado con la sesión).
 
 ### Entrenamiento de intervalos y tempo
 - **Entrenador de intervalos** con modos HIIT, EMOM e intervalos glucolíticos (fases de preparación / trabajo / descanso, rondas, recuperación tras interrupción).
@@ -57,11 +61,15 @@ Todo lo siguiente está implementado en el código actual.
 - Mantenimiento de pantalla activa mientras un entrenador está en curso.
 
 ### Herramientas del atleta
-- Vista de **carga de entrenamiento** más **tendencias de carga** (comparaciones de volumen y sesiones a 7 y 28 días).
+- **Panel del atleta**: sesión de hoy, volumen y tiempo semanales, racha y acceso rápido a las herramientas siguientes.
+- Vista de **carga de entrenamiento** más **tendencias de carga** (comparaciones de volumen y sesiones a 7 y 28 días) y gráfico de **ritmo semanal**.
 - **Mapa de distribución muscular** por grupos musculares principales.
 - **Test de disponibilidad de respuesta** (taps en 10 segundos, guardado localmente).
 - **Autorregulación por RIR**: recomendaciones deterministas de carga para la siguiente serie a partir del RIR objetivo vs. real.
-- **Inventario de carga**: indica los discos que posees y la app resuelve — o rechaza — una carga objetivo de barra.
+- **Inventario de carga**: indica los discos que posees y la app resuelve — o rechaza — una carga objetivo de barra. El inventario **persiste** entre sesiones.
+- **Récords personales**: mejores series y 1RM estimado por ejercicio, calculados desde tu historial.
+- **Comparación de sesiones**: elige dos sesiones y ve volumen, series y carga por ejercicio lado a lado.
+- **Sustituciones de ejercicios**: alternativas ordenadas para el ejercicio actual con los motivos mostrados (patrón de movimiento, equipo, músculos) — heurísticas transparentes, sin caja negra.
 
 ### Portabilidad de datos
 - **Exportación CSV** del historial de entrenamiento (segura para hojas de cálculo).
@@ -145,19 +153,20 @@ El repositorio no contiene secretos. La firma de la versión final se inyecta en
 ## Pruebas
 
 ```bash
-npm test                # 480 pruebas en 29 suites — motor, persistencia,
-                        # temporizadores, migraciones, portabilidad, exportación,
-                        # seguridad, interfaz
+npm test                # 663 pruebas en 47 suites — motor, persistencia,
+                        # temporizadores, migraciones, analítica, portabilidad,
+                        # exportación, seguridad, interfaz
 npm run typecheck       # TypeScript pasa sin errores
 ```
 
 - Las compilaciones debug y de versión final se generan localmente (`npm run build:apk`), y el conjunto de permisos del APK de versión final ha sido auditado (ver [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
+- La CI de GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) ejecuta verificación de tipos y pruebas en cada push y pull request a `main`.
 - La suite corre en Jest sin dispositivo conectado. **Todavía no se ha hecho una validación sistemática en dispositivos físicos** — considera que el comportamiento en el dispositivo debe validarse en tu propio hardware.
 
 ## Estado del proyecto
 
-- **Versión:** 0.1.0 (pre-lanzamiento), solo Android, esquema de base de datos local en la versión 3.
-- **Controles de calidad:** 480 pruebas Jest en 29 suites en verde; verificación de tipos TypeScript en verde; APKs debug y de versión final compilan localmente; firma de versión final verificada.
+- **Versión:** 0.1.0 (pre-lanzamiento), solo Android, esquema de base de datos local en la versión 5.
+- **Controles de calidad:** 663 pruebas Jest en 47 suites en verde; verificación de tipos TypeScript en verde; APKs debug y de versión final compilan localmente; firma de versión final verificada.
 - **Distribución:** no se han enviado a ninguna tienda ni canal.
 - **Legal:** existen documentos de privacidad, límite de salud y términos en [docs/](docs/) — los términos son un **borrador pendiente de revisión legal**.
 - **Licencia:** aún no declarada (ver abajo).
@@ -181,6 +190,7 @@ npm run typecheck       # TypeScript pasa sin errores
 | [SECURITY.md](SECURITY.md) | Cómo reportar vulnerabilidades |
 | [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) | Hallazgos de la auditoría de seguridad y verificación del APK de versión final |
 | [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) | Lista honesta de carencias conocidas |
+| [docs/ATHLETE_PLATFORM.md](docs/ATHLETE_PLATFORM.md) | Superficie de la plataforma de atleta (Fase 2J): panel, analítica, herramientas del motor |
 | [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) | Canales de distribución, bloqueos y requisitos |
 | [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md) | Licencias de componentes de terceros |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Registro de decisiones de arquitectura y producto |

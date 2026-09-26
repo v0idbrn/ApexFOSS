@@ -1190,3 +1190,66 @@ code changed.
   3/3 consecutive runs after the fix; full suite green (480/480, 29 suites).
 - Auditors rerunning historical phases will no longer see this intermittent
   failure attributed to a regression.
+
+---
+
+## D-046 - Establish a shared design system instead of per-screen styling (Phase 2J, 2026-09-25)
+
+**Status:** Accepted
+
+**Context.** Phase 2J required a premium-feeling athlete platform. The pre-existing screens each hand-rolled colors, spacing, borders and empty states, so the product read as several apps. The palette itself is frozen by D-032 and guarded by `src/security/palette.test.ts`.
+
+**Decision.** Introduce one design system: design tokens in `tailwind.config.js` + `src/theme` derived from the frozen palette, a component kit (`Card` tones, `Badge`, `MetricCard`, `ListRow`, `Button`, `TextField`, `EmptyState`/`ErrorState`/`LoadingState`, `SectionHeader`, `Progress`), and reduce-motion-aware entrance helpers in `src/ui/motion.tsx` (short fades only, no loops, no new dependencies). All Phase 2J screens are composed from this kit; the palette test continues to pin `theme.colors` exactly, so the system cannot smuggle in new colors.
+
+**Consequences.**
+
+- Visual consistency and one place to change any shared pattern; screens shrank instead of growing style code.
+- Accessibility behavior (text labels alongside color, reduce-motion support) lives in components once rather than per screen.
+- The kit is unit-tested through the screens that use it; adding a color token now fails the palette test by design.
+
+---
+
+## D-047 - Keep athlete analytics as pure, deterministic modules with visible reasoning (Phase 2J, 2026-09-25)
+
+**Status:** Accepted
+
+**Context.** The phase adds dashboard, rolling load/rhythm, personal records, session comparison, substitutions and routine integrity. Analytics that reads the database inline or scores exercises opaquely would be untestable and unexplainable.
+
+**Decision.** Every calculation lives in pure modules over explicit inputs: `src/analytics/{athlete,records,compare,substitutions}.ts` and `src/engine/{simulator,integrity}.ts`. Screens only fetch rows, call the pure function, and render. Substitutions expose per-candidate reason labels (pattern / equipment / muscles / category) with documented weights (400/250/300/50) and deterministic tie-breaks (score → name → id); integrity diagnostics mirror the frozen `computeTarget` engine semantics instead of re-deriving them.
+
+**Consequences.**
+
+- All of it runs in Jest with no device or database fixture complexity; failures are reproducible from inputs alone.
+- The UI shows *why* a substitution ranked where it did — no black-box scores.
+- Heuristics are honest about uncertainty (unknown patterns/equipment score lower rather than guessing) — see KNOWN_LIMITATIONS #23.
+
+---
+
+## D-048 - Session notes: one optional session-level column (schema v5) (Phase 2J, 2026-09-25)
+
+**Status:** Accepted
+
+**Context.** The spec calls for workout notes. Options were per-exercise note rows, a notes table, or a single optional column on the session.
+
+**Decision.** Add `note` (optional string) to `workout_sessions` via an additive v4 → v5 migration. `normalizeNote` trims input, maps blank to null and caps at 2000 characters. The note is written on the post-workout summary (best-effort on Done, never blocking navigation) and editable from History → Session with an explicit save. Portability: optional `BackupSession.note` — absent on pre-v5 backups, validated as a bounded string, restored to null when missing. The history **JSON** export includes the note; the CSV schema is untouched.
+
+**Consequences.**
+
+- Existing installs upgrade with a pure column addition; old rows read null and old backups still validate.
+- Session-level scope keeps the migration, UI and tests small; per-exercise notes are deferred and documented (KNOWN_LIMITATIONS #25).
+- Notes ride the existing backup/rollback/restore machinery — no second persistence path.
+
+---
+
+## D-049 - Light CI: typecheck + Jest only (Phase 2J, 2026-09-25)
+
+**Status:** Accepted
+
+**Context.** The phase spec asks for light CI. Native builds need an Android SDK/JDK setup and device validation needs hardware; neither is available to a hosted runner within this phase, and Phase 2J was explicitly executed without ADB/device steps.
+
+**Decision.** `.github/workflows/ci.yml` runs one Ubuntu job on push/PR to `main`: `npm ci` → `npm run typecheck` → `npm test -- --silent` (Node 22, npm cache). No emulator, no APK build in CI.
+
+**Consequences.**
+
+- Type and behavior regressions are caught before merge at a cost of a few minutes and zero secrets.
+- CI does not replace device validation — that gap stays explicitly documented (KNOWN_LIMITATIONS #21).
