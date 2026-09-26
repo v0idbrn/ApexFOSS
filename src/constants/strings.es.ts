@@ -69,7 +69,7 @@ export const es: Strings = {
     trainingTools: 'Herramientas de entrenamiento',
     dataSection: 'Datos',
     preferences: 'Preferencias',
-    aboutSection: 'Acerca de y legal',
+    aboutSection: 'Acerca de la app y legal',
     languageRow: 'Idioma',
     exerciseRow: 'Biblioteca de ejercicios',
     exerciseSub: 'Crear y editar ejercicios, ver sustituciones',
