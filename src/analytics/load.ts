@@ -196,8 +196,3 @@ export function calculateDateRangeLoad(sessions: DatedSession[], range: DateRang
 export function gramRepsToKgReps(gramReps: number): number {
   return Math.round(gramReps / 100) / 10;
 }
-
-/** Display helper: ms → seconds (integer). */
-export function msToSeconds(ms: number): number {
-  return Math.round(ms / 1000);
-}

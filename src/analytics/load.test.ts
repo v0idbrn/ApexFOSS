@@ -6,10 +6,10 @@ import {
   dateRange,
   startOfLocalDay,
   gramRepsToKgReps,
-  msToSeconds,
   type SetLoadInput,
   type DatedSession,
 } from './load';
+import { msToSeconds } from '@/utils/units';
 
 const set = (partial: Partial<SetLoadInput>): SetLoadInput => ({
   weightGrams: null,

@@ -7,7 +7,6 @@ import {
   calculateDateRangeLoad,
   dateRange,
   gramRepsToKgReps,
-  msToSeconds,
   type DateRangeKind,
 } from '../../analytics/load';
 import { rollingSummary, weeklySeries } from '../../analytics/athlete';
@@ -23,7 +22,7 @@ import { useNav } from '../navigation';
 import { AppHeader, Card, EmptyState, ErrorState, LoadingState, MetricCard, Screen, SectionHeader } from '../components';
 import { Enter } from '../motion';
 import { BarChart } from '../Charts';
-import { formatCount } from '../../utils/units';
+import { formatCount, msToSeconds } from '../../utils/units';
 
 const RANGES: DateRangeKind[] = ['today', '7d', '28d'];
 
