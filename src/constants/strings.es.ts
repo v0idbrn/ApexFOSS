@@ -145,7 +145,7 @@ export const es: Strings = {
     blocks: 'Bloques',
     exercises: 'Ejercicios',
     integrityOk: 'Verificaciones OK',
-    duplicate: 'Duplicar',
+    duplicate: 'Duplicada',
     previewAction: 'Previsualizar',
     newBlock: 'Agregar bloque',
     deleteBlock: '¿Eliminar este bloque y sus pasos?',
