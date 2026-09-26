@@ -5,7 +5,7 @@ import { strings } from '../../constants/strings';
 import { formatCountdown, formatKg, formatTempo, gramsToKg, kgToGrams, secondsToMs } from '../../utils/units';
 import { useTimerStore } from '../../state/timerStore';
 import { useActiveSessionStore } from '../../state/activeSessionStore';
-import type { BlockDef, EngineEvent, IntervalSpec, PersistedInterval, SetPayload, StepDef } from '../../types/engine';
+import type { BlockDef, EngineEvent, IntervalSpec, PersistedInterval, Prescription, SetPayload, StepDef } from '../../types/engine';
 import {
   applyWorkoutEvent,
   discardWorkout,
@@ -52,11 +52,14 @@ import {
   releaseTempoKeepAwake,
 } from '../../tempo/feedback';
 import { useNav } from '../navigation';
+import { theme } from '../../theme';
+import { Enter } from '../motion';
 import {
   AppHeader,
   Badge,
   Button,
   Card,
+  Divider,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -95,7 +98,11 @@ const TEMPO_UI_TICK_MS = 100;
 /** Small prescription tile — training numbers stay scannable at a glance. */
 function TargetTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
-    <View className="min-w-20 rounded-lg border border-line bg-bg px-3 py-2">
+    <View
+      accessible
+      accessibilityLabel={`${label}: ${value}${unit ? ` ${unit}` : ''}`}
+      className="min-w-20 rounded-lg border border-line bg-bg px-3 py-2"
+    >
       <Text className="text-overline uppercase text-dim">{label}</Text>
       <View className="mt-0.5 flex-row items-baseline">
         <Text className="font-mono text-metric text-fg">{value}</Text>
@@ -103,6 +110,40 @@ function TargetTile({ label, value, unit }: { label: string; value: string; unit
       </View>
     </View>
   );
+}
+
+/**
+ * Compact prescription line (view-model, pure): "3 × 5 @ 60 kg RIR 2".
+ * Shared by the step card (target strip) and the rest card's "next up".
+ */
+export function prescriptionParts(p: Prescription): string[] {
+  const parts: string[] = [];
+  if (p.targetSets !== null) parts.push(`${p.targetSets} ×`);
+  if (p.targetRepsMin !== null) {
+    parts.push(`${p.targetRepsMin}${p.targetRepsMax !== null ? `–${p.targetRepsMax}` : ''}`);
+  }
+  if (p.targetWeightGrams !== null) parts.push(`@ ${formatKg(p.targetWeightGrams)} ${strings.workout.weight}`);
+  if (p.targetDurationMs !== null) parts.push(`${Math.round(p.targetDurationMs / 1000)}${strings.units.seconds}`);
+  if (p.targetRir !== null) parts.push(`${strings.workout.rir} ${p.targetRir}`);
+  return parts;
+}
+
+/** One-line prescription summary; `common.none` when the step prescribes nothing. */
+export function prescriptionSummary(p: Prescription): string {
+  const parts = prescriptionParts(p);
+  return parts.length > 0 ? parts.join(' ') : strings.common.none;
+}
+
+/** Block-step position, e.g. "Step 2/4" ("" when the block has no steps). */
+export function stepPositionLabel(stepIndex: number, stepCount: number): string {
+  if (stepCount <= 0) return '';
+  return `${strings.routines.step} ${Math.min(stepIndex + 1, stepCount)}/${stepCount}`;
+}
+
+/** Current-set position inside the step, e.g. "Set 1 of 3". */
+export function setPositionLabel(setIndex: number, targetSets: number): string {
+  const current = Math.min(Math.max(setIndex, 1), targetSets);
+  return `${strings.workout.set} ${current} ${strings.workout.of} ${targetSets}`;
 }
 
 interface SessionSummary {
@@ -821,14 +862,31 @@ export function WorkoutScreen() {
       ? Math.max(0, cursor.timer.expiresAt - cursor.timer.pausedAt)
       : timer.remainingMs || Math.max(0, cursor.timer.expiresAt - Date.now())
     : 0;
+  // Rest-state presentation: kind + paused are always spelled out (never color-only).
+  const restKind = hasTimer && cursor.timer
+    ? cursor.timer.kind === 'rest'
+      ? strings.timer.rest
+      : strings.timer.autoAdvance
+    : '';
+  const restPaused = !!(hasTimer && cursor.timer && cursor.timer.pausedAt != null);
+  const restCountdown = formatCountdown(timerRemainingMs);
+  const restTargetStep =
+    hasTimer && cursor.timer
+      ? definition.blocks[cursor.timer.target.blockIndex]?.steps[cursor.timer.target.stepIndex]
+      : undefined;
+  const stepHeaderText = currentStep
+    ? `${currentStep.exerciseName || strings.common.none}, ${stepPositionLabel(cursor.stepIndex, block?.steps.length ?? 0)}`
+    : '';
 
   if (completedView || cursor.status === 'completed') {
     return (
       <Screen>
         <AppHeader title={definition.name} />
-        <View className="flex-1 items-center justify-center px-6">
+        <Enter className="flex-1 items-center justify-center px-6">
           <Text className="text-overline uppercase text-accent-ink">{strings.workout.summary}</Text>
-          <Text className="mt-1.5 text-title text-fg">{strings.workout.sessionSaved}</Text>
+          <Text accessibilityRole="header" className="mt-1.5 text-title text-success">
+            {strings.workout.sessionSaved}
+          </Text>
           <Text className="mt-1 text-caption text-dim">{definition.name}</Text>
           <View className="mt-6 w-full flex-row gap-2">
             <MetricCard
@@ -874,7 +932,7 @@ export function WorkoutScreen() {
               }}
             />
           </View>
-        </View>
+        </Enter>
       </Screen>
     );
   }
@@ -891,8 +949,8 @@ export function WorkoutScreen() {
       <View className="flex-1">
         <ScrollView contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
         <View className="px-4 pt-4">
-          <View className="flex-row items-center justify-between">
-            <Text className="text-overline uppercase text-dim" numberOfLines={1}>
+          <View className="flex-row items-center justify-between gap-2">
+            <Text className="flex-1 text-overline uppercase text-dim" numberOfLines={1}>
               {strings.workout.block} {cursor.blockIndex + 1}/{definition.blocks.length}
               {block ? ` · ${block.name}` : ''}
             </Text>
@@ -901,71 +959,105 @@ export function WorkoutScreen() {
               tone="neutral"
             />
           </View>
-          <View
-            className={`mt-2 rounded-lg border px-2 py-2 ${flash ? 'border-accent bg-accent/10' : 'border-transparent bg-transparent'}`}
-          >
-            <Progress
-              value={progress.ratio}
-              label={`${progress.doneSets} of ${progress.totalSets} ${strings.workout.plannedSets}`}
-              testID="session-progress"
-            />
-            <View className="mt-1.5 flex-row items-center justify-between">
-              <Text className="font-mono text-body text-fg">
-                {strings.workout.set} {Math.min(cursor.setIndex, targetSets)} {strings.workout.of} {targetSets}
+
+          {currentStep ? (
+            <View
+              testID="step-header"
+              accessible
+              accessibilityRole="header"
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={stepHeaderText}
+              className="mt-2"
+            >
+              <Text className="text-title text-fg" numberOfLines={2}>
+                {currentStep.exerciseName || strings.common.none}
               </Text>
-              <Text className="text-caption text-dim">
-                {progress.doneSets}/{progress.totalSets} {strings.workout.plannedSets}
-              </Text>
+              <View className="mt-1 flex-row items-center gap-2">
+                <Text className="text-caption text-dim" testID="step-position">
+                  {stepPositionLabel(cursor.stepIndex, block?.steps.length ?? 0)}
+                </Text>
+                {block && block.kind !== 'normal' ? (
+                  <Badge label={strings.routines.blockKind[block.kind]} tone="accent" />
+                ) : null}
+              </View>
             </View>
-          </View>
+          ) : null}
+
+          {currentStep ? (
+            <View
+              testID="session-progress-panel"
+              className={`mt-3 rounded-lg border px-2 py-2 ${flash ? 'bg-success/10' : 'bg-transparent'}`}
+              style={{
+                borderColor: flash ? theme.semantic.success : theme.semantic.border,
+              }}
+            >
+              <Progress
+                value={progress.ratio}
+                label={`${progress.doneSets} ${strings.workout.of} ${progress.totalSets} ${strings.workout.plannedSets}`}
+                testID="session-progress"
+              />
+              <View className="mt-1.5 flex-row items-center justify-between">
+                <Text className="font-mono text-body text-fg" testID="set-position">
+                  {setPositionLabel(cursor.setIndex, targetSets)}
+                </Text>
+                <Text
+                  className={`text-caption ${flash ? 'text-success' : 'text-dim'}`}
+                  testID="session-progress-count"
+                >
+                  {progress.doneSets}/{progress.totalSets} {strings.workout.plannedSets}
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         {hasTimer && cursor.timer ? (
-          <View className="mt-6 px-4">
-            <Card tone="accent">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-overline uppercase text-accent-ink">
-                  {cursor.timer.kind === 'rest' ? strings.timer.rest : strings.timer.autoAdvance}
-                </Text>
-                {cursor.timer.pausedAt != null ? <Badge label={strings.workout.paused} tone="strong" /> : null}
+          <Enter key={`rest-${cursor.timer.expiresAt}`} className="mt-6 px-4">
+            <Card tone="accent" testID="rest-card">
+              <View className="flex-row items-center justify-between gap-2">
+                <View className="flex-row items-center gap-2">
+                  <View
+                    testID="rest-state-dot"
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: restPaused ? theme.semantic.warning : theme.semantic.primary }}
+                  />
+                  <Text className="text-heading uppercase text-accent-ink">{restKind}</Text>
+                </View>
+                {restPaused ? <Badge label={strings.workout.paused} tone="strong" testID="rest-paused" /> : null}
               </View>
-              <Text className="mt-1.5 font-mono text-metric-xl text-fg">
-                {formatCountdown(timerRemainingMs)}
+              <Text
+                testID="rest-countdown"
+                accessible
+                accessibilityRole="timer"
+                accessibilityLiveRegion="polite"
+                accessibilityValue={{ text: restCountdown }}
+                accessibilityLabel={`${restKind} ${restCountdown}${restPaused ? `, ${strings.workout.paused}` : ''}`}
+                className={`mt-1 font-mono text-metric-xl ${restPaused ? 'text-warning' : 'text-fg'}`}
+              >
+                {restCountdown}
               </Text>
               <View className="mt-2.5">
                 <Progress
                   value={cursor.timer.durationMs > 0 ? Math.max(0, Math.min(1, timerRemainingMs / cursor.timer.durationMs)) : 0}
-                  label={`${formatCountdown(timerRemainingMs)} ${cursor.timer.kind === 'rest' ? strings.timer.rest : strings.timer.autoAdvance}`}
+                  label={`${restKind} ${restCountdown}`}
                   testID="rest-progress"
                 />
               </View>
-              {(() => {
-                const t = definition.blocks[cursor.timer.target.blockIndex]?.steps[cursor.timer.target.stepIndex];
-                if (!t) {
-                  return <Text className="mt-3 text-caption text-dim">{strings.workout.next}</Text>;
-                }
-                const p = t.prescription;
-                const parts: string[] = [];
-                if (p.targetSets !== null) parts.push(`${p.targetSets} ×`);
-                if (p.targetRepsMin !== null) {
-                  parts.push(`${p.targetRepsMin}${p.targetRepsMax !== null ? `–${p.targetRepsMax}` : ''}`);
-                }
-                if (p.targetWeightGrams !== null) parts.push(`@ ${formatKg(p.targetWeightGrams)} ${strings.workout.weight}`);
-                if (p.targetDurationMs !== null) parts.push(`${Math.round(p.targetDurationMs / 1000)}${strings.units.seconds}`);
-                return (
-                  <View className="mt-3 rounded-lg border border-line bg-bg px-3 py-2">
-                    <Text className="text-overline uppercase text-dim" numberOfLines={1}>
-                      {strings.workout.nextUp}: {t.exerciseName}
-                    </Text>
-                    {parts.length > 0 ? (
-                      <Text className="mt-0.5 font-mono text-body text-fg">{parts.join(' ')}</Text>
-                    ) : null}
-                  </View>
-                );
-              })()}
+              {restTargetStep ? (
+                <View className="mt-3 rounded-lg border border-line bg-bg px-3 py-2">
+                  <Text className="text-overline uppercase text-dim" numberOfLines={1}>
+                    {strings.workout.nextUp}: {restTargetStep.exerciseName}
+                  </Text>
+                  <Text className="mt-0.5 font-mono text-body text-fg" numberOfLines={1}>
+                    {prescriptionSummary(restTargetStep.prescription)}
+                  </Text>
+                </View>
+              ) : (
+                <Text className="mt-3 text-caption text-dim">{strings.workout.next}</Text>
+              )}
               <View className="mt-4 flex-row gap-2">
                 <Button
-                  label={cursor.timer.pausedAt != null ? strings.workout.resume : strings.workout.pause}
+                  label={restPaused ? strings.workout.resume : strings.workout.pause}
                   variant="secondary"
                   onPress={onPauseResume}
                   disabled={busy}
@@ -974,22 +1066,10 @@ export function WorkoutScreen() {
                 <Button label={strings.workout.skipRest} variant="secondary" onPress={onSkip} disabled={busy} className="flex-1" />
               </View>
             </Card>
-          </View>
+          </Enter>
           ) : currentStep ? (
-          <View className="mt-6 px-4">
-            <Card tone={flash ? 'accent' : 'default'}>
-              <View className="flex-row items-start justify-between gap-2">
-                <View className="flex-1">
-                  <Text className="text-title text-fg">{currentStep.exerciseName || strings.common.none}</Text>
-                  <Text className="mt-0.5 text-caption text-dim">{block?.name}</Text>
-                </View>
-                <View className="flex-row gap-1.5">
-                  {block && block.kind !== 'normal' ? (
-                    <Badge label={strings.routines.blockKind[block.kind]} tone="accent" />
-                  ) : null}
-                </View>
-              </View>
-
+          <Enter key={posKey} className="mt-6 px-4">
+            <Card tone="default" testID="step-card">
               {showInterval && intervalSpec ? (
                 <View className="mt-4">
                   {intervalRt.status === 'idle' ? (
@@ -1016,7 +1096,9 @@ export function WorkoutScreen() {
 
               {!showInterval ? (
                 <>
-              <SectionHeader title={strings.workout.target} />
+              <View className="-mt-4">
+                <SectionHeader title={strings.workout.target} />
+              </View>
               <View className="flex-row flex-wrap gap-2">
                 {currentStep.prescription.targetSets !== null ? (
                   <TargetTile
@@ -1053,21 +1135,28 @@ export function WorkoutScreen() {
               </View>
 
               {currentStep.prescription.targetRir !== null ? (
-                <View className="mt-3 flex-row items-center justify-between rounded-lg border border-line bg-surface-2 px-3 py-2">
-                  <Text className="text-sm text-dim">{strings.autoreg.title}</Text>
-                  <Pressable
-                    accessibilityRole="switch"
-                    accessibilityState={{ checked: autoregEnabled }}
-                    onPress={() => setAutoregEnabled((v) => !v)}
-                    className={`min-h-8 rounded-full border px-3 ${
-                      autoregEnabled ? 'border-accent bg-accent/20' : 'border-line bg-surface'
+                <Pressable
+                  testID="autoreg-switch"
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: autoregEnabled }}
+                  accessibilityLabel={strings.autoreg.title}
+                  accessibilityHint={strings.autoreg.hint}
+                  onPress={() => setAutoregEnabled((v) => !v)}
+                  style={({ pressed }) => (pressed ? { opacity: 0.8 } : undefined)}
+                  className="mt-3 min-h-12 flex-row items-center justify-between rounded-lg border border-line bg-surface-2 px-3 py-2"
+                >
+                  <Text className="flex-1 pr-3 text-sm text-dim">{strings.autoreg.title}</Text>
+                  <View
+                    className={`h-6 w-11 flex-row items-center rounded-full border px-0.5 ${
+                      autoregEnabled ? 'justify-end border-accent bg-accent/20' : 'justify-start border-line bg-surface'
                     }`}
                   >
-                    <Text className={`text-xs font-semibold ${autoregEnabled ? 'text-accent-ink' : 'text-dim'}`}>
-                      {autoregEnabled ? 'ON' : 'OFF'}
-                    </Text>
-                  </Pressable>
-                </View>
+                    <View
+                      className="h-5 w-5 rounded-full"
+                      style={{ backgroundColor: autoregEnabled ? theme.semantic.primary : theme.semantic.elevated }}
+                    />
+                  </View>
+                </Pressable>
               ) : null}
 
               {autoregEnabled && autoregSuggestion ? (
@@ -1112,7 +1201,18 @@ export function WorkoutScreen() {
                 </View>
               ) : null}
 
-              <SectionHeader title={strings.workout.actual} />
+              <SectionHeader
+                title={strings.workout.actual}
+                right={
+                  <Text
+                    testID="target-summary"
+                    numberOfLines={1}
+                    className="flex-1 pl-2 text-right text-caption text-dim"
+                  >
+                    {prescriptionSummary(currentStep.prescription)}
+                  </Text>
+                }
+              />
               <View className="flex-row gap-3">
                 <NumpadField
                   testID="field-weight"
@@ -1157,18 +1257,21 @@ export function WorkoutScreen() {
                 </>
               ) : null}
             </Card>
-          </View>
+          </Enter>
         ) : (
           <View className="mt-6 px-4">
             <EmptyState message={strings.workout.emptyRoutine} />
           </View>
         )}
 
+        <View className="mt-5 px-4">
+          <Divider />
+        </View>
         <View className="mt-4 px-4">
-          <Button label={strings.workout.undo} variant="ghost" onPress={onUndo} disabled={busy || !canUndo} />
+          <Button label={strings.workout.finish} variant="secondary" onPress={onFinish} disabled={busy} />
         </View>
         <View className="mt-2 px-4">
-          <Button label={strings.workout.finish} variant="secondary" onPress={onFinish} disabled={busy} />
+          <Button label={strings.workout.undo} variant="ghost" onPress={onUndo} disabled={busy || !canUndo} />
         </View>
         {error ? (
           <View className="mt-4 px-4">
