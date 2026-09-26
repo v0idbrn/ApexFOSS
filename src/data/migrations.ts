@@ -16,6 +16,11 @@ import { schemaMigrations, addColumns, createTable } from '@nozbe/watermelondb/S
  * v4 → v5 (Phase 2J): optional workout_sessions.note for post-workout
  * session notes. Older rows simply read null; backups without a note
  * remain valid (optional field on BackupSession).
+ *
+ * v5 → v6 (i18n): new app_settings table for device preferences (locale
+ * override keyed by `locale`). Older installs start empty → device locale.
+ * app_settings is intentionally absent from backups (device preference,
+ * not training data) — pre-v5 backup files restore unchanged.
  */
 export const migrations = schemaMigrations({
   migrations: [
@@ -65,6 +70,20 @@ export const migrations = schemaMigrations({
         addColumns({
           table: 'workout_sessions',
           columns: [{ name: 'note', type: 'string', isOptional: true }],
+        }),
+      ],
+    },
+    {
+      toVersion: 6,
+      steps: [
+        createTable({
+          name: 'app_settings',
+          columns: [
+            { name: 'key', type: 'string' },
+            { name: 'value', type: 'string' },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
         }),
       ],
     },

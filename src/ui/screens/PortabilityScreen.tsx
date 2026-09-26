@@ -229,7 +229,7 @@ export function PortabilityScreen() {
             numberOfLines={4}
             value={importText}
             onChangeText={setImportText}
-            placeholder="apexfoss://import?d=... or portable JSON"
+            placeholder={strings.portability.importPlaceholder}
             placeholderTextColor="#a3a3a3"
             className="min-h-24"
             textAlignVertical="top"
@@ -262,7 +262,7 @@ export function PortabilityScreen() {
             numberOfLines={4}
             value={backupText}
             onChangeText={setBackupText}
-            placeholder='{"format":"apexfoss-backup"…}'
+            placeholder={strings.portability.jsonPlaceholder}
             placeholderTextColor="#a3a3a3"
             className="min-h-24"
             textAlignVertical="top"

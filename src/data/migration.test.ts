@@ -2,25 +2,27 @@ import { schemaVersion, schema } from './schema';
 import { migrations } from './migrations';
 
 /**
- * Migration / data-version sanity for Phase 2J.
- * Goal: prove the installed schema is v5, migrations infrastructure is wired,
- * routine_blocks carries optional interval_json, readiness_tests and
- * equipment_items exist, and workout_sessions carries optional note.
+ * Migration / data-version sanity for Phase 2J + i18n (schema v6).
+ * Goal: prove the installed schema is v6, migrations infrastructure is wired,
+ * routine_blocks carries optional interval_json, readiness_tests,
+ * equipment_items and app_settings exist, and workout_sessions carries
+ * optional note.
  *
  * WatermelonDB shape: schema.tables is a name→table map;
  * schemaMigrations() returns { sortedMigrations, minVersion, maxVersion, validated }.
  */
 
 describe('migration / data version sanity', () => {
-  it('schemaVersion is 5 (Phase 2J equipment inventory + session notes)', () => {
-    expect(schemaVersion).toBe(5);
-    expect(schema.version).toBe(5);
+  it('schemaVersion is 6 (i18n app_settings device preferences)', () => {
+    expect(schemaVersion).toBe(6);
+    expect(schema.version).toBe(6);
   });
 
-  it('all eleven release tables are present with expected names', () => {
+  it('all twelve release tables are present with expected names', () => {
     const names = Object.keys(schema.tables).sort();
     expect(names).toEqual(
       [
+        'app_settings',
         'block_transitions',
         'equipment_items',
         'exercises',
@@ -34,18 +36,29 @@ describe('migration / data version sanity', () => {
         'workout_sessions',
       ].sort(),
     );
-    expect(names).toHaveLength(11);
+    expect(names).toHaveLength(12);
   });
 
-  it('migrations infrastructure is validated; v1→v2 through v4→v5 steps', () => {
+  it('migrations infrastructure is validated; v1→v2 through v5→v6 steps', () => {
     expect(migrations.validated).toBe(true);
     expect(migrations.minVersion).toBe(1);
-    expect(migrations.maxVersion).toBe(5);
-    expect(migrations.sortedMigrations).toHaveLength(4);
+    expect(migrations.maxVersion).toBe(6);
+    expect(migrations.sortedMigrations).toHaveLength(5);
     expect(migrations.sortedMigrations[0].toVersion).toBe(2);
     expect(migrations.sortedMigrations[1].toVersion).toBe(3);
     expect(migrations.sortedMigrations[2].toVersion).toBe(4);
     expect(migrations.sortedMigrations[3].toVersion).toBe(5);
+    expect(migrations.sortedMigrations[4].toVersion).toBe(6);
+  });
+
+  it('app_settings has key/value + timestamps (schema v6)', () => {
+    const t = schema.tables['app_settings'];
+    expect(t).toBeDefined();
+    const byName = new Map(t.columnArray.map((c) => [c.name, c]));
+    expect(byName.get('key')?.type).toBe('string');
+    expect(byName.get('value')?.type).toBe('string');
+    expect(byName.get('created_at')?.type).toBe('number');
+    expect(byName.get('updated_at')?.type).toBe('number');
   });
 
   it('routine_blocks has optional interval_json', () => {

@@ -8,8 +8,9 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
  * v3 (Phase 2E): readiness_tests for tap-test baseline history.
  * v4 (Phase 2J): equipment_items for persistent gym inventory (per-side plates etc).
  * v5 (Phase 2J): optional workout_sessions.note — post-workout session notes.
+ * v6 (i18n): app_settings for device preferences (locale override). Not backed up.
  */
-export const schemaVersion = 5;
+export const schemaVersion = 6;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -155,6 +156,15 @@ export const schema = appSchema({
         { name: 'weight_grams', type: 'number' },
         { name: 'quantity', type: 'number' },
         { name: 'per_side', type: 'number' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'app_settings',
+      columns: [
+        { name: 'key', type: 'string' },
+        { name: 'value', type: 'string' },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

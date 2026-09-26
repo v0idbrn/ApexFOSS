@@ -162,6 +162,16 @@ export class EquipmentItem extends Model {
   @field('updated_at') updatedAt!: number;
 }
 
+/** Device preference row (schema v6) — e.g. `{ key: 'locale', value: 'es' }`. */
+export class AppSetting extends Model {
+  static table = 'app_settings';
+
+  @text('key') key!: string;
+  @text('value') value!: string;
+  @field('created_at') createdAt!: number;
+  @field('updated_at') updatedAt!: number;
+}
+
 export const modelClasses = [
   Exercise,
   Routine,
@@ -174,4 +184,5 @@ export const modelClasses = [
   SetLog,
   ReadinessTest,
   EquipmentItem,
+  AppSetting,
 ];

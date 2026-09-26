@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View } from 'react-native';
 import type { QrMatrix } from '../portability/qr';
+import { strings } from '../constants/strings';
 
 /** Pure View grid renderer for QR matrices — no SVG/camera dependency. */
 export function QrGrid({ matrix, size = 280 }: { matrix: QrMatrix; size?: number }) {
@@ -8,7 +9,7 @@ export function QrGrid({ matrix, size = 280 }: { matrix: QrMatrix; size?: number
   const grid = useMemo(() => matrix.modules, [matrix]);
   return (
     <View
-      accessibilityLabel="QR code"
+      accessibilityLabel={strings.common.qrCode}
       style={{ width: cell * matrix.size, height: cell * matrix.size, backgroundColor: '#ffffff' }}
     >
       {grid.map((row, r) => (
