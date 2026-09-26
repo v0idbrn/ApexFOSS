@@ -4,3 +4,4 @@ export * from './autoregulation';
 export * from './readiness';
 export * from './muscles';
 export * from './trends';
+export * from './progression';
