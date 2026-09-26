@@ -36,6 +36,15 @@ interface LocaleStoreState {
 const LOCALE_SETTING_KEY = 'locale';
 
 /**
+ * The strings facade defaults to `en` at module load, so the detected device
+ * locale must be applied SYNCHRONOUSLY here — otherwise the store reports
+ * e.g. `es` while the facade still serves English (found on device in Phase
+ * 2L: switcher showed "Spanish" while the UI stayed English).
+ */
+const initialLocale = detectLocale();
+setStringsLocale(initialLocale);
+
+/**
  * The app database is resolved through a lazy CommonJS require (same pattern
  * as src/ui/keepAwake.ts): importing this store must not construct the SQLite
  * adapter at module scope, and `require` works under Jest where a native
@@ -52,7 +61,7 @@ function requireDatabase(): Database | null {
 }
 
 export const useLocaleStore = create<LocaleStoreState>((set) => ({
-  locale: detectLocale(),
+  locale: initialLocale,
   hydrated: false,
 
   async setLocale(l: Locale) {
@@ -80,6 +89,9 @@ export const useLocaleStore = create<LocaleStoreState>((set) => ({
       set({ locale: override, hydrated: true });
       return;
     }
+    // No override: keep the facade on the detected locale (idempotent, but
+    // guards against any earlier state drifting out of sync).
+    setStringsLocale(initialLocale);
     set({ hydrated: true });
   },
 }));
