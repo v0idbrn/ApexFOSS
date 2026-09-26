@@ -4,6 +4,7 @@ import { database } from '../../data';
 import { loadAnalyticsSnapshot, type AnalyticsSession } from '../../data/analytics';
 import { strings } from '../../constants/strings';
 import { gramRepsToKgReps } from '../../analytics/load';
+import { formatCount } from '../../utils/units';
 import {
   compareSessions,
   previousSessionBefore,
@@ -195,7 +196,7 @@ export function CompareScreen({ sessionId }: { sessionId: string }) {
     );
   }
 
-  const fmtVolume = (gramReps: number) => `${gramRepsToKgReps(gramReps)} ${strings.compare.kgRepsUnit}`;
+  const fmtVolume = (gramReps: number) => `${formatCount(gramRepsToKgReps(gramReps))} ${strings.compare.kgRepsUnit}`;
   const fmtSets = (n: number) => String(n);
   const fmtTime = (ms: number) => `${Math.round(ms / 1000)} ${strings.compare.secondsUnit}`;
 

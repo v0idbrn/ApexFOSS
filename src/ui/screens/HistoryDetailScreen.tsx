@@ -4,7 +4,7 @@ import { database } from '../../data';
 import { loadSessionDetail, type HistoryDetail } from '../../data/history';
 import { saveSessionNote } from '../../data/notes';
 import { strings } from '../../constants/strings';
-import { formatKg } from '../../utils/units';
+import { formatCount, formatKg } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps, msToSeconds } from '../../analytics/load';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, TextField } from '../components';
@@ -214,7 +214,7 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
                 {strings.history.sessionLoad}
               </Text>
               <Text className="mt-2 text-lg font-bold text-fg">
-                {gramRepsToKgReps(sessionLoad.resistanceGramReps)} {strings.load.kgReps}
+                {formatCount(gramRepsToKgReps(sessionLoad.resistanceGramReps))} {strings.load.kgReps}
               </Text>
               <Text className="mt-0.5 text-sm text-dim">
                 {strings.history.resistanceLoad}: {sessionLoad.resistanceSetCount} {strings.load.sets}

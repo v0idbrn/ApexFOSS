@@ -58,10 +58,10 @@ function TrendCard({
     <Card>
       <Text className="text-xs font-semibold uppercase tracking-wider text-dim">{title}</Text>
       <Text className="mt-3 text-xl font-bold text-fg">
-        {gramRepsToKgReps(comparison.current.resistanceGramReps)} {strings.load.kgReps}
+        {formatCount(gramRepsToKgReps(comparison.current.resistanceGramReps))} {strings.load.kgReps}
       </Text>
       <Text className="mt-1 text-sm text-dim">
-        {previousLabel}: {gramRepsToKgReps(comparison.previous.resistanceGramReps)} {strings.load.kgReps}
+        {previousLabel}: {formatCount(gramRepsToKgReps(comparison.previous.resistanceGramReps))} {strings.load.kgReps}
       </Text>
       <Text className="mt-0.5 text-sm text-dim">
         {strings.load.trends.change}: {changeLabel(comparison)}
@@ -172,7 +172,7 @@ export function LoadScreen() {
               {strings.load.completedSets}: {agg.completedSetCount}
             </Text>
             <Text className="mt-3 text-2xl font-bold text-fg">
-              {gramRepsToKgReps(agg.resistanceGramReps)} {strings.load.kgReps}
+              {formatCount(gramRepsToKgReps(agg.resistanceGramReps))} {strings.load.kgReps}
             </Text>
             <Text className="mt-1 text-sm text-dim">
               {strings.load.resistance}: {agg.resistanceSetCount} {strings.load.sets}
@@ -217,11 +217,11 @@ export function LoadScreen() {
                 <Text className="mt-3 text-2xl font-bold text-fg">{loadRatio.ratio?.toFixed(2)}</Text>
                 <Text className="mt-1 text-sm text-dim">
                   {strings.load.ratio.currentWeek}:{' '}
-                  {gramRepsToKgReps(loadRatio.acuteWeeklyGramReps)} {strings.load.kgReps}
+                  {formatCount(gramRepsToKgReps(loadRatio.acuteWeeklyGramReps))} {strings.load.kgReps}
                 </Text>
                 <Text className="mt-0.5 text-sm text-dim">
                   {strings.load.ratio.baselineWeek}:{' '}
-                  {gramRepsToKgReps(loadRatio.chronicWeeklyGramReps ?? 0)} {strings.load.kgReps}
+                  {formatCount(gramRepsToKgReps(loadRatio.chronicWeeklyGramReps ?? 0))} {strings.load.kgReps}
                 </Text>
               </View>
             ) : (

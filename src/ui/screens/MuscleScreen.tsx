@@ -10,6 +10,7 @@ import {
   type MuscleRegionLoad,
 } from '../../analytics/muscles';
 import { dateRange, gramRepsToKgReps, type DateRangeKind } from '../../analytics/load';
+import { formatCount } from '../../utils/units';
 import { useNav } from '../navigation';
 import { AppHeader, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
 import { Enter } from '../motion';
@@ -122,7 +123,7 @@ export function MuscleScreen() {
               {strings.muscles.mappedLoad}
             </Text>
             <Text className="mt-3 text-2xl font-bold text-fg">
-              {gramRepsToKgReps(heatmap.mappedResistanceGramReps)} {strings.load.kgReps}
+              {formatCount(gramRepsToKgReps(heatmap.mappedResistanceGramReps))} {strings.load.kgReps}
             </Text>
             <Text className="mt-1 text-sm text-dim">
               {strings.muscles.sessions}: {heatmap.sessionCount} · {strings.muscles.exercisesLabel}:{' '}
@@ -172,7 +173,7 @@ export function MuscleScreen() {
                     </View>
                     <View className="mt-1 flex-row items-baseline justify-between">
                       <Text className="text-lg font-bold text-fg">
-                        {gramRepsToKgReps(region.resistanceGramReps)} {strings.load.kgReps}
+                        {formatCount(gramRepsToKgReps(region.resistanceGramReps))} {strings.load.kgReps}
                       </Text>
                       <Text className="text-xs text-dim">{percentLabel(region.shareBp)}</Text>
                     </View>
@@ -197,7 +198,7 @@ export function MuscleScreen() {
                 {groupLabel(detail.muscle)}
               </Text>
               <Text className="mt-2 text-2xl font-bold text-fg">
-                {gramRepsToKgReps(detail.resistanceGramReps)} {strings.load.kgReps}
+                {formatCount(gramRepsToKgReps(detail.resistanceGramReps))} {strings.load.kgReps}
               </Text>
               <Text className="mt-1 text-sm text-dim">
                 {strings.muscles.share}: {percentLabel(detail.shareBp)} · {strings.muscles.sets}:{' '}
@@ -215,7 +216,7 @@ export function MuscleScreen() {
                     {exercise.exerciseName}
                   </Text>
                   <Text className="text-sm text-dim">
-                    {gramRepsToKgReps(exercise.resistanceGramReps)} {strings.load.kgReps}
+                    {formatCount(gramRepsToKgReps(exercise.resistanceGramReps))} {strings.load.kgReps}
                   </Text>
                 </View>
               ))}
