@@ -133,11 +133,11 @@ export function Numpad({
 function fieldLabel(field: NumpadField): string {
   switch (field) {
     case 'weight':
-      return `${strings.routines.prescription.weight} (${strings.workout.weight})`;
+      return strings.routines.prescription.weight;
     case 'reps':
       return strings.routines.prescription.reps;
     case 'duration':
-      return `${strings.routines.prescription.duration} (${strings.units.seconds})`;
+      return strings.routines.prescription.duration;
     case 'rir':
       return strings.workout.rir;
   }

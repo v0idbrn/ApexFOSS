@@ -1116,7 +1116,7 @@ export function WorkoutScreen() {
               <View className="flex-row gap-3">
                 <NumpadField
                   testID="field-weight"
-                  label={`${strings.routines.prescription.weight} (${strings.workout.weight})`}
+                  label={strings.routines.prescription.weight}
                   display={weightKg}
                   suffix={strings.workout.weight}
                   active={activeField === 'weight'}
@@ -1133,7 +1133,7 @@ export function WorkoutScreen() {
               <View className="mt-3 flex-row gap-3">
                 <NumpadField
                   testID="field-duration"
-                  label={`${strings.routines.prescription.duration} (${strings.units.seconds})`}
+                  label={strings.routines.prescription.duration}
                   display={durationS}
                   suffix={strings.units.seconds}
                   active={activeField === 'duration'}

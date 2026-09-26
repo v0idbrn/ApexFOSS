@@ -39,7 +39,6 @@ export const strings = {
     activeSession: 'Active session',
     resume: 'Resume',
     recentSessions: 'Recent sessions',
-    noSessions: 'No sessions yet. Create a routine and start training.',
     exercises: 'Exercises',
     routines: 'Routines',
     authoring: 'Authoring',

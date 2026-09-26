@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Navigator } from '../navigation';
 import { HomeScreen } from './HomeScreen';
+import { EmptyState } from '../components';
 import { strings } from '../../constants/strings';
 
 jest.mock('../../data', () => ({ database: {} }));
@@ -59,5 +60,37 @@ describe('Home navigation (Phase 2F)', () => {
       entry!.props.onPress();
     });
     expect(renderer.root.findAllByProps({ testID: 'muscles-route' }).length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('Home recent-training empty state (Phase 2K V1)', () => {
+  async function renderHome(): Promise<ReactTestRenderer> {
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(
+        <Navigator>{(route) => (route.name === 'home' ? <HomeScreen /> : null)}</Navigator>,
+      );
+    });
+    await act(async () => {});
+    return renderer;
+  }
+
+  it('renders a single explanatory copy for recent training', async () => {
+    const renderer = await renderHome();
+    const empty = renderer.root
+      .findAllByType(EmptyState)
+      .find((n) => n.props.title === strings.home.recentEmptyTitle);
+    expect(empty).toBeDefined();
+    expect(empty!.props.message).toBe(strings.home.recentEmptyBody);
+    expect(empty!.props.description).toBeUndefined();
+  });
+
+  it('keeps the start-workout action on the recent empty state', async () => {
+    const renderer = await renderHome();
+    const empty = renderer.root
+      .findAllByType(EmptyState)
+      .find((n) => n.props.title === strings.home.recentEmptyTitle);
+    expect(empty!.props.actionLabel).toBe(strings.home.startWorkout);
+    expect(typeof empty!.props.onAction).toBe('function');
   });
 });

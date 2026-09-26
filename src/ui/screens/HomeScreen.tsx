@@ -221,7 +221,6 @@ export function HomeScreen() {
             <EmptyState
               title={strings.home.recentEmptyTitle}
               message={strings.home.recentEmptyBody}
-              description={strings.home.noSessions}
               actionLabel={strings.home.startWorkout}
               onAction={() => push({ name: 'routines' })}
             />
