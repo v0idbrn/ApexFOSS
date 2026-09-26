@@ -68,5 +68,22 @@ First audited snapshot of ApexFOSS: an **Android-only, local-first workout appli
 - **Universal APK boundary confirmed on the built artifact**: one `SINGLE` release APK, 18 native `.so` per ABI with identical `arm64-v8a`/`armeabi-v7a` sets, no `x86`/`x86_64`, `SINGLE` output, v2 signature (signer `CN=ApexFOSS`), no INTERNET permission, not debuggable (`docs/KNOWN_LIMITATIONS.md` #26).
 - **UI hardening with regression tests**: removed duplicated Home empty-state copy, canonicalized workout/numpad unit labels (no more `Weight (kg) (kg)` / `Duration (s) (s)` on the athlete numpad), plus a source-scan guard test that fails if unit-suffix duplication reappears in `src/ui`.
 
+### Phase 2L — Premium UX/UI transformation (completed)
+
+- Five‑tab bottom‑navigation shell (Home, Routines, Train, Progress, More) with per‑tab stacks and immersive‑route exemption
+- Redesigned HomeScreen: hero/dashboard, weekly metrics, progress snapshot, quick tools
+- Redesigned RoutinesListScreen: cards with integrity/duplicate badges, preview/start/edit/delete actions
+- Redesigned TrainScreen: active‑session flow, session recap, recent routines
+- Redesigned ProgressScreen: weekly metrics, History, Records, Load, Muscle, Compare galleries
+- RecordsScreen: kilogram values rounded and grouped (one decimal precision), Epley 1RM formatting fix
+- i18n EN/ES: 497‑key dictionary with persisted language setting, grammar‑safe pluralization
+- Volume audit: calculation correct; UX/terminology improvement recommendation documented
+- Accessibility sweep: empty‑state actions, labeling, `accessibilityRole="header"` on SectionHeader, a11y on History/Records/Compare/Muscle/Load
+- Portability bottom‑back navigation fix (pop instead of pushing Home onto More stack)
+- Locale facade synchronization (device locale overrides strings facade)
+- Spanish About/legal label correction (`'Acerca de la app y legal'`)
+- Design‑system semantic color tokens
+- Test suite expanded from 673 / 49 to 825 / 58 green (typecheck exit 0)
+
 ### Not included (by design)
 iOS, Health Connect, wearables, cloud sync, accounts, social features, AI coaching, camera/video analysis, ads and analytics. See `docs/KNOWN_LIMITATIONS.md` for the full honest list.
