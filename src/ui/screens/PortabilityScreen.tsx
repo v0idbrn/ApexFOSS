@@ -19,7 +19,7 @@ import { QrGrid } from '../QrGrid';
 import { makeDbActions } from '../../data/actions';
 
 export function PortabilityScreen() {
-  const { pop, push } = useNav();
+  const { pop } = useNav();
   const [routineId, setRoutineId] = useState<string | null>(null);
   const [routineName, setRoutineName] = useState('');
   const [importText, setImportText] = useState('');
@@ -293,7 +293,7 @@ export function PortabilityScreen() {
         </Card>
 
         <Text className="mt-4 text-xs text-dim">{strings.portability.schemeNote}</Text>
-        <Button label={strings.common.back} variant="ghost" onPress={() => push({ name: 'home' })} className="mt-4" />
+        <Button label={strings.common.back} variant="ghost" onPress={pop} className="mt-4" />
       </ScrollView>
     </Screen>
   );
