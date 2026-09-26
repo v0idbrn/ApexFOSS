@@ -1,6 +1,6 @@
 # ApexFOSS — Known Limitations
 
-**Last updated: 2026-09-25 (Phase 2J).** Honest list of what this software does *not* do, *cannot* guarantee, or has deliberately left open. Cross-references: `docs/SECURITY_AUDIT.md` (finding IDs), `docs/DECISIONS.md` (decision IDs).
+**Last updated: 2026-09-26 (Phase 2K).** Honest list of what this software does *not* do, *cannot* guarantee, or has deliberately left open. Cross-references: `docs/SECURITY_AUDIT.md` (finding IDs), `docs/DECISIONS.md` (decision IDs).
 
 ## Product scope
 
@@ -25,7 +25,7 @@
 13. **`SYSTEM_ALERT_WINDOW` permission is present** (inherited from the React Native toolchain) though never requested at runtime; removal is pending device verification (D-035).
 14. **No license file yet** — licensing status is undeclared until the owner decides (D-038/F-18); READMEs state "license: pending" accordingly.
 15. **12 moderate npm advisories are outstanding** (all indirect; npm's suggested fixes would downgrade core dependencies; D-039/F-19). Revisit at the next dependency-maintenance window.
-16. **Deep-link and notification flows are unit-tested but not device-tested** in Phase 2G (no device connected).
+16. **Deep-link flows and actual notification delivery are unit-tested but not device-tested** (no device in Phase 2G). Phase 2K observed the POST_NOTIFICATIONS permission prompt on hardware (prompt appearance + decline path), but a rest-timer notification actually being delivered, and `apexfoss://` deep links opening from another app, remain unvalidated.
 
 ## Distribution
 
@@ -36,8 +36,9 @@
 
 19. **Frozen stack**: Expo 55 / RN 0.83.10 / WatermelonDB 0.28 (JSI) / NativeWind 4 / schema v5. Upgrades are deliberate, large and out of scope for maintenance phases.
 20. **Per-entity deletion exists for exercises/routines; sessions have no per-item delete UI** — full wipe is the only way to remove history (until a future phase adds history deletion UX).
-21. **No device validation performed in Phase 2G** — "Device validation skipped: no device connected." (Still none connected in Phase 2I; **Phase 2J was explicitly run without ADB/device steps** — dashboard, motion, notes, inventory and substitution UI are unit-tested but not visually validated on hardware.)
+21. **Physical-device validation exists but is incomplete (Phase 2K).** The universal release APK was installed and exercised on **one device — Samsung SM-A045M (Galaxy A04e), Android 14 / API 34, `arm64-v8a`, locale es-AR, 720×1600**. Validated on hardware: install + launch, Home rendering/scrolling and Trust-row reachability, routine authoring end-to-end (editor, block/step, exercise picker, prescription fields, save, list), routine preview and integrity check ("No problems found."), workout launch (progress header, round/planned sets, target tile, ACTUAL section, athlete numpad, RIR autoreg toggle, COMPLETE/Skip/Undo/Finish reachability), active-session resume across screen-leave with timer catch-up, the notification permission prompt (declined path), and cold-restart data persistence after process death (no crash, data intact). **Not physically validated** (the device was disconnected before the matrix finished): full timer pause/resume, timer background/return reconciliation, session completion/summary/session notes, History/analytics/PRs/compare fed by a real session, equipment persistence across restart, substitutions interaction, full Trust Center navigation, a full EN/ES pass, and a post-fix smoke of the Phase 2K UI fixes — the V1/V3/V3b fixes are covered by Jest regression tests only.
 22. **No React error boundary or global crash handler** (Phase 2I): an uncaught render error in a release build exits the app to the launcher with no in-app recovery screen. Data is not corrupted by such a crash — every engine action commits to the database before the UI advances, and timers restore from persisted `cursor_json.expiresAt` on relaunch.
 23. **Exercise substitutions are heuristics, not physiology** (Phase 2J): movement pattern is inferred from name/category/equipment keywords, muscle overlap comes from the app's own per-exercise contributions, and there is no EMG, rental, or clinical data behind the ranking. It suggests; it is never authoritative, and unknown patterns/equipment deliberately score lower rather than guessing.
 24. **Routine integrity checks are advisory** (Phase 2J): they run against the same engine semantics as the workout engine, but a routine that "checks clean" is still only validated on the dimensions encoded (rounds, transitions, targets, ids) — not on training appropriateness, safety, or medical fit.
 25. **Session notes are single-column, session-level text** (Phase 2J, schema v5): capped at 2000 characters, included in backups and history JSON export but **not** in the CSV export; there is no per-exercise note field and no rich text/search over notes yet.
+26. **One universal APK, ARM ABIs only** (Phase 2K): the release build is a single standalone (`SINGLE`) APK containing `arm64-v8a` and `armeabi-v7a` native libraries (18 `.so` per ABI, identical sets); `x86`/`x86_64` are deliberately excluded because the current native dependency stack targets physical ARM devices (x86 is emulator-oriented). Install boundary: Android 7.0+ (minSdk 24, targetSdk 36), verified against one Android 14 handset — broad ARM Android compatibility within those constraints, **not** "runs on every Android phone".

@@ -61,7 +61,12 @@ First audited snapshot of ApexFOSS: an **Android-only, local-first workout appli
 - Android only: `com.apexfoss.app`, minSdk 24, targetSdk 36, ABIs `arm64-v8a` + `armeabi-v7a`, versionCode 1.
 - Expo SDK 55 / React Native 0.83.10 / TypeScript 5.9 / WatermelonDB 0.28 (JSI) / NativeWind 4; database **schema v5** with additive migrations (v1 → v2 → v3 → v4 → v5).
 - CNG build (`expo prebuild`) with in-repo config plugins; release signing injected from a keystore kept **outside** the repository.
-- Test suite: **663 Jest tests across 47 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
+- Test suite: **673 Jest tests across 49 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
+
+### Physical device validation (Phase 2K)
+- **First on-device validation pass**: the universal release APK was installed and exercised on a Samsung SM-A045M (Android 14 / API 34, `arm64-v8a`) — install/launch, Home rendering/scrolling, routine authoring → preview/integrity ("No problems found."), workout launch (progress header, target/actual, athlete numpad, action controls), active-session resume with timer catch-up, notification permission prompt, and cold-restart data persistence were verified on hardware. The rest of the validation matrix (full timer pause/resume, completed-session flows, Trust Center, full EN/ES pass, post-fix smoke) remains unvalidated — `docs/KNOWN_LIMITATIONS.md` #21.
+- **Universal APK boundary confirmed on the built artifact**: one `SINGLE` release APK, 18 native `.so` per ABI with identical `arm64-v8a`/`armeabi-v7a` sets, no `x86`/`x86_64`, `SINGLE` output, v2 signature (signer `CN=ApexFOSS`), no INTERNET permission, not debuggable (`docs/KNOWN_LIMITATIONS.md` #26).
+- **UI hardening with regression tests**: removed duplicated Home empty-state copy, canonicalized workout/numpad unit labels (no more `Weight (kg) (kg)` / `Duration (s) (s)` on the athlete numpad), plus a source-scan guard test that fails if unit-suffix duplication reappears in `src/ui`.
 
 ### Not included (by design)
 iOS, Health Connect, wearables, cloud sync, accounts, social features, AI coaching, camera/video analysis, ads and analytics. See `docs/KNOWN_LIMITATIONS.md` for the full honest list.

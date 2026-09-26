@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-663%20%2F%2047%20suites-4ade80" alt="663 pruebas en 47 suites" />
+  <img src="https://img.shields.io/badge/tests-673%20%2F%2049%20suites-4ade80" alt="673 pruebas en 49 suites" />
 </p>
 
 <p align="center">
@@ -133,6 +133,8 @@ npm run build:apk       # APK de versión final → android/app/build/outputs/ap
 adb install android/app/build/outputs/apk/release/app-release.apk
 ```
 
+La compilación de versión final es **un APK universal** para dispositivos ARM: `arm64-v8a` + `armeabi-v7a`, que requiere **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (orientados a emuladores) no forman parte del objetivo actual de compatibilidad. Validado en un Samsung SM-A045M (Android 14) en la Fase 2K — el alcance exacto de la validación y sus vacíos están en [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21 y #26.
+
 ### Desarrolladores
 
 ```bash
@@ -153,7 +155,7 @@ El repositorio no contiene secretos. La firma de la versión final se inyecta en
 ## Pruebas
 
 ```bash
-npm test                # 663 pruebas en 47 suites — motor, persistencia,
+npm test                # 673 pruebas en 49 suites — motor, persistencia,
                         # temporizadores, migraciones, analítica, portabilidad,
                         # exportación, seguridad, interfaz
 npm run typecheck       # TypeScript pasa sin errores
@@ -161,12 +163,12 @@ npm run typecheck       # TypeScript pasa sin errores
 
 - Las compilaciones debug y de versión final se generan localmente (`npm run build:apk`), y el conjunto de permisos del APK de versión final ha sido auditado (ver [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
 - La CI de GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) ejecuta verificación de tipos y pruebas en cada push y pull request a `main`.
-- La suite corre en Jest sin dispositivo conectado. **Todavía no se ha hecho una validación sistemática en dispositivos físicos** — considera que el comportamiento en el dispositivo debe validarse en tu propio hardware.
+- La suite corre en Jest sin dispositivo conectado. **La Fase 2K realizó una primera pasada de validación en dispositivo físico** (Samsung SM-A045M, Android 14, ARM64): instalación/inicio, Home, autorización de rutinas → previsualización/integridad, inicio de entrenamiento, reanudación de sesión con sincronización del temporizador y persistencia tras reinicio en frío se ejercitaron en hardware. El resto de la matriz — pausa/reanudación completa del temporizador, flujos de sesión completada (resumen, notas, historial/analítica/récords), Trust Center, EN/ES y una verificación posterior a las correcciones — **aún no está validado en dispositivo**; ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. Considera todo lo demás como pendiente de validación en tu propio hardware.
 
 ## Estado del proyecto
 
 - **Versión:** 0.1.0 (pre-lanzamiento), solo Android, esquema de base de datos local en la versión 5.
-- **Controles de calidad:** 663 pruebas Jest en 47 suites en verde; verificación de tipos TypeScript en verde; APKs debug y de versión final compilan localmente; firma de versión final verificada.
+- **Controles de calidad:** 673 pruebas Jest en 49 suites en verde; verificación de tipos TypeScript en verde; APKs debug y de versión final compilan localmente; firma de versión final verificada; el APK de versión final instalado y validado en un dispositivo físico (Fase 2K).
 - **Distribución:** no se han enviado a ninguna tienda ni canal.
 - **Legal:** existen documentos de privacidad, límite de salud y términos en [docs/](docs/) — los términos son un **borrador pendiente de revisión legal**.
 - **Licencia:** aún no declarada (ver abajo).
@@ -175,7 +177,7 @@ npm run typecheck       # TypeScript pasa sin errores
 
 **Implementado** — todo lo listado en [Características](#características).
 
-**Necesario antes de un lanzamiento público** — resolver la decisión de licencia (D-038), completar la revisión legal del borrador de términos, validación en dispositivos físicos, preparación de tiendas/canales según [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) y los pendientes de [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+**Necesario antes de un lanzamiento público** — resolver la decisión de licencia (D-038), completar la revisión legal del borrador de términos, completar la validación en dispositivos físicos (la Fase 2K cubrió un solo dispositivo Samsung; la matriz restante está en [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21), preparación de tiendas/canales según [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) y los pendientes de [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 **Actualmente no planeado** — iOS, Health Connect, integración con wearables, sincronización en la nube o cuentas, funciones de IA, funciones sociales, entrada por cámara y analítica dentro de la app.
 

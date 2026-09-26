@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-663%20%2F%2047%20suites-4ade80" alt="663 tests in 47 suites" />
+  <img src="https://img.shields.io/badge/tests-673%20%2F%2049%20suites-4ade80" alt="673 tests in 49 suites" />
 </p>
 
 <p align="center">
@@ -133,6 +133,8 @@ npm run build:apk       # release APK → android/app/build/outputs/apk/release/
 adb install android/app/build/outputs/apk/release/app-release.apk
 ```
 
+The release build is **one universal APK** for ARM devices: `arm64-v8a` + `armeabi-v7a`, requiring **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (emulator-oriented) are not part of the current compatibility target. Validated on a Samsung SM-A045M (Android 14) in Phase 2K — the exact validation scope and its gaps are in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21 and #26.
+
 ### Developers
 
 ```bash
@@ -153,19 +155,19 @@ The repository contains no secrets. Release signing is injected at prebuild time
 ## Testing
 
 ```bash
-npm test                # 663 tests across 47 suites — engine, persistence, timers,
+npm test                # 673 tests across 49 suites — engine, persistence, timers,
                         # migrations, analytics, portability, export, security, UI
 npm run typecheck       # TypeScript passes with no errors
 ```
 
 - Debug and release APKs build locally (`npm run build:apk`), and the release APK's permission set has been audited (see [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
 - GitHub Actions CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs typecheck + tests on every push and pull request to `main`.
-- The suite runs on Jest with no device attached. **Systematic physical-device testing has not yet been done** — treat device behaviour as needing validation on your own hardware.
+- The suite runs on Jest with no device attached. **Phase 2K performed a first physical-device validation pass** (Samsung SM-A045M, Android 14, ARM64): install/launch, Home, routine authoring → preview/integrity, workout launch, session resume with timer catch-up, and cold-restart persistence were exercised on hardware. The rest of the matrix — full timer pause/resume, completed-session flows (summary, notes, History/analytics/PRs), Trust Center, EN/ES, and a post-fix smoke — is **not yet device-validated**; see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. Treat everything else as needing validation on your own hardware.
 
 ## Project status
 
 - **Version:** 0.1.0 (pre-release), Android only, local database schema version 5.
-- **Quality gates:** 663 Jest tests / 47 suites pass; TypeScript type-check passes; debug and release APKs build locally; release signing verified.
+- **Quality gates:** 673 Jest tests / 49 suites pass; TypeScript type-check passes; debug and release APKs build locally; release signing verified; final release APK installed and smoke-validated on one physical device (Phase 2K).
 - **Distribution:** no store or channel submissions have been made.
 - **Legal:** privacy, health-boundary, and terms documents exist in [docs/](docs/) — terms are a **draft pending legal review**.
 - **License:** not yet declared (see below).
@@ -174,7 +176,7 @@ npm run typecheck       # TypeScript passes with no errors
 
 **Implemented** — everything listed under [Features](#features).
 
-**Needed before a public release** — resolve the license decision (D-038), complete legal review of the draft terms, physical-device validation, store/channel preparation per [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md), and the outstanding items in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+**Needed before a public release** — resolve the license decision (D-038), complete legal review of the draft terms, finish physical-device validation (Phase 2K covered one Samsung device; the remaining matrix is listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21), store/channel preparation per [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md), and the outstanding items in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 **Not currently planned** — iOS, Health Connect, wearable integrations, cloud sync or accounts, AI features, social features, camera-based input, and in-app analytics.
 

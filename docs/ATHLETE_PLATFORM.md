@@ -71,6 +71,6 @@ Both are additive; old backups (without `equipmentItems` / `note`) still validat
 
 ## Testing and CI
 
-- **663 Jest tests / 47 suites**, `tsc --noEmit` clean (engine, analytics, data, portability, export, security, UI screens).
+- **673 Jest tests / 49 suites**, `tsc --noEmit` clean (engine, analytics, data, portability, export, security, UI screens).
 - Light CI (`.github/workflows/ci.yml`, D-049): `npm ci` → typecheck → tests on every push/PR to `main`. No emulator or APK build in CI.
-- **Device/visual validation (spec §28) was not performed in Phase 2J — the phase was executed without ADB per explicit instruction.** All UI claims above rest on component tests; treat visual behavior as needing validation on real hardware (KNOWN_LIMITATIONS #21).
+- **Device/visual validation (spec §28) was not performed in Phase 2J — the phase was executed without ADB per explicit instruction.** All UI claims above rest on component tests; treat visual behavior as needing validation on real hardware (KNOWN_LIMITATIONS #21). *Phase 2K later delivered a partial physical-device pass on a Samsung SM-A045M (Android 14) covering launch/routine/workout/resume flows; the analytics surfaces above (dashboard, training load, muscle distribution, PRs, compare) were **not** exercised on hardware from a real completed session — KNOWN_LIMITATIONS #21 lists the exact matrix.*
