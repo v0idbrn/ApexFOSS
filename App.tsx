@@ -5,7 +5,10 @@ import './global.css';
 import { runDbSmoke, type SmokeResult } from './src/dev/smokeDb';
 import { database } from './src/data';
 import { makeDbActions } from './src/data/actions';
-import { Navigator, type Route } from './src/ui/navigation';
+import { Navigator, isImmersiveRoute, type Route } from './src/ui/navigation';
+import { TabBar } from './src/ui/TabBar';
+import { useLocale } from './src/state/localeStore';
+import { useLocaleStore } from './src/state/localeStore';
 import { HomeScreen } from './src/ui/screens/HomeScreen';
 import { ExerciseListScreen } from './src/ui/screens/ExerciseListScreen';
 import { ExerciseEditorScreen } from './src/ui/screens/ExerciseEditorScreen';
@@ -13,6 +16,9 @@ import { RoutineListScreen } from './src/ui/screens/RoutineListScreen';
 import { RoutineEditorScreen } from './src/ui/screens/RoutineEditorScreen';
 import { RoutinePreviewScreen } from './src/ui/screens/RoutinePreviewScreen';
 import { WorkoutScreen } from './src/ui/screens/WorkoutScreen';
+import { TrainScreen } from './src/ui/screens/TrainScreen';
+import { ProgressScreen } from './src/ui/screens/ProgressScreen';
+import { MoreScreen } from './src/ui/screens/MoreScreen';
 import { HistoryListScreen } from './src/ui/screens/HistoryListScreen';
 import { HistoryDetailScreen } from './src/ui/screens/HistoryDetailScreen';
 import { CompareScreen } from './src/ui/screens/CompareScreen';
@@ -30,6 +36,12 @@ function renderRoute(route: Route) {
   switch (route.name) {
     case 'home':
       return <HomeScreen />;
+    case 'train':
+      return <TrainScreen />;
+    case 'progress':
+      return <ProgressScreen />;
+    case 'more':
+      return <MoreScreen />;
     case 'exercises':
       return <ExerciseListScreen />;
     case 'exerciseEditor':
@@ -50,8 +62,6 @@ function renderRoute(route: Route) {
       return <CompareScreen sessionId={route.sessionId} />;
     case 'portability':
       return <PortabilityScreen />;
-    case 'importPreview':
-      return <PortabilityScreen />;
     case 'load':
       return <LoadScreen />;
     case 'muscles':
@@ -71,12 +81,17 @@ function renderRoute(route: Route) {
 
 export default function App() {
   const [smoke, setSmoke] = useState<SmokeResult | null>(null);
+  // Subscribes App to locale changes so the whole tree re-renders with the
+  // active dictionary when the user switches language in More.
+  useLocale();
 
   useEffect(() => {
     // Starter exercises are intentionally seeded once on first launch (Day 1 design).
     makeDbActions(database)
       .seedExercisesIfEmpty()
       .catch(() => {});
+    // Apply a persisted language override (device locale until hydrated).
+    void useLocaleStore.getState().hydrate();
   }, []);
 
   useEffect(() => {
@@ -112,7 +127,14 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <View className={`flex-1 ${__DEV__ && smoke && !smoke.ok ? 'bg-danger/10' : 'bg-bg'}`}>
-        <Navigator>{renderRoute}</Navigator>
+        <Navigator>
+          {(route) => (
+            <View className="flex-1">
+              <View className="flex-1">{renderRoute(route)}</View>
+              {isImmersiveRoute(route) ? null : <TabBar />}
+            </View>
+          )}
+        </Navigator>
       </View>
     </SafeAreaProvider>
   );

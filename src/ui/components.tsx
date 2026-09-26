@@ -281,12 +281,18 @@ export function Card({
   children,
   className = '',
   tone = 'default',
+  testID,
 }: {
   children: ReactNode;
   className?: string;
   tone?: CardTone;
+  testID?: string;
 }) {
-  return <View className={`rounded-xl border p-4 ${cardTones[tone]} ${className}`}>{children}</View>;
+  return (
+    <View testID={testID} className={`rounded-xl border p-4 ${cardTones[tone]} ${className}`}>
+      {children}
+    </View>
+  );
 }
 
 export function SectionHeader({ title, right }: { title: string; right?: ReactNode }) {
