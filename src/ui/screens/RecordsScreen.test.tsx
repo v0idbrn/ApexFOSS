@@ -107,6 +107,22 @@ describe('RecordsScreen (Phase 2J §12)', () => {
     expect(texts).toContain(strings.records.estimateHint);
   });
 
+  it('groups large kilogram values and limits estimated 1RM to one decimal', async () => {
+    // Device-found (Phase 2L): raw Epley output rendered as "11446.667 kg".
+    const heavy = benchSession();
+    heavy.exercises = [
+      {
+        exerciseName: 'Deadlift',
+        contributions: null,
+        sets: [{ weightGrams: 1_234_000, reps: 5, durationMs: null, isCompleted: true }],
+      },
+    ];
+    const renderer = await renderRecordsScreen(snapshotWith([heavy]));
+    const texts = textsOf(renderer);
+    expect(texts).toContain(`1,234 ${strings.records.kg}`); // grouped best weight
+    expect(texts).toContain(`1,439.7 ${strings.records.kg}`); // 1234 × (1 + 5/30), 1 dp
+  });
+
   it('lists exercises alphabetically', async () => {
     const squat = benchSession();
     squat.sessionId = 's2';

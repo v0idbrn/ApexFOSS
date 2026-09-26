@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { loadAnalyticsSnapshot, type AnalyticsSession } from '../../data/analytics';
 import { strings } from '../../constants/strings';
-import { formatKg, mmToM } from '../../utils/units';
+import { mmToM } from '../../utils/units';
 import { exercisePrs, prHistory, type ExercisePr, type PrEvent, type PrMetric } from '../../analytics/records';
 import { useNav } from '../navigation';
 import { AppHeader, Badge, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
@@ -30,8 +30,14 @@ function metricLabel(metric: PrMetric): string {
 function metricText(metric: PrMetric, value: number): string {
   switch (metric) {
     case 'weight':
-    case 'estimated1rm':
-      return `${formatKg(value)} ${strings.records.kg}`;
+    case 'estimated1rm': {
+      // Group thousands and stop at 1 decimal — raw Epley output can be
+      // fractional (e.g. 11446.666… kg) and must never render ungrouped.
+      const kg = Math.round((value / 1000) * 10) / 10;
+      const [whole, frac] = kg.toFixed(1).split('.');
+      const grouped = Number(whole).toLocaleString('en-US');
+      return `${frac === '0' ? grouped : `${grouped}.${frac}`} ${strings.records.kg}`;
+    }
     case 'reps':
       return String(value);
     case 'duration':
