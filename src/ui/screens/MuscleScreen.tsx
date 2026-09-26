@@ -39,7 +39,7 @@ function unmappedNote(count: number): string {
  * Timed work is excluded from volume; unknown exercises stay unmapped.
  */
 export function MuscleScreen() {
-  const { pop } = useNav();
+  const { pop, selectTab } = useNav();
   const [snapshot, setSnapshot] = useState<AnalyticsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,13 +99,17 @@ export function MuscleScreen() {
             <Pressable
               key={r}
               accessibilityRole="button"
+              accessibilityLabel={rangeLabel(r)}
               accessibilityState={{ selected: kind === r }}
               onPress={() => setKind(r)}
+              testID={`muscles-range-${r}`}
+              style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
               className={`min-h-12 flex-1 items-center justify-center rounded-lg border px-3 ${
                 kind === r ? 'border-accent bg-accent/10' : 'border-line bg-surface'
               }`}
             >
-              <Text className={`text-sm font-semibold ${kind === r ? 'text-accent-ink' : 'text-dim'}`}>
+              <Text className={`text-sm ${kind === r ? 'font-bold text-accent-ink' : 'font-semibold text-dim'}`}>
+                {kind === r ? '✓ ' : ''}
                 {rangeLabel(r)}
               </Text>
             </Pressable>
@@ -134,7 +138,11 @@ export function MuscleScreen() {
 
         {empty || heatmap.regions.length === 0 ? (
           <View className="px-4 pt-6">
-            <EmptyState message={strings.muscles.noData} />
+            <EmptyState
+              message={strings.muscles.noData}
+              actionLabel={strings.home.startWorkout}
+              onAction={() => selectTab('train')}
+            />
           </View>
         ) : (
           <View className="px-4 pt-4">
@@ -150,11 +158,18 @@ export function MuscleScreen() {
                     accessibilityLabel={groupLabel(region.muscle)}
                     accessibilityState={{ selected: isSelected }}
                     onPress={() => setSelected(isSelected ? null : region.muscle)}
+                    testID={`muscles-region-${region.muscle}`}
+                    style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
                     className={`w-[48%] rounded-xl border p-3 ${
                       isSelected ? 'border-accent bg-accent/10' : 'border-line bg-surface'
                     }`}
                   >
-                    <Text className="text-sm font-semibold text-fg">{groupLabel(region.muscle)}</Text>
+                    <View className="flex-row items-center justify-between">
+                      <Text className={`flex-1 text-sm text-fg ${isSelected ? 'font-bold' : 'font-semibold'}`}>
+                        {groupLabel(region.muscle)}
+                      </Text>
+                      <Text className="text-xs text-accent-ink">{isSelected ? '▾' : '▸'}</Text>
+                    </View>
                     <View className="mt-1 flex-row items-baseline justify-between">
                       <Text className="text-lg font-bold text-fg">
                         {gramRepsToKgReps(region.resistanceGramReps)} {strings.load.kgReps}
@@ -178,7 +193,9 @@ export function MuscleScreen() {
         {detail ? (
           <View className="px-4 pt-4">
             <Card>
-              <Text className="text-lg font-semibold text-fg">{groupLabel(detail.muscle)}</Text>
+              <Text accessibilityRole="header" className="text-lg font-semibold text-fg">
+                {groupLabel(detail.muscle)}
+              </Text>
               <Text className="mt-2 text-2xl font-bold text-fg">
                 {gramRepsToKgReps(detail.resistanceGramReps)} {strings.load.kgReps}
               </Text>

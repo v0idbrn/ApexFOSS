@@ -35,7 +35,7 @@ function formatDuration(ms: number | null): string {
 }
 
 export function HistoryListScreen() {
-  const { push, pop } = useNav();
+  const { push, pop, selectTab } = useNav();
   const [rows, setRows] = useState<HistoryListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,24 +84,34 @@ export function HistoryListScreen() {
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : rows.length === 0 ? (
-        <EmptyState message={strings.history.emptyDetail} />
+        <View className="px-4 pt-8">
+          <EmptyState
+            title={strings.history.empty}
+            message={strings.history.emptyDetail}
+            actionLabel={strings.home.startWorkout}
+            onAction={() => selectTab('train')}
+          />
+        </View>
       ) : (
         <FlatList
           data={rows}
           keyExtractor={(item) => item.id}
           keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <ListRow
-              title={item.name}
-              subtitle={`${formatWhen(item.startedAt)} · ${strings.history.duration} ${formatDuration(item.durationMs)} · ${item.setCount} ${strings.history.sets.toLowerCase()}`}
-              onPress={() => push({ name: 'historyDetail', sessionId: item.id })}
-            />
+          contentContainerStyle={{ paddingBottom: 32 }}
+          renderItem={({ item, index }) => (
+            <Enter delayMs={Math.min(index, 6) * 40}>
+              <ListRow
+                title={item.name}
+                subtitle={`${formatWhen(item.startedAt)} · ${strings.history.duration} ${formatDuration(item.durationMs)} · ${item.setCount} ${strings.history.sets.toLowerCase()}`}
+                onPress={() => push({ name: 'historyDetail', sessionId: item.id })}
+              />
+            </Enter>
           )}
         />
       )}
       </Enter>
       {rows.length > 0 && !loading && !error ? (
-        <View className="border-t border-line px-4 py-2">
+        <View className="border-t border-line px-4 pt-2 pb-4">
           <Text className="mb-2 text-xs text-dim">
             {rows.length} {strings.history.completed.toLowerCase()}
           </Text>

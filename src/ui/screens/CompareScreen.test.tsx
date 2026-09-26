@@ -5,6 +5,7 @@ import { Navigator } from '../navigation';
 import { CompareScreen } from './CompareScreen';
 import { loadAnalyticsSnapshot, type AnalyticsSnapshot } from '../../data/analytics';
 import { strings } from '../../constants/strings';
+import { EmptyState } from '../components';
 
 jest.mock('../../data', () => ({ database: {} }));
 jest.mock('../../data/analytics', () => ({
@@ -132,5 +133,52 @@ describe('CompareScreen (Phase 2J §13)', () => {
   it('shows an error when the selected session no longer exists', async () => {
     const renderer = await renderCompareScreen('ghost', { exercises: [], sessions: [] });
     expect(textsOf(renderer).join(' ')).toContain(strings.history.detailMissing);
+  });
+});
+
+describe('CompareScreen no-baseline empty state (Phase 2L Stage H)', () => {
+  it('offers a view-history action that navigates to the history screen', async () => {
+    const snapshot: AnalyticsSnapshot = {
+      exercises: [],
+      sessions: [
+        session('first', Date.now(), [
+          {
+            exerciseName: 'Bench Press',
+            contributions: null,
+            sets: [{ weightGrams: 60_000, reps: 5, durationMs: null, isCompleted: true }],
+          },
+        ]),
+      ],
+    };
+    mockedLoad.mockResolvedValue(snapshot);
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(
+        <Navigator>
+          {(route) =>
+            route.name === 'home' ? (
+              <CompareScreen sessionId="first" />
+            ) : route.name === 'history' ? (
+              <Text testID="history-route" />
+            ) : null
+          }
+        </Navigator>,
+      );
+    });
+    await act(async () => {});
+
+    const empty = renderer.root
+      .findAllByType(EmptyState)
+      .find((node) => node.props.title === strings.compare.noBaseline);
+    expect(empty).toBeDefined();
+    expect(empty!.props.message).toBe(strings.compare.noBaselineBody);
+    expect(empty!.props.actionLabel).toBe(strings.progress.viewHistory);
+    expect(typeof empty!.props.onAction).toBe('function');
+
+    await act(async () => {
+      empty!.props.onAction();
+    });
+
+    expect(renderer.root.findAllByProps({ testID: 'history-route' }).length).toBeGreaterThanOrEqual(1);
   });
 });

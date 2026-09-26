@@ -298,7 +298,9 @@ export function Card({
 export function SectionHeader({ title, right }: { title: string; right?: ReactNode }) {
   return (
     <View className="mb-2 mt-6 flex-row items-center justify-between">
-      <Text className="text-overline uppercase text-dim">{title}</Text>
+      <Text accessibilityRole="header" className="text-overline uppercase text-dim">
+        {title}
+      </Text>
       {right}
     </View>
   );

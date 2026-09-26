@@ -81,7 +81,12 @@ function PrCard({
         <Text className="flex-1 text-heading text-fg" numberOfLines={1}>
           {pr.exerciseName}
         </Text>
-        <Text className="text-caption text-accent-ink">{expanded ? strings.records.hideHistory : strings.records.showHistory}</Text>
+        <View className="flex-row items-center">
+          <Text className="mr-1 text-caption text-accent-ink">{expanded ? '▾' : '▸'}</Text>
+          <Text className="text-caption text-accent-ink">
+            {expanded ? strings.records.hideHistory : strings.records.showHistory}
+          </Text>
+        </View>
       </Pressable>
       <PrRow metric="weight" value={pr.bestWeightGrams} atMs={pr.bestWeightAtMs} />
       <PrRow metric="reps" value={pr.bestReps} atMs={pr.bestRepsAtMs} />
@@ -118,7 +123,7 @@ function PrCard({
 }
 
 export function RecordsScreen() {
-  const { pop } = useNav();
+  const { pop, selectTab } = useNav();
   const [sessions, setSessions] = useState<AnalyticsSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,20 +177,25 @@ export function RecordsScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         {prs.length === 0 ? (
           <View className="px-4 pt-8">
-            <EmptyState title={strings.records.emptyTitle} message={strings.records.emptyBody} />
+            <EmptyState
+              title={strings.records.emptyTitle}
+              message={strings.records.emptyBody}
+              actionLabel={strings.home.startWorkout}
+              onAction={() => selectTab('train')}
+            />
           </View>
         ) : (
           <View className="px-4 pt-4">
             <SectionHeader title={strings.records.title} />
-            {prs.map((pr) => (
-              <View key={pr.exerciseName} className="mb-2">
+            {prs.map((pr, index) => (
+              <Enter key={pr.exerciseName} delayMs={Math.min(index, 6) * 40} className="mb-2">
                 <PrCard
                   pr={pr}
                   expanded={expanded === pr.exerciseName}
                   onToggle={() => setExpanded((cur) => (cur === pr.exerciseName ? null : pr.exerciseName))}
                   history={history}
                 />
-              </View>
+              </Enter>
             ))}
             <Text className="mt-1 text-caption text-dim">{strings.records.estimateHint}</Text>
           </View>

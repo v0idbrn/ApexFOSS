@@ -120,7 +120,7 @@ function ExerciseCard({ ex }: { ex: ExerciseComparison }) {
 }
 
 export function CompareScreen({ sessionId }: { sessionId: string }) {
-  const { pop } = useNav();
+  const { pop, push } = useNav();
   const [sessions, setSessions] = useState<AnalyticsSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -184,7 +184,12 @@ export function CompareScreen({ sessionId }: { sessionId: string }) {
       <Screen>
         <AppHeader title={strings.compare.title} onBack={pop} />
         <View className="flex-1 items-center justify-center px-6">
-          <EmptyState title={strings.compare.noBaseline} message={strings.compare.noBaselineBody} />
+          <EmptyState
+            title={strings.compare.noBaseline}
+            message={strings.compare.noBaselineBody}
+            actionLabel={strings.progress.viewHistory}
+            onAction={() => push({ name: 'history' })}
+          />
         </View>
       </Screen>
     );
@@ -243,7 +248,11 @@ export function CompareScreen({ sessionId }: { sessionId: string }) {
                 <Text className="text-sm text-dim">{strings.compare.noPerExerciseLoad}</Text>
               </Card>
             ) : (
-              comparison.exercises.map((ex) => <ExerciseCard key={ex.exerciseName} ex={ex} />)
+              comparison.exercises.map((ex, index) => (
+                <Enter key={ex.exerciseName} delayMs={Math.min(index, 6) * 40}>
+                  <ExerciseCard ex={ex} />
+                </Enter>
+              ))
             )}
           </View>
         </View>

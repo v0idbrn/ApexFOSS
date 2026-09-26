@@ -3,7 +3,7 @@ import { Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Navigator } from '../navigation';
 import { HistoryDetailScreen } from './HistoryDetailScreen';
-import { strings } from '../../constants/strings';
+import { strings, setStringsLocale, getActiveStringsLocale, type Locale } from '../../constants/strings';
 import { loadSessionDetail } from '../../data/history';
 import { saveSessionNote } from '../../data/notes';
 import type { HistoryDetail } from '../../data/history';
@@ -128,5 +128,70 @@ describe('HistoryDetailScreen session note (Phase 2J)', () => {
     mockedLoad.mockResolvedValue(detail);
     const renderer = await renderDetail();
     expect(renderer.root.findByProps({ accessibilityLabel: strings.history.compare })).toBeDefined();
+  });
+});
+
+const detailWithBlock: HistoryDetail = {
+  ...detail,
+  blocks: [
+    {
+      blockIndex: 0,
+      name: 'Main',
+      kind: 'superset',
+      rounds: 2,
+      steps: [
+        {
+          stepIndex: 0,
+          exerciseName: 'Bench Press',
+          targetSets: 3,
+          targetRepsMin: 5,
+          targetRepsMax: 8,
+          targetWeightGrams: 80_000,
+          targetDurationMs: null,
+          targetRir: 2,
+          logs: [
+            {
+              blockIndex: 0,
+              stepIndex: 0,
+              round: 1,
+              setIndex: 1,
+              weightGrams: 80_000,
+              reps: 5,
+              durationMs: null,
+              rir: 2,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+describe('HistoryDetailScreen a11y and i18n (Phase 2L Stage H)', () => {
+  it('renders block-kind badges from the dictionary in the active locale', async () => {
+    const original: Locale = getActiveStringsLocale();
+    try {
+      setStringsLocale('es');
+      mockedLoad.mockResolvedValue(detailWithBlock);
+      const renderer = await renderDetail();
+      const texts = textsOf(renderer);
+      expect(texts).toContain(strings.routines.blockKind.superset);
+      expect(texts.join(' ')).toContain(`${strings.workout.block} 1 · Main`);
+      expect(renderer.root.findAllByProps({ accessibilityRole: 'header' }).length).toBeGreaterThan(0);
+    } finally {
+      setStringsLocale(original);
+    }
+  });
+
+  it('labels the note input and exposes button roles for note and compare actions', async () => {
+    mockedLoad.mockResolvedValue(detail);
+    const renderer = await renderDetail();
+    expect(noteField(renderer).props.accessibilityLabel).toBe(strings.notes.label);
+    const save = pressableByLabel(renderer, strings.notes.save);
+    expect(save.props.accessibilityRole).toBe('button');
+    expect(save.props.accessibilityLabel).toBe(strings.notes.save);
+    const compare = pressableByLabel(renderer, strings.history.compare);
+    expect(compare.props.accessibilityRole).toBe('button');
+    expect(typeof compare.props.onPress).toBe('function');
   });
 });

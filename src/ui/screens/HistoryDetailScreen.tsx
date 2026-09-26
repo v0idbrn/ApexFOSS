@@ -69,6 +69,12 @@ function actualLine(l: {
   return parts.length > 0 ? parts.join(' × ') : strings.history.notLogged;
 }
 
+/** Localized block-kind badge (dictionary already carries the locale casing). */
+function blockKindLabel(kind: string): string {
+  const map = strings.routines.blockKind as Record<string, string>;
+  return map[kind] ?? kind.toUpperCase();
+}
+
 export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
   const { pop, push } = useNav();
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
@@ -178,6 +184,7 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
           <Card className="mt-3">
             <TextField
               label={strings.notes.label}
+              accessibilityLabel={strings.notes.label}
               multiline
               numberOfLines={3}
               value={noteText}
@@ -195,13 +202,15 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
               onPress={() => void saveNote()}
             />
             {noteSaved ? (
-              <Text className="mt-1.5 text-sm text-accent-ink">{strings.notes.saved}</Text>
+              <Text accessibilityLiveRegion="polite" className="mt-1.5 text-sm text-accent-ink">
+                {strings.notes.saved}
+              </Text>
             ) : null}
           </Card>
 
           {sessionLoad && sessionLoad.completedSetCount > 0 ? (
             <Card className="mt-3">
-              <Text className="text-xs font-semibold uppercase tracking-wider text-dim">
+              <Text accessibilityRole="header" className="text-xs font-semibold uppercase tracking-wider text-dim">
                 {strings.history.sessionLoad}
               </Text>
               <Text className="mt-2 text-lg font-bold text-fg">
@@ -226,11 +235,11 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
           </View>
         </View>
 
-        {detail.blocks.map((block) => (
-          <View key={`b${block.blockIndex}`} className="px-4 pt-4">
+        {detail.blocks.map((block, blockIdx) => (
+          <Enter key={`b${block.blockIndex}`} delayMs={Math.min(blockIdx, 6) * 40} className="px-4 pt-4">
             <SectionHeader
               title={`${strings.workout.block} ${block.blockIndex + 1} · ${block.name}`}
-              right={<Text className="text-xs text-dim">{block.kind.toUpperCase()}</Text>}
+              right={<Text className="text-xs text-dim">{blockKindLabel(block.kind)}</Text>}
             />
             {block.steps.map((step) => {
               const target = targetLine(step);
@@ -254,7 +263,7 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
                 </Card>
               );
             })}
-          </View>
+          </Enter>
         ))}
       </ScrollView>
       </Enter>

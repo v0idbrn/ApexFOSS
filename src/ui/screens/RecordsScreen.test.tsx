@@ -1,10 +1,11 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { Navigator } from '../navigation';
+import { Navigator, useNav } from '../navigation';
 import { RecordsScreen } from './RecordsScreen';
 import { loadAnalyticsSnapshot, type AnalyticsSnapshot } from '../../data/analytics';
 import { strings } from '../../constants/strings';
+import { EmptyState } from '../components';
 
 jest.mock('../../data', () => ({ database: {} }));
 jest.mock('../../data/analytics', () => ({
@@ -53,6 +54,35 @@ async function renderRecordsScreen(snapshot: AnalyticsSnapshot): Promise<ReactTe
   });
   await act(async () => {});
   return renderer;
+}
+
+function TabProbe() {
+  const { tab } = useNav();
+  return <Text testID="tab-probe">{tab}</Text>;
+}
+
+/** Renders the screen on the home route with a live tab probe beside it. */
+async function renderRecordsWithTabProbe(snapshot: AnalyticsSnapshot): Promise<ReactTestRenderer> {
+  mockedLoad.mockResolvedValue(snapshot);
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(
+      <Navigator>
+        {(route) => (
+          <>
+            {route.name === 'home' ? <RecordsScreen /> : null}
+            <TabProbe />
+          </>
+        )}
+      </Navigator>,
+    );
+  });
+  await act(async () => {});
+  return renderer;
+}
+
+function tabOf(renderer: ReactTestRenderer): string {
+  return flatten(renderer.root.findByProps({ testID: 'tab-probe' }).props.children);
 }
 
 describe('RecordsScreen (Phase 2J §12)', () => {
@@ -128,5 +158,25 @@ describe('RecordsScreen (Phase 2J §12)', () => {
     });
     await act(async () => {});
     expect(textsOf(renderer).join(' ')).toContain('db down');
+  });
+});
+
+describe('RecordsScreen empty state (Phase 2L Stage H)', () => {
+  it('offers a start-workout action that switches to the train tab', async () => {
+    const renderer = await renderRecordsWithTabProbe(snapshotWith([]));
+    const empty = renderer.root
+      .findAllByType(EmptyState)
+      .find((node) => node.props.title === strings.records.emptyTitle);
+    expect(empty).toBeDefined();
+    expect(empty!.props.message).toBe(strings.records.emptyBody);
+    expect(empty!.props.actionLabel).toBe(strings.home.startWorkout);
+    expect(typeof empty!.props.onAction).toBe('function');
+    expect(tabOf(renderer)).toBe('home');
+
+    await act(async () => {
+      empty!.props.onAction();
+    });
+
+    expect(tabOf(renderer)).toBe('train');
   });
 });

@@ -216,7 +216,11 @@ export function TrainScreen() {
                 </Text>
               </Pressable>
             ) : (
-              <EmptyState message={strings.train.noSessions} />
+              <EmptyState
+                message={strings.train.noSessions}
+                actionLabel={strings.train.emptyAction}
+                onAction={() => selectTab('routines')}
+              />
             )}
           </Enter>
         </View>

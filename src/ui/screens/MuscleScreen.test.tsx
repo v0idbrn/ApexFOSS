@@ -1,10 +1,11 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { Navigator } from '../navigation';
+import { Navigator, useNav } from '../navigation';
 import { MuscleScreen } from './MuscleScreen';
 import { loadAnalyticsSnapshot, type AnalyticsSnapshot } from '../../data/analytics';
 import { strings } from '../../constants/strings';
+import { EmptyState } from '../components';
 
 jest.mock('../../data', () => ({ database: {} }));
 jest.mock('../../data/analytics', () => ({
@@ -57,6 +58,43 @@ async function renderMuscleScreen(snapshot: AnalyticsSnapshot): Promise<ReactTes
   });
   await act(async () => {});
   return renderer;
+}
+
+function TabProbe() {
+  const { tab } = useNav();
+  return <Text testID="tab-probe">{tab}</Text>;
+}
+
+async function renderMuscleWithTabProbe(snapshot: AnalyticsSnapshot): Promise<ReactTestRenderer> {
+  mockedLoad.mockResolvedValue(snapshot);
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(
+      <Navigator>
+        {(route) => (
+          <>
+            {route.name === 'home' ? <MuscleScreen /> : null}
+            <TabProbe />
+          </>
+        )}
+      </Navigator>,
+    );
+  });
+  await act(async () => {});
+  return renderer;
+}
+
+function tabOf(renderer: ReactTestRenderer): string {
+  return flatten(renderer.root.findByProps({ testID: 'tab-probe' }).props.children);
+}
+
+/** Pressable instance carrying onPress (the host view drops it). */
+function pressableByTestID(renderer: ReactTestRenderer, testID: string) {
+  const node = renderer.root
+    .findAll((n) => n.props?.testID === testID && typeof n.props?.onPress === 'function')
+    .pop();
+  expect(node).toBeDefined();
+  return node!;
 }
 
 describe('MuscleScreen UI', () => {
@@ -129,5 +167,61 @@ describe('MuscleScreen UI', () => {
     });
     texts = textsOf(renderer);
     expect(texts).not.toContain(strings.muscles.contributing);
+  });
+});
+
+describe('MuscleScreen discoverability and a11y (Phase 2L Stage H)', () => {
+  const benchSnapshot = (): AnalyticsSnapshot =>
+    snapshotWith(1, [
+      {
+        exerciseName: 'Bench Press',
+        contributions: [...BENCH_CONTRIBUTIONS],
+        sets: [{ weightGrams: 60000, reps: 5, durationMs: null, isCompleted: true }],
+      },
+    ]);
+
+  it('offers a start-workout action on the empty state that switches to the train tab', async () => {
+    const renderer = await renderMuscleWithTabProbe(snapshotWith(0, []));
+    const empty = renderer.root
+      .findAllByType(EmptyState)
+      .find((node) => node.props.message === strings.muscles.noData);
+    expect(empty).toBeDefined();
+    expect(empty!.props.actionLabel).toBe(strings.home.startWorkout);
+    expect(typeof empty!.props.onAction).toBe('function');
+    expect(tabOf(renderer)).toBe('home');
+
+    await act(async () => {
+      empty!.props.onAction();
+    });
+
+    expect(tabOf(renderer)).toBe('train');
+  });
+
+  it('marks the active range and the selected region via accessibilityState.selected', async () => {
+    const renderer = await renderMuscleScreen(benchSnapshot());
+
+    const r7 = pressableByTestID(renderer, 'muscles-range-7d');
+    const r28 = pressableByTestID(renderer, 'muscles-range-28d');
+    expect(r7.props.accessibilityRole).toBe('button');
+    expect(r7.props.accessibilityLabel).toBe(strings.load.last7);
+    expect(r7.props.accessibilityState).toEqual({ selected: true });
+    expect(r28.props.accessibilityLabel).toBe(strings.load.last28);
+    expect(r28.props.accessibilityState).toEqual({ selected: false });
+
+    const chest = pressableByTestID(renderer, 'muscles-region-chest');
+    expect(chest.props.accessibilityRole).toBe('button');
+    expect(chest.props.accessibilityLabel).toBe(strings.muscles.groups.chest);
+    expect(chest.props.accessibilityState).toEqual({ selected: false });
+
+    await act(async () => {
+      chest.props.onPress();
+    });
+    expect(pressableByTestID(renderer, 'muscles-region-chest').props.accessibilityState).toEqual({ selected: true });
+
+    await act(async () => {
+      pressableByTestID(renderer, 'muscles-range-28d').props.onPress();
+    });
+    expect(pressableByTestID(renderer, 'muscles-range-28d').props.accessibilityState).toEqual({ selected: true });
+    expect(pressableByTestID(renderer, 'muscles-range-7d').props.accessibilityState).toEqual({ selected: false });
   });
 });

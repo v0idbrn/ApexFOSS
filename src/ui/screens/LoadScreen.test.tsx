@@ -1,10 +1,11 @@
 import React from 'react';
 import { Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { Navigator } from '../navigation';
+import { Navigator, useNav } from '../navigation';
 import { LoadScreen } from './LoadScreen';
 import { loadAnalyticsSnapshot, type AnalyticsSnapshot } from '../../data/analytics';
 import { strings } from '../../constants/strings';
+import { EmptyState } from '../components';
 
 jest.mock('../../data', () => ({ database: {} }));
 jest.mock('../../data/analytics', () => ({
@@ -82,6 +83,43 @@ async function renderLoadScreen(snapshot: AnalyticsSnapshot): Promise<ReactTestR
   });
   await act(async () => {});
   return renderer;
+}
+
+function TabProbe() {
+  const { tab } = useNav();
+  return <Text testID="tab-probe">{tab}</Text>;
+}
+
+async function renderLoadWithTabProbe(snapshot: AnalyticsSnapshot): Promise<ReactTestRenderer> {
+  mockedLoad.mockResolvedValue(snapshot);
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(
+      <Navigator>
+        {(route) => (
+          <>
+            {route.name === 'home' ? <LoadScreen /> : null}
+            <TabProbe />
+          </>
+        )}
+      </Navigator>,
+    );
+  });
+  await act(async () => {});
+  return renderer;
+}
+
+function tabOf(renderer: ReactTestRenderer): string {
+  return flatten(renderer.root.findByProps({ testID: 'tab-probe' }).props.children);
+}
+
+/** Pressable instance carrying onPress (the host view drops it). */
+function pressableByTestID(renderer: ReactTestRenderer, testID: string) {
+  const node = renderer.root
+    .findAll((n) => n.props?.testID === testID && typeof n.props?.onPress === 'function')
+    .pop();
+  expect(node).toBeDefined();
+  return node!;
 }
 
 describe('LoadScreen trends (Phase 2F)', () => {
@@ -163,5 +201,46 @@ describe('LoadScreen trends (Phase 2F)', () => {
     expect(texts).toContain(strings.load.ratio.label);
     expect(texts.some((t) => t.includes(strings.load.ratio.noBaseline))).toBe(true);
     expect(texts.some((t) => /^\d+\.\d\d$/.test(t))).toBe(false);
+  });
+});
+
+describe('LoadScreen empty state and a11y (Phase 2L Stage H)', () => {
+  it('offers a start-workout action on the empty state that switches to the train tab', async () => {
+    const renderer = await renderLoadWithTabProbe({ sessions: [], exercises: [] });
+    const empty = renderer.root
+      .findAllByType(EmptyState)
+      .find((node) => node.props.message === strings.load.noData);
+    expect(empty).toBeDefined();
+    expect(empty!.props.actionLabel).toBe(strings.home.startWorkout);
+    expect(typeof empty!.props.onAction).toBe('function');
+    expect(tabOf(renderer)).toBe('home');
+
+    await act(async () => {
+      empty!.props.onAction();
+    });
+
+    expect(tabOf(renderer)).toBe('train');
+  });
+
+  it('exposes the date-range toggles as labelled buttons with selected state', async () => {
+    const renderer = await renderLoadScreen(trendSnapshot());
+
+    const today = pressableByTestID(renderer, 'load-range-today');
+    const r7 = pressableByTestID(renderer, 'load-range-7d');
+    const r28 = pressableByTestID(renderer, 'load-range-28d');
+    expect(today.props.accessibilityRole).toBe('button');
+    expect(today.props.accessibilityLabel).toBe(strings.load.today);
+    expect(today.props.accessibilityState).toEqual({ selected: false });
+    expect(r7.props.accessibilityLabel).toBe(strings.load.last7);
+    expect(r7.props.accessibilityState).toEqual({ selected: true });
+    expect(r28.props.accessibilityLabel).toBe(strings.load.last28);
+    expect(r28.props.accessibilityState).toEqual({ selected: false });
+
+    await act(async () => {
+      r28.props.onPress();
+    });
+
+    expect(pressableByTestID(renderer, 'load-range-28d').props.accessibilityState).toEqual({ selected: true });
+    expect(pressableByTestID(renderer, 'load-range-7d').props.accessibilityState).toEqual({ selected: false });
   });
 });

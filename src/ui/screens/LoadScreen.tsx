@@ -74,7 +74,7 @@ function TrendCard({
 }
 
 export function LoadScreen() {
-  const { pop } = useNav();
+  const { pop, selectTab } = useNav();
   const [sessions, setSessions] = useState<AnalyticsSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -149,13 +149,17 @@ export function LoadScreen() {
             <Pressable
               key={r}
               accessibilityRole="button"
+              accessibilityLabel={rangeLabel(r)}
               accessibilityState={{ selected: kind === r }}
               onPress={() => setKind(r)}
+              testID={`load-range-${r}`}
+              style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
               className={`min-h-12 flex-1 items-center justify-center rounded-lg border px-3 ${
                 kind === r ? 'border-accent bg-accent/10' : 'border-line bg-surface'
               }`}
             >
-              <Text className={`text-sm font-semibold ${kind === r ? 'text-accent-ink' : 'text-dim'}`}>
+              <Text className={`text-sm ${kind === r ? 'font-bold text-accent-ink' : 'font-semibold text-dim'}`}>
+                {kind === r ? '✓ ' : ''}
                 {rangeLabel(r)}
               </Text>
             </Pressable>
@@ -182,7 +186,11 @@ export function LoadScreen() {
 
         {empty ? (
           <View className="px-4 pt-6">
-            <EmptyState message={strings.load.noData} />
+            <EmptyState
+              message={strings.load.noData}
+              actionLabel={strings.home.startWorkout}
+              onAction={() => selectTab('train')}
+            />
           </View>
         ) : null}
 
