@@ -223,9 +223,9 @@ describe('RoutineListScreen presentation (Phase 2L STAGE F)', () => {
     expect(nodesByTestId(renderer, 'routine-card-r1').length).toBeGreaterThanOrEqual(1);
     const joined = cardTexts(renderer, 'routine-card-r1').join(' ');
     expect(joined).toContain('Push day');
-    expect(joined).toContain(`3 ${strings.routines.exercises}`);
-    expect(joined).toContain(`2 ${strings.routines.blocks}`);
-    expect(joined).toContain(`4 ${strings.routines.steps}`);
+    expect(joined).toContain(`${strings.routines.exercises}: 3`);
+    expect(joined).toContain(`${strings.routines.blocks}: 2`);
+    expect(joined).toContain(`${strings.routines.steps}: 4`);
   });
 
   it('falls back to the untitled label when a routine has no name', async () => {

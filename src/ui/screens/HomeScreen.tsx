@@ -400,7 +400,7 @@ export function HomeScreen() {
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit',
-                    })} · ${s.setCount} ${strings.history.sets}`}
+                    })} · ${s.setCount} ${s.setCount === 1 ? strings.workout.set : strings.history.sets}`}
                     value={
                       s.durationMs !== null
                         ? `${Math.round(s.durationMs / 60000)} ${strings.home.weekTimeUnit}`

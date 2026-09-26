@@ -140,9 +140,9 @@ function RoutineCardView({
 }) {
   const name = card.name.trim() || strings.routines.untitledRoutine;
   const meta: string[] = [];
-  if (card.exerciseCount != null) meta.push(`${card.exerciseCount} ${strings.routines.exercises}`);
-  meta.push(`${card.blockCount} ${strings.routines.blocks}`);
-  meta.push(`${card.stepCount} ${strings.routines.steps}`);
+  if (card.exerciseCount != null) meta.push(`${strings.routines.exercises}: ${card.exerciseCount}`);
+  meta.push(`${strings.routines.blocks}: ${card.blockCount}`);
+  meta.push(`${strings.routines.steps}: ${card.stepCount}`);
   const okInk = card.integrityOk ? 'text-success' : 'text-warning';
 
   return (

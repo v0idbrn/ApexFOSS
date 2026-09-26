@@ -177,7 +177,7 @@ export function TrainScreen() {
                   <ListRow
                     key={r.id}
                     title={r.name}
-                    subtitle={`${r.blockCount} ${strings.routines.blocks.toLowerCase()} · ${r.stepCount} ${strings.routines.steps.toLowerCase()}`}
+                    subtitle={`${strings.routines.blocks}: ${r.blockCount} · ${strings.routines.steps}: ${r.stepCount}`}
                     onPress={() => selectTab('routines')}
                   />
                 ))}
@@ -208,7 +208,7 @@ export function TrainScreen() {
                   </Text>
                   <Text className="mt-0.5 text-caption text-dim">
                     {fmtDate(lastSession.endedAt ?? lastSession.startedAt)} · {lastSession.setCount}{' '}
-                    {strings.history.sets}
+                    {lastSession.setCount === 1 ? strings.workout.set : strings.history.sets}
                   </Text>
                 </View>
                 <Text className="font-mono text-body text-fg">

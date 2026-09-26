@@ -115,7 +115,7 @@ export function ProgressScreen() {
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit',
-                    })} · ${s.setCount} ${strings.history.sets}`}
+                    })} · ${s.setCount} ${s.setCount === 1 ? strings.workout.set : strings.history.sets}`}
                     onPress={() => push({ name: 'historyDetail', sessionId: s.id })}
                   />
                 ))}
