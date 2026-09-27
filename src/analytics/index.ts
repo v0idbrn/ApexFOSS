@@ -5,4 +5,5 @@ export * from './readiness';
 export * from './muscles';
 export * from './trends';
 export * from './adherence';
+export * from './plateau';
 export * from './progression';

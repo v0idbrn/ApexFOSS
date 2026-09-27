@@ -8,7 +8,9 @@ import { loadDashboard, type DashboardData } from '../../data/dashboard';
 import {
   loadProgressionSnapshot,
   summarizeProgression,
+  summarizeTrends,
   type ProgressionOverview,
+  type TrendOverview,
 } from '../../data/progression';
 
 jest.mock('../../data', () => ({ database: {} }));
@@ -16,6 +18,7 @@ jest.mock('../../data/dashboard', () => ({ loadDashboard: jest.fn() }));
 jest.mock('../../data/progression', () => ({
   loadProgressionSnapshot: jest.fn(),
   summarizeProgression: jest.fn(),
+  summarizeTrends: jest.fn(),
   analyzeStepEvidence: jest.fn(),
   progressionInputFor: jest.fn(),
   latestPrescriptionFor: jest.fn(),
@@ -24,6 +27,7 @@ jest.mock('../../data/progression', () => ({
 const mockedDashboard = loadDashboard as jest.MockedFunction<typeof loadDashboard>;
 const mockedLoadSnap = loadProgressionSnapshot as jest.MockedFunction<typeof loadProgressionSnapshot>;
 const mockedSummarize = summarizeProgression as jest.MockedFunction<typeof summarizeProgression>;
+const mockedTrends = summarizeTrends as jest.MockedFunction<typeof summarizeTrends>;
 
 function flatten(node: unknown): string {
   if (node === null || node === undefined || typeof node === 'boolean') return '';
@@ -72,6 +76,32 @@ function overviewFixture(): ProgressionOverview {
   };
 }
 
+function trendsFixture(): TrendOverview {
+  const mk = (
+    id: string,
+    name: string,
+    status: 'improving' | 'declining' | 'stable' | 'insufficient_data',
+    reason: 'INSUFFICIENT_HISTORY' | 'E1RM_INCREASED' | 'E1RM_DECREASED' | 'E1RM_STABLE',
+    plateau: boolean,
+  ) => ({
+    exercise: { id, name, category: 'push', equipment: 'barbell', metricFlags: 3 },
+    evidence: {
+      status,
+      reason,
+      plateau,
+      baselineE1rmGrams: 60_000,
+      recentE1rmGrams: 60_500,
+      deltaGrams: 500,
+      deltaPct: 0.8,
+      sampleCount: 4,
+      explanation: 'test',
+    },
+  });
+  const stable = mk('ex1', 'Bench Press', 'stable', 'E1RM_STABLE', true);
+  const insufficient = mk('ex3', 'Deadlift', 'insufficient_data', 'INSUFFICIENT_HISTORY', false);
+  return { entries: [stable, insufficient], signals: [stable], analyzedCount: 2 };
+}
+
 /** The Navigator boots on Home; select the progress tab on mount. */
 function GoToProgress() {
   const { selectTab } = useNav();
@@ -116,6 +146,7 @@ beforeEach(() => {
     insufficient: [],
     analyzedCount: 0,
   });
+  mockedTrends.mockReset().mockReturnValue({ entries: [], signals: [], analyzedCount: 0 });
 });
 
 describe('Progress tab progression overview (Phase 3B)', () => {
@@ -170,5 +201,38 @@ describe('Progress tab regressions (Phase 2L)', () => {
     for (const testID of ['progress-week-sessions', 'progress-week-volume', 'progress-history', 'progress-records', 'progress-load', 'progress-muscles']) {
       expect({ testID, found: renderer.root.findAllByProps({ testID }).length > 0 }).toEqual({ testID, found: true });
     }
+  });
+});
+
+describe('Progress tab performance signals (Phase 3D)', () => {
+  it('renders only gate-cleared signals with a localized reason and state', async () => {
+    mockedTrends.mockReturnValue(trendsFixture());
+    const renderer = await renderProgress();
+    expect(renderer.root.findAllByProps({ testID: 'signal-row-ex1' }).length).toBeGreaterThanOrEqual(1);
+    expect(renderer.root.findAllByProps({ testID: 'signal-row-ex3' })).toHaveLength(0);
+    const texts = renderer.root.findAllByType(Text).map((t) => flatten(t.props.children));
+    expect(texts).toContain(strings.signals.section);
+    expect(texts).toContain(strings.signals.reason.E1RM_STABLE);
+    expect(texts).toContain(strings.signals.state.stable);
+    expect(texts).not.toContain('E1RM_STABLE');
+  });
+
+  it('renders no signal section when nothing cleared the sample gate', async () => {
+    const renderer = await renderProgress();
+    expect(renderer.root.findAllByProps({ testID: 'signal-row-ex1' })).toHaveLength(0);
+    const texts = renderer.root.findAllByType(Text).map((t) => flatten(t.props.children));
+    expect(texts).not.toContain(strings.signals.section);
+  });
+
+  it('pushes the exercise editor when a signal row is opened', async () => {
+    mockedTrends.mockReturnValue(trendsFixture());
+    const routes: Route[] = [];
+    const renderer = await renderProgress(routes);
+    const row = pressableByTestID(renderer, 'signal-row-ex1');
+    expect(row).toBeDefined();
+    await act(async () => {
+      row!.props.onPress();
+    });
+    expect(routes).toContainEqual(expect.objectContaining({ name: 'exerciseEditor', exerciseId: 'ex1' }));
   });
 });

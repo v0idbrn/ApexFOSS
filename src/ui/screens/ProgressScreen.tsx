@@ -5,7 +5,9 @@ import { loadDashboard, type DashboardData } from '../../data/dashboard';
 import {
   loadProgressionSnapshot,
   summarizeProgression,
+  summarizeTrends,
   type ProgressionOverview,
+  type TrendOverview,
 } from '../../data/progression';
 import { strings } from '../../constants/strings';
 import { gramRepsToKgReps } from '../../analytics/load';
@@ -14,6 +16,7 @@ import { useNav } from '../navigation';
 import { EmptyState, ListRow, MetricCard, Screen, SectionHeader } from '../components';
 import { Enter } from '../motion';
 import { ProgressionOverviewSection } from '../ProgressionOverview';
+import { TrendSignalsSection } from '../TrendSignals';
 
 /**
  * Progress hub (Phase 2L tab 4): one destination for the whole analytical
@@ -25,6 +28,8 @@ export function ProgressScreen() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   // Progression intelligence (Phase 3B): one batched snapshot → pure engine.
   const [progression, setProgression] = useState<ProgressionOverview | null>(null);
+  // Trend/plateau signals (Phase 3D): same snapshot, second pure pass.
+  const [trends, setTrends] = useState<TrendOverview | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -35,8 +40,10 @@ export function ProgressScreen() {
     try {
       const prog = await loadProgressionSnapshot(database);
       setProgression(summarizeProgression(prog, Date.now()));
+      setTrends(summarizeTrends(prog));
     } catch {
       setProgression(null);
+      setTrends(null);
     }
   }, []);
 
@@ -90,6 +97,13 @@ export function ProgressScreen() {
           <Enter delayMs={80}>
             <ProgressionOverviewSection
               overview={progression}
+              onOpenExercise={(exerciseId) => push({ name: 'exerciseEditor', exerciseId })}
+            />
+          </Enter>
+
+          <Enter delayMs={96}>
+            <TrendSignalsSection
+              overview={trends}
               onOpenExercise={(exerciseId) => push({ name: 'exerciseEditor', exerciseId })}
             />
           </Enter>

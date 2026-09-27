@@ -7,6 +7,7 @@ import { makeDbActions } from './actions';
 import {
   loadProgressionSnapshot,
   summarizeProgression,
+  summarizeTrends,
   analyzeStepEvidence,
   progressionInputFor,
 } from './progression';
@@ -363,5 +364,54 @@ describe('progressionInputFor (contract hygiene)', () => {
     expect(input.historicalPrescriptions).toBe(prog.historicalPrescriptions);
     expect(input.achievableNextWeightGrams).toBeUndefined();
     expect(Number.isSafeInteger(input.now)).toBe(true);
+  });
+});
+
+describe('summarizeTrends (DB → trend/plateau signals, Phase 3D)', () => {
+  it('keeps evidence below the sample gate out of the signals list', async () => {
+    const db = makeDb();
+    const benchId = await seedExercise(db, 'Bench Press');
+    await createCompletedSession(db, {
+      endedAt: T,
+      definition: BENCH_DEF(benchId),
+      logs: [{ weightGrams: 50_000, reps: 10 }],
+    });
+    await createCompletedSession(db, {
+      endedAt: T + 86_400_000,
+      definition: BENCH_DEF(benchId),
+      logs: [{ weightGrams: 50_000, reps: 10 }],
+    });
+    const overview = summarizeTrends(await loadProgressionSnapshot(db));
+    expect(overview.analyzedCount).toBe(1);
+    expect(overview.entries).toHaveLength(1);
+    expect(overview.entries[0].evidence.status).toBe('insufficient_data');
+    expect(overview.entries[0].evidence.plateau).toBe(false);
+    expect(overview.signals).toHaveLength(0);
+  });
+
+  it('emits a plateau signal only after four comparable sessions', async () => {
+    const db = makeDb();
+    const benchId = await seedExercise(db, 'Bench Press');
+    for (let i = 0; i < 4; i += 1) {
+      await createCompletedSession(db, {
+        endedAt: T + i * 86_400_000,
+        definition: BENCH_DEF(benchId),
+        logs: [{ weightGrams: 50_000, reps: 10 }],
+      });
+    }
+    const overview = summarizeTrends(await loadProgressionSnapshot(db));
+    expect(overview.signals).toHaveLength(1);
+    expect(overview.signals[0].exercise.name).toBe('Bench Press');
+    expect(overview.signals[0].evidence.status).toBe('stable');
+    expect(overview.signals[0].evidence.plateau).toBe(true);
+    expect(overview.signals[0].evidence.sampleCount).toBe(4);
+  });
+
+  it('returns an empty overview with no completed sessions', async () => {
+    const db = makeDb();
+    await seedExercise(db, 'Bench Press');
+    const overview = summarizeTrends(await loadProgressionSnapshot(db));
+    expect(overview.analyzedCount).toBe(0);
+    expect(overview.signals).toHaveLength(0);
   });
 });

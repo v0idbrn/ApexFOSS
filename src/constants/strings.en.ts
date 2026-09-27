@@ -669,6 +669,22 @@ export const en = {
       'ApexFOSS could not compare this exercise across sessions yet. Log it in two sessions with the same prescription and equipment.',
     inventoryLink: 'Open Inventory',
   },
+  signals: {
+    section: 'Performance signals',
+    sub: 'Deterministic trends from your logged history',
+    state: {
+      improving: 'Improving',
+      declining: 'Declining',
+      stable: 'Stable',
+      insufficient_data: 'Not enough data',
+    },
+    reason: {
+      INSUFFICIENT_HISTORY: 'Needs at least four comparable sessions',
+      E1RM_STABLE: 'Best estimated 1RM held steady across recent sessions',
+      E1RM_INCREASED: 'Recent sessions are above the earlier baseline',
+      E1RM_DECREASED: 'Recent sessions are below the earlier baseline',
+    },
+  },
   trust: {
     section: 'App',
     title: 'Trust, Safety & Legal',

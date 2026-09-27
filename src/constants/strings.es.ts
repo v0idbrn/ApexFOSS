@@ -672,6 +672,22 @@ export const es: Strings = {
       'ApexFOSS todavía no pudo comparar este ejercicio entre sesiones. Regístralo en dos sesiones con la misma prescripción y equipamiento.',
     inventoryLink: 'Abrir Inventario',
   },
+  signals: {
+    section: 'Señales de rendimiento',
+    sub: 'Tendencias deterministas de tu historial',
+    state: {
+      improving: 'Mejorando',
+      declining: 'Bajando',
+      stable: 'Estable',
+      insufficient_data: 'Datos insuficientes',
+    },
+    reason: {
+      INSUFFICIENT_HISTORY: 'Se necesitan al menos cuatro sesiones comparables',
+      E1RM_STABLE: 'El mejor 1RM estimado se mantuvo estable en las sesiones recientes',
+      E1RM_INCREASED: 'Las sesiones recientes superan la línea base anterior',
+      E1RM_DECREASED: 'Las sesiones recientes están por debajo de la línea base anterior',
+    },
+  },
   trust: {
     section: 'App',
     title: 'Centro de confianza, seguridad y legal',

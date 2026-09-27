@@ -5,6 +5,7 @@ import { loadAnalyticsSnapshot, type AnalyticsExercise, type AnalyticsSnapshot }
 import { loadEquipmentItems } from './equipment';
 import type { SessionExercisePrescription, PrescriptionTarget, ProgressionEvidence, ProgressionState } from '../analytics/progression';
 import { analyzeProgression, type AnalyzeProgressionInput } from '../analytics/progression';
+import { describeE1rmTrend, e1rmSeries, type TrendEvidence } from '../analytics/plateau';
 import type { LoadItem } from '../analytics/inventory';
 import {
   latestPrescriptionFor,
@@ -223,3 +224,47 @@ export function summarizeProgression(prog: ProgressionSnapshot, now: number): Pr
 }
 
 export { latestPrescriptionFor };
+
+/** One exercise plus its deterministic trend/plateau evidence (Phase 3D). */
+export interface TrendEntry {
+  exercise: AnalyticsExercise;
+  evidence: TrendEvidence;
+}
+
+export interface TrendOverview {
+  /** Every exercise with at least one comparable logged session. */
+  entries: TrendEntry[];
+  /** Entries that cleared the sample gate — the signals safe to display. */
+  signals: TrendEntry[];
+  analyzedCount: number;
+}
+
+/**
+ * Run the trend/plateau analysis once per exercise with logged history from
+ * the same snapshot that feeds progression — pure, no extra queries.
+ * Insufficient evidence stays in `entries` (status insufficient_data) and is
+ * never surfaced as a signal.
+ */
+export function summarizeTrends(prog: ProgressionSnapshot): TrendOverview {
+  const overview: TrendOverview = { entries: [], signals: [], analyzedCount: 0 };
+  const withHistory = new Set<string>();
+  for (const session of prog.analytics.sessions) {
+    for (const ex of session.exercises) {
+      if (ex.exerciseId != null) withHistory.add(ex.exerciseId);
+      if (ex.exerciseName) withHistory.add(`name:${ex.exerciseName}`);
+    }
+  }
+
+  for (const exercise of prog.analytics.exercises) {
+    const hasSets = withHistory.has(exercise.id) || withHistory.has(`name:${exercise.name}`);
+    if (!hasSets) continue;
+    const series = e1rmSeries(prog.analytics.sessions, exercise.id, exercise.name);
+    if (series.length === 0) continue;
+    const evidence = describeE1rmTrend(series);
+    overview.analyzedCount += 1;
+    const entry: TrendEntry = { exercise, evidence };
+    overview.entries.push(entry);
+    if (evidence.status !== 'insufficient_data') overview.signals.push(entry);
+  }
+  return overview;
+}
