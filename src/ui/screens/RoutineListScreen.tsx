@@ -377,24 +377,44 @@ export function RoutineListScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32 }}
           ListHeaderComponent={
-            <Card testID="programs-entry" className="mb-3">
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${strings.programs.title}. ${strings.programs.subtitle}`}
-                accessibilityState={{ disabled: false }}
-                onPress={() => push({ name: 'programs' })}
-                testID="programs-entry-open"
-                style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
-                className="min-h-12 justify-center"
-              >
-                <Text numberOfLines={1} className="text-card-title text-fg">
-                  {strings.programs.title}
-                </Text>
-                <Text numberOfLines={1} className="mt-1 text-label text-dim">
-                  {strings.programs.subtitle}
-                </Text>
-              </Pressable>
-            </Card>
+            <View>
+              <Card testID="programs-entry" className="mb-3">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${strings.programs.title}. ${strings.programs.subtitle}`}
+                  accessibilityState={{ disabled: false }}
+                  onPress={() => push({ name: 'programs' })}
+                  testID="programs-entry-open"
+                  style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
+                  className="min-h-12 justify-center"
+                >
+                  <Text numberOfLines={1} className="text-card-title text-fg">
+                    {strings.programs.title}
+                  </Text>
+                  <Text numberOfLines={1} className="mt-1 text-label text-dim">
+                    {strings.programs.subtitle}
+                  </Text>
+                </Pressable>
+              </Card>
+              <Card testID="templates-entry" className="mb-3">
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${strings.templates.title}. ${strings.templates.subtitle}`}
+                  accessibilityState={{ disabled: false }}
+                  onPress={() => push({ name: 'templates' })}
+                  testID="templates-entry-open"
+                  style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
+                  className="min-h-12 justify-center"
+                >
+                  <Text numberOfLines={1} className="text-card-title text-fg">
+                    {strings.templates.title}
+                  </Text>
+                  <Text numberOfLines={1} className="mt-1 text-label text-dim">
+                    {strings.templates.subtitle}
+                  </Text>
+                </Pressable>
+              </Card>
+            </View>
           }
           ListEmptyComponent={
             <EmptyState

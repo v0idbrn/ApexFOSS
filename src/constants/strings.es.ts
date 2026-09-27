@@ -247,6 +247,15 @@ export const es: Strings = {
     delete: 'Eliminar medida',
     deleteConfirm: '¿Eliminar esta medida?',
   },
+  templates: {
+    title: 'Plantillas',
+    subtitle: 'Empieza una rutina con una estructura predefinida.',
+    fullBody: 'Cuerpo completo',
+    pushDay: 'Día de empuje',
+    pullDay: 'Día de tracción',
+    legsDay: 'Día de piernas',
+    failed: 'No se pudo crear la rutina',
+  },
   workout: {
     start: 'Iniciar entrenamiento',
     completeSet: 'COMPLETAR',

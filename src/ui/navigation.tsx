@@ -24,6 +24,7 @@ export type Route =
   | { name: 'exerciseEditor'; exerciseId: string | null }
   | { name: 'programs' }
   | { name: 'programDetail'; programId: string }
+  | { name: 'templates' }
   | { name: 'routineEditor'; routineId: string | null }
   | { name: 'routinePreview'; draft: RoutineDraft }
   | { name: 'workout' }

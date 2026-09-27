@@ -245,6 +245,15 @@ export const en = {
     delete: 'Delete measurement',
     deleteConfirm: 'Delete this measurement?',
   },
+  templates: {
+    title: 'Templates',
+    subtitle: 'Start a routine from a pre-built structure.',
+    fullBody: 'Full body',
+    pushDay: 'Push day',
+    pullDay: 'Pull day',
+    legsDay: 'Legs day',
+    failed: 'Could not create the routine',
+  },
   workout: {
     start: 'Start workout',
     completeSet: 'COMPLETE',

@@ -15,6 +15,7 @@ import { ExerciseEditorScreen } from './src/ui/screens/ExerciseEditorScreen';
 import { RoutineListScreen } from './src/ui/screens/RoutineListScreen';
 import { ProgramsScreen } from './src/ui/screens/ProgramsScreen';
 import { ProgramDetailScreen } from './src/ui/screens/ProgramDetailScreen';
+import { TemplatesScreen } from './src/ui/screens/TemplatesScreen';
 import { RoutineEditorScreen } from './src/ui/screens/RoutineEditorScreen';
 import { RoutinePreviewScreen } from './src/ui/screens/RoutinePreviewScreen';
 import { WorkoutScreen } from './src/ui/screens/WorkoutScreen';
@@ -54,6 +55,8 @@ function renderRoute(route: Route) {
       return <ProgramsScreen />;
     case 'programDetail':
       return <ProgramDetailScreen programId={route.programId} />;
+    case 'templates':
+      return <TemplatesScreen />;
     case 'routineEditor':
       return <RoutineEditorScreen routineId={route.routineId} />;
     case 'routinePreview':
