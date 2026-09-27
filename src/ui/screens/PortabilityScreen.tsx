@@ -4,7 +4,7 @@ import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, Screen, SectionHeader, TextField } from '../components';
-import { shareRoutinePackage, shareBackup, reportPortabilityError } from '../../portability/share';
+import { shareRoutinePackage, shareBackup, reportPortabilityError, portabilityErrorMessage } from '../../portability/share';
 import {
   parseRoutinePackage,
   buildRoutinePackage,
@@ -15,8 +15,14 @@ import { createBackup, restoreBackup, parseBackup, backupSummary } from '../../p
 import { buildImportDeepLink, decodeRoutineTransport, parseImportDeepLink } from '../../portability/encoding';
 import { fitsQr, encodeQr } from '../../portability/qr';
 import { takePendingDeepLink } from '../../portability/pendingDeepLink';
+import { takePendingFileImport } from '../../portability/pendingFileImport';
+import { pickImportFile } from '../../portability/fileImport';
 import { QrGrid } from '../QrGrid';
 import { makeDbActions } from '../../data/actions';
+
+function exerciseLine(label: string, count: number, names: string[]): string {
+  return `${label} (${count})${names.length ? `: ${names.join(', ')}` : ''}`;
+}
 
 export function PortabilityScreen() {
   const { pop } = useNav();
@@ -47,6 +53,11 @@ export function PortabilityScreen() {
       } catch {
         Alert.alert(strings.portability.importFailed, strings.portability.invalidPayload);
       }
+    }
+    const pendingFile = takePendingFileImport();
+    if (pendingFile) {
+      if (pendingFile.kind === 'routine') setImportText(pendingFile.text);
+      else setBackupText(pendingFile.text);
     }
   }, []);
 
@@ -87,13 +98,12 @@ export function PortabilityScreen() {
     }
   }, [routineId]);
 
-  const onImportPreview = useCallback(async () => {
-    const text = importText.trim();
+  const runRoutinePreview = useCallback(async (rawText: string) => {
+    const text = rawText.trim();
     if (!text) {
       Alert.alert(strings.portability.importRoutine, strings.portability.emptyPaste);
       return;
     }
-    setBusy(true);
     try {
       let json = text;
       if (text.startsWith('apexfoss://')) {
@@ -107,8 +117,8 @@ export function PortabilityScreen() {
         `${strings.portability.importPreviewTitle}: ${preview.routineName}`,
         `${strings.portability.blockCount}: ${preview.blockCount}\n` +
           `${strings.portability.stepCount}: ${preview.stepCount}\n` +
-          `${strings.portability.matchedExercises}: ${preview.matchedExercises}\n` +
-          `${strings.portability.newExercises}: ${preview.newExercises}`,
+          `${exerciseLine(strings.portability.matchedExercises, preview.matchedExercises, preview.matchedExerciseNames)}\n` +
+          exerciseLine(strings.portability.newExercises, preview.newExercises, preview.newExerciseNames),
         [
           { text: strings.common.cancel, style: 'cancel' },
           {
@@ -128,11 +138,36 @@ export function PortabilityScreen() {
         ],
       );
     } catch (e) {
-      Alert.alert(strings.portability.importFailed, e instanceof Error ? e.message : strings.portability.invalidPayload);
+      Alert.alert(strings.portability.importFailed, portabilityErrorMessage(e));
+    }
+  }, []);
+
+  const onImportPreview = useCallback(async () => {
+    setBusy(true);
+    try {
+      await runRoutinePreview(importText);
     } finally {
       setBusy(false);
     }
-  }, [importText]);
+  }, [importText, runRoutinePreview]);
+
+  const onImportFromFile = useCallback(async () => {
+    setBusy(true);
+    try {
+      const picked = await pickImportFile('routine');
+      if (picked.status === 'canceled') return;
+      if (picked.status === 'wrong-type') {
+        Alert.alert(strings.portability.importFailed, strings.portability.invalidRoutineFile);
+        return;
+      }
+      setImportText(picked.text);
+      await runRoutinePreview(picked.text);
+    } catch (e) {
+      Alert.alert(strings.portability.importFailed, portabilityErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [runRoutinePreview]);
 
   const onCreateBackup = useCallback(async () => {
     setBusy(true);
@@ -146,21 +181,32 @@ export function PortabilityScreen() {
     }
   }, []);
 
-  const onRestore = useCallback(async () => {
-    const text = backupText.trim();
+  const runRestorePreview = useCallback(async (rawText: string) => {
+    const text = rawText.trim();
     if (!text) {
       Alert.alert(strings.portability.restoreBackup, strings.portability.emptyPaste);
       return;
     }
-    setBusy(true);
     try {
       const backup = parseBackup(text);
       const summary = backupSummary(backup);
+      const lines = [
+        strings.portability.restoreValidationOk,
+        `${strings.routines.title}: ${summary.routines}`,
+        `${strings.exercises.title}: ${summary.exercises}`,
+        `${strings.muscles.sessions}: ${summary.sessions} · ${strings.muscles.sets}: ${summary.setLogs}`,
+      ];
+      if (summary.readinessTests > 0) lines.push(`${strings.readiness.title}: ${summary.readinessTests}`);
+      if (summary.equipmentItems > 0) lines.push(`${strings.exercises.equipment}: ${summary.equipmentItems}`);
+      if (summary.programs > 0 || summary.mesocycles > 0) {
+        lines.push(`${strings.programs.title}: ${summary.programs} · ${strings.programs.mesocycles}: ${summary.mesocycles}`);
+      }
+      if (summary.goals > 0) lines.push(`${strings.goals.title}: ${summary.goals}`);
+      if (summary.bodyMetrics > 0) lines.push(`${strings.body.title}: ${summary.bodyMetrics}`);
+      lines.push(`${strings.portability.summarySchema}: ${backup.schemaVersion}`);
       Alert.alert(
         strings.portability.restoreConfirmTitle,
-        `${strings.portability.restoreConfirmBody}\n\n` +
-          `${strings.portability.blockCount}: ${summary.routines}\n` +
-          `${strings.portability.matchedExercises}: ${summary.exercises}`,
+        `${strings.portability.restoreConfirmBody}\n\n${lines.join('\n')}`,
         [
           { text: strings.common.cancel, style: 'cancel' },
           {
@@ -181,11 +227,36 @@ export function PortabilityScreen() {
         ],
       );
     } catch (e) {
-      Alert.alert(strings.portability.restoreFailed, e instanceof Error ? e.message : strings.portability.invalidPayload);
+      Alert.alert(strings.portability.restoreFailed, portabilityErrorMessage(e));
+    }
+  }, []);
+
+  const onRestore = useCallback(async () => {
+    setBusy(true);
+    try {
+      await runRestorePreview(backupText);
     } finally {
       setBusy(false);
     }
-  }, [backupText]);
+  }, [backupText, runRestorePreview]);
+
+  const onRestoreFromFile = useCallback(async () => {
+    setBusy(true);
+    try {
+      const picked = await pickImportFile('backup');
+      if (picked.status === 'canceled') return;
+      if (picked.status === 'wrong-type') {
+        Alert.alert(strings.portability.restoreFailed, strings.portability.invalidBackupFile);
+        return;
+      }
+      setBackupText(picked.text);
+      await runRestorePreview(picked.text);
+    } catch (e) {
+      Alert.alert(strings.portability.restoreFailed, portabilityErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [runRestorePreview]);
 
   return (
     <Screen>
@@ -255,6 +326,13 @@ export function PortabilityScreen() {
             onPress={() => void onImportPreview()}
             className="mt-3"
           />
+          <Button
+            label={strings.portability.importFromFile}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => void onImportFromFile()}
+            className="mt-2"
+          />
         </Card>
 
         <SectionHeader title={strings.portability.createBackup} />
@@ -289,6 +367,13 @@ export function PortabilityScreen() {
             disabled={busy}
             onPress={() => void onRestore()}
             className="mt-3"
+          />
+          <Button
+            label={strings.portability.restoreFromFile}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => void onRestoreFromFile()}
+            className="mt-2"
           />
         </Card>
 

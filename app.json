@@ -26,6 +26,7 @@
       "./plugins/withWatermelonJsiFix",
       "./plugins/withApexSigning",
       "./plugins/withNetworkHardening",
+      "./plugins/withFileIntentFilters",
       [
         "expo-build-properties",
         {
