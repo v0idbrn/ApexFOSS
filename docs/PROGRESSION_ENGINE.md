@@ -138,6 +138,27 @@ rendering, empty/insufficient states, navigation, zero crashes. The populated
 verdict flow is covered by the Jest integration suites (LokiJS DB → engine →
 component assertions).
 
+Extended device validation (2026-09-27, Galaxy A04e, es-AR then EN):
+
+- Deep-link transport resolved: the official encoder/decoder pair is inverse
+  (verified in Jest against the field payload). The earlier
+  "Contenido inválido o corrupto" failure was shell mangling of the
+  `apexfoss://import?d=…` URL on delivery (unquoted `adb shell am start`),
+  not a protocol bug. A payload produced by the official `buildImportDeepLink`
+  and delivered single-quoted imports end to end: pending stash → preview
+  ("Vista previa de importación", 1 block / 1 step / 1 matched exercise) →
+  confirm → "Rutina importada".
+- Two real completed sessions (Push Day, Bench Press 3×50kg×10 then
+  3×50kg×12) exercised the full loop: post-workout cards rendered
+  MANTENIENDO ("Repeticiones dentro del rango prescrito") then PROGRESANDO
+  ("Alcanzó el tope del rango de repeticiones con el peso objetivo", 1,800
+  kg·reps), Progress overview grouped Bench Press under PROGRESANDO, and the
+  HistoryDetail card rendered PROGRESSING with baseline vs current.
+- With an empty equipment inventory the UI correctly omits the next-weight
+  row instead of inventing an increment (conservative rule holds on device).
+- Portability keyboard behavior: multiline fields + ScrollView resize normally;
+  off-screen buttons remain reachable by scroll. No UX regression found.
+
 ## Reason codes
 
 `REPS_RANGE_COMPLETED`, `REPS_EXCEEDED_RANGE`, `REPS_BELOW_MIN`,
