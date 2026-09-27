@@ -445,6 +445,7 @@ describe('backup create / restore', () => {
       equipmentItems: 0,
       programs: 0,
       mesocycles: 0,
+      goals: 0,
     });
   });
 
@@ -962,6 +963,92 @@ describe('mesocycle portability (schema v9)', () => {
 
     const notArray = JSON.parse(serializeBackup(b)) as any;
     notArray.data.mesocycles = {};
+    notArray.checksum = semanticChecksum(notArray.data);
+    expect(() => parseBackup(JSON.stringify(notArray))).toThrow(
+      expect.objectContaining({ code: 'missing_field' }),
+    );
+  });
+});
+
+describe('goal portability (schema v10)', () => {
+  async function dbWithGoal(): Promise<Database> {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const exerciseId = await actions.createExercise({
+      name: 'Bench Press',
+      category: 'push',
+      equipment: 'barbell',
+      metricFlags: 3,
+    });
+    await actions.createGoal(exerciseId, 100_000);
+    return db;
+  }
+
+  it('goals round-trip through create → validate → restore', async () => {
+    const db = await dbWithGoal();
+    const backup = await createBackup(db);
+    expect(backup.data.goals).toEqual([{ exerciseKey: backup.data.exercises[0].key, targetWeightGrams: 100_000 }]);
+    expect(backupSummary(backup).goals).toBe(1);
+
+    const db2 = makeDb();
+    await restoreBackup(db2, serializeBackup(backup));
+    const actions2 = makeDbActions(db2);
+    const goals = await actions2.listGoals();
+    expect(goals).toHaveLength(1);
+    expect(goals[0].targetWeightGrams).toBe(100_000);
+    const exercises = await actions2.listExercises();
+    expect(exercises.map((e) => e.id)).toContain(goals[0].exerciseId);
+  });
+
+  it('exports exercises referenced only by goals', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const exerciseId = await actions.createExercise({
+      name: 'Overhead Press',
+      category: 'push',
+      equipment: 'dumbbell',
+      metricFlags: 3,
+    });
+    await actions.createGoal(exerciseId, 60_000);
+    const backup = await createBackup(db);
+    expect(backup.data.exercises.map((e) => e.name)).toContain('Overhead Press');
+    expect(backup.data.goals).toHaveLength(1);
+  });
+
+  it('pre-v10 backups without goals validate and restore as empty', async () => {
+    const db = await dbWithGoal();
+    const backup = await createBackup(db);
+    const raw = JSON.parse(serializeBackup(backup)) as any;
+    delete raw.data.goals;
+    raw.checksum = semanticChecksum(raw.data);
+    const parsed = parseBackup(JSON.stringify(raw));
+    expect(parsed.data.goals).toBeUndefined();
+
+    const db2 = makeDb();
+    await restoreBackup(db2, JSON.stringify(raw));
+    expect(await makeDbActions(db2).listGoals()).toEqual([]);
+  });
+
+  it('rejects invalid goal data before the checksum', async () => {
+    const db = await dbWithGoal();
+    const b = await createBackup(db);
+
+    const dangling = JSON.parse(serializeBackup(b)) as any;
+    dangling.data.goals[0].exerciseKey = 'e99';
+    dangling.checksum = semanticChecksum(dangling.data);
+    expect(() => parseBackup(JSON.stringify(dangling))).toThrow(
+      expect.objectContaining({ code: 'dangling_exercise' }),
+    );
+
+    const badTarget = JSON.parse(serializeBackup(b)) as any;
+    badTarget.data.goals[0].targetWeightGrams = -1;
+    badTarget.checksum = semanticChecksum(badTarget.data);
+    expect(() => parseBackup(JSON.stringify(badTarget))).toThrow(
+      expect.objectContaining({ code: 'invalid_integer' }),
+    );
+
+    const notArray = JSON.parse(serializeBackup(b)) as any;
+    notArray.data.goals = {};
     notArray.checksum = semanticChecksum(notArray.data);
     expect(() => parseBackup(JSON.stringify(notArray))).toThrow(
       expect.objectContaining({ code: 'missing_field' }),

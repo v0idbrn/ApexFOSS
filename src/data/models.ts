@@ -199,6 +199,16 @@ export class EquipmentItem extends Model {
   @field('updated_at') updatedAt!: number;
 }
 
+/** Phase 4D: athlete-declared strength goal — target e1RM for one exercise. */
+export class Goal extends Model {
+  static table = 'goals';
+
+  @text('exercise_id') exerciseId!: string;
+  @field('target_weight_grams') targetWeightGrams!: number;
+  @field('created_at') createdAt!: number;
+  @field('updated_at') updatedAt!: number;
+}
+
 /** Device preference row (schema v6) — e.g. `{ key: 'locale', value: 'es' }`. */
 export class AppSetting extends Model {
   static table = 'app_settings';
@@ -223,5 +233,6 @@ export const modelClasses = [
   SetLog,
   ReadinessTest,
   EquipmentItem,
+  Goal,
   AppSetting,
 ];

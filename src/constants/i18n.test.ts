@@ -216,10 +216,10 @@ describe('strings facade', () => {
   });
 });
 
-describe('schema v9 (Phase 4B mesocycles)', () => {
-  it('schemaVersion is 9 with programs, mesocycles and routine linkage', () => {
-    expect(schemaVersion).toBe(9);
-    expect(schema.version).toBe(9);
+describe('schema v10 (Phase 4D goals)', () => {
+  it('schemaVersion is 10 with programs, mesocycles, goals and routine linkage', () => {
+    expect(schemaVersion).toBe(10);
+    expect(schema.version).toBe(10);
     const settings = schema.tables['app_settings'];
     expect(settings).toBeDefined();
     expect(settings.columnArray.map((c) => c.name)).toEqual(['key', 'value', 'created_at', 'updated_at']);
@@ -229,6 +229,9 @@ describe('schema v9 (Phase 4B mesocycles)', () => {
     const mesocycles = schema.tables['mesocycles'];
     expect(mesocycles).toBeDefined();
     expect(mesocycles.columnArray.map((c) => c.name)).toEqual(['name', 'program_id', 'sort_order', 'created_at', 'updated_at']);
+    const goals = schema.tables['goals'];
+    expect(goals).toBeDefined();
+    expect(goals.columnArray.map((c) => c.name)).toEqual(['exercise_id', 'target_weight_grams', 'created_at', 'updated_at']);
     const routines = schema.tables['routines'];
     const routineCols = routines.columnArray.map((c) => c.name);
     expect(routineCols).toContain('program_id');
@@ -241,8 +244,8 @@ describe('schema v9 (Phase 4B mesocycles)', () => {
     expect(mesoCol?.isIndexed).toBe(true);
     expect(mesoCol?.isOptional).toBe(true);
     expect(migrations.validated).toBe(true);
-    expect(migrations.maxVersion).toBe(9);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(9);
+    expect(migrations.maxVersion).toBe(10);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(10);
   });
 });
 

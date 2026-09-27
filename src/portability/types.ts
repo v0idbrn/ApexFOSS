@@ -121,6 +121,12 @@ export interface BackupMesocycle {
   sortOrder: number;
 }
 
+/** Phase 4D: strength goal referencing an exercise by package key. */
+export interface BackupGoal {
+  exerciseKey: string;
+  targetWeightGrams: number;
+}
+
 /** Backup row shapes (logical, not Watermelon dumps). */
 export interface BackupRoutine extends PortableRoutine {
   /** Index into backup.data.programs, or null/absent when unassigned (Phase 4A). */
@@ -208,6 +214,8 @@ export interface BackupData {
   programs?: PortableProgram[];
   /** Absent on backups created before schema v9 — restore treats as empty. */
   mesocycles?: BackupMesocycle[];
+  /** Absent on backups created before schema v10 — restore treats as empty. */
+  goals?: BackupGoal[];
 }
 
 export interface ApexBackup {

@@ -147,5 +147,20 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      // v10 (Phase 4D): goals table (strength targets per exercise).
+      toVersion: 10,
+      steps: [
+        createTable({
+          name: 'goals',
+          columns: [
+            { name: 'exercise_id', type: 'string', isIndexed: true },
+            { name: 'target_weight_grams', type: 'number' },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
   ],
 });

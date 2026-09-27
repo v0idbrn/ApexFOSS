@@ -3,6 +3,7 @@ import type {
   ApexBackup,
   BackupData,
   BackupEquipmentItem,
+  BackupGoal,
   BackupMesocycle,
   BackupReadinessTest,
   BackupRoutine,
@@ -43,6 +44,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
   const equipmentRows = await db.get<any>('equipment_items').query(Q.sortBy('created_at', 'asc')).fetch();
   const programRows = await db.get<any>('programs').query(Q.sortBy('created_at', 'asc')).fetch();
   const mesoRows = await db.get<any>('mesocycles').query().fetch();
+  const goalRows = await db.get<any>('goals').query(Q.sortBy('created_at', 'asc')).fetch();
 
   // Programs (schema v8): name-only containers; membership lives on routines.
   const programs: PortableProgram[] = programRows.map((p) => ({ name: p.name }));
@@ -256,6 +258,13 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     perSide: e.perSide === true || e.perSide === 1,
   }));
 
+  // Goals (schema v10): exercise by package key — ensureEx also exports
+  // exercises used only by goals.
+  const goals: BackupGoal[] = goalRows.map((g: any) => ({
+    exerciseKey: ensureEx(g.exerciseId, '') ?? '',
+    targetWeightGrams: g.targetWeightGrams,
+  }));
+
   const data: BackupData = {
     exercises,
     routines,
@@ -266,6 +275,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     equipmentItems,
     programs,
     mesocycles,
+    goals,
   };
   return {
     format: BACKUP_FORMAT,
@@ -382,6 +392,26 @@ export function validateBackup(raw: unknown): ApexBackup {
       throw new PortabilityError('invalid_integer', `exercises[${i}].metricFlags`);
     }
     exerciseKeys.add(ex.key);
+  }
+
+  const goalsRaw = d.goals;
+  if (goalsRaw !== undefined && !Array.isArray(goalsRaw)) {
+    throw new PortabilityError('missing_field', 'data.goals');
+  }
+  const goalsList: unknown[] = Array.isArray(goalsRaw) ? goalsRaw : [];
+  for (const [i, g] of goalsList.entries()) {
+    if (typeof g !== 'object' || g === null) throw new PortabilityError('missing_field', `goals[${i}]`);
+    const gg = g as Record<string, unknown>;
+    if (typeof gg.exerciseKey !== 'string' || !exerciseKeys.has(gg.exerciseKey)) {
+      throw new PortabilityError('dangling_exercise', `goals[${i}].exerciseKey`);
+    }
+    if (
+      typeof gg.targetWeightGrams !== 'number' ||
+      !Number.isInteger(gg.targetWeightGrams) ||
+      gg.targetWeightGrams <= 0
+    ) {
+      throw new PortabilityError('invalid_integer', `goals[${i}].targetWeightGrams`);
+    }
   }
 
   // Validate each routine's structure (reuse portable block/step rules without package checksum).
@@ -556,6 +586,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
     equipmentItems: ((await db.get('equipment_items').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     programs: ((await db.get('programs').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     mesocycles: ((await db.get('mesocycles').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
+    goals: ((await db.get('goals').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
   };
 
   try {
@@ -594,6 +625,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
       for (const p of oldPrograms) await p.markAsDeleted();
       const oldMesos = await db.get('mesocycles').query().fetch();
       for (const m of oldMesos) await m.markAsDeleted();
+      const oldGoals = await db.get('goals').query().fetch();
+      for (const g of oldGoals) await g.markAsDeleted();
 
       // Insert backup content. Map package keys → new local exercise ids.
       const keyToId = new Map<string, string>();
@@ -611,6 +644,21 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         keyToId.set(ex.key, row.id);
         exCount += 1;
         hooks.onRowCreated?.('exercises', exCount);
+      }
+
+      // Goals after exercises: remap package exercise keys to new local ids.
+      let goalN = 0;
+      for (const g of backup.data.goals ?? []) {
+        const targetId = keyToId.get(g.exerciseKey);
+        if (targetId == null) throw new PortabilityError('dangling_exercise', 'goals.exerciseKey');
+        await db.get<any>('goals').create((rec: any) => {
+          rec.exerciseId = targetId;
+          rec.targetWeightGrams = g.targetWeightGrams;
+          rec.createdAt = Date.now();
+          rec.updatedAt = Date.now();
+        });
+        goalN += 1;
+        hooks.onRowCreated?.('goals', goalN);
       }
 
       // Programs first so routine membership can reference them by index.
@@ -828,6 +876,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         for (const e of await db.get('equipment_items').query().fetch()) await e.markAsDeleted();
         for (const p of await db.get('programs').query().fetch()) await p.markAsDeleted();
         for (const m of await db.get('mesocycles').query().fetch()) await m.markAsDeleted();
+        for (const g of await db.get('goals').query().fetch()) await g.markAsDeleted();
 
         // Re-insert snapshot rows (raw create with original ids where possible).
         const idMap = new Map<string, string>();
@@ -841,6 +890,15 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
             rec.updatedAt = raw.updated_at ?? raw.updatedAt ?? Date.now();
           });
           idMap.set(raw.id, row.id);
+        }
+        // Goals after exercises so exercise_id remaps via idMap.
+        for (const raw of snap.goals ?? []) {
+          await db.get('goals').create((rec: any) => {
+            rec.exerciseId = idMap.get(raw.exercise_id) ?? raw.exercise_id;
+            rec.targetWeightGrams = raw.target_weight_grams;
+            rec.createdAt = raw.created_at ?? Date.now();
+            rec.updatedAt = raw.updated_at ?? Date.now();
+          });
         }
         // Programs before routines so program_id remaps via idMap.
         for (const raw of snap.programs) {
@@ -1020,6 +1078,7 @@ export function backupSummary(backup: ApexBackup): {
   equipmentItems: number;
   programs: number;
   mesocycles: number;
+  goals: number;
 } {
   return {
     exercises: backup.data.exercises.length,
@@ -1030,5 +1089,6 @@ export function backupSummary(backup: ApexBackup): {
     equipmentItems: backup.data.equipmentItems?.length ?? 0,
     programs: backup.data.programs?.length ?? 0,
     mesocycles: backup.data.mesocycles?.length ?? 0,
+    goals: backup.data.goals?.length ?? 0,
   };
 }

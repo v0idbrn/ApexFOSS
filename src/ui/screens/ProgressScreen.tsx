@@ -17,6 +17,7 @@ import { EmptyState, ListRow, MetricCard, Screen, SectionHeader } from '../compo
 import { Enter } from '../motion';
 import { ProgressionOverviewSection } from '../ProgressionOverview';
 import { TrendSignalsSection } from '../TrendSignals';
+import { GoalSection } from '../GoalSection';
 
 /**
  * Progress hub (Phase 2L tab 4): one destination for the whole analytical
@@ -106,6 +107,10 @@ export function ProgressScreen() {
               overview={trends}
               onOpenExercise={(exerciseId) => push({ name: 'exerciseEditor', exerciseId })}
             />
+          </Enter>
+
+          <Enter delayMs={112}>
+            <GoalSection />
           </Enter>
 
           <Enter delayMs={80}>

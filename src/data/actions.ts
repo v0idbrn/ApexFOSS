@@ -8,6 +8,7 @@ import {
   Routine,
   Program,
   Mesocycle,
+  Goal,
   RoutineBlock,
   RoutineBlockStep,
   Prescription,
@@ -127,6 +128,12 @@ export interface DbActions {
   /** Stages a routine; rejects when routine and mesocycle belong to different programs. */
   assignRoutineToMesocycle(routineId: string, mesocycleId: string): Promise<void>;
   removeRoutineFromMesocycle(routineId: string): Promise<void>;
+
+  /** Creates a strength goal; rejects unknown exercise or duplicate target. */
+  createGoal(exerciseId: string, targetWeightGrams: number): Promise<string>;
+  deleteGoal(id: string): Promise<void>;
+  listGoals(): Promise<Array<{ id: string; exerciseId: string; targetWeightGrams: number; createdAt: number }>>;
+
   loadRoutineDraft(routineId: string): Promise<RoutineDraft>;
   saveRoutineDraft(draft: RoutineDraft): Promise<string>;
   createBlock(routineId: string, input: { name: string; kind: string; rounds: number }): Promise<string>;
@@ -501,6 +508,44 @@ export function makeDbActions(db: Database): DbActions {
           rec.updatedAt = now();
         });
       });
+    },
+
+    async createGoal(exerciseId, targetWeightGrams) {
+      return db.write(async () => {
+        await db.get<Exercise>('exercises').find(exerciseId);
+        if (!Number.isInteger(targetWeightGrams) || targetWeightGrams <= 0) {
+          throw new Error('goal target must be a positive integer of grams');
+        }
+        const existing = await db
+          .get<Goal>('goals')
+          .query(Q.where('exercise_id', exerciseId))
+          .fetch();
+        if (existing.length > 0) throw new Error('exercise already has a goal');
+        const row = await db.get<Goal>('goals').create((rec) => {
+          rec.exerciseId = exerciseId;
+          rec.targetWeightGrams = targetWeightGrams;
+          rec.createdAt = now();
+          rec.updatedAt = now();
+        });
+        return row.id;
+      });
+    },
+
+    async deleteGoal(id) {
+      await db.write(async () => {
+        const goal = await db.get<Goal>('goals').find(id);
+        await goal.markAsDeleted();
+      });
+    },
+
+    async listGoals() {
+      const rows = await db.get<Goal>('goals').query(Q.sortBy('created_at', 'asc')).fetch();
+      return rows.map((g) => ({
+        id: g.id,
+        exerciseId: g.exerciseId,
+        targetWeightGrams: g.targetWeightGrams,
+        createdAt: g.createdAt,
+      }));
     },
 
     async loadRoutineDraft(routineId) {

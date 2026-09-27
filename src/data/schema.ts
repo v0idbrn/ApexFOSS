@@ -17,8 +17,10 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
  * list of existing routines to a program. Older rows read null - unassigned.
  * v9 (Phase 4B): mesocycles table (ordered training phases inside a program)
  * plus optional routines.mesocycle_id. Older rows read null - not staged.
+ * v10 (Phase 4D): goals table (athlete-declared strength targets per
+ * exercise; target e1RM in grams). Achieved state is derived, never stored.
  */
-export const schemaVersion = 9;
+export const schemaVersion = 10;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -187,6 +189,15 @@ export const schema = appSchema({
         { name: 'weight_grams', type: 'number' },
         { name: 'quantity', type: 'number' },
         { name: 'per_side', type: 'number' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'goals',
+      columns: [
+        { name: 'exercise_id', type: 'string', isIndexed: true },
+        { name: 'target_weight_grams', type: 'number' },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],
