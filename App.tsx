@@ -32,8 +32,10 @@ import { RecordsScreen } from './src/ui/screens/RecordsScreen';
 import { InventoryScreen } from './src/ui/screens/InventoryScreen';
 import { ReadinessScreen } from './src/ui/screens/ReadinessScreen';
 import { TrustScreen } from './src/ui/screens/TrustScreen';
+import { ReportScreen } from './src/ui/screens/ReportScreen';
 import { parseImportDeepLink } from './src/portability/encoding';
 import { setPendingDeepLink } from './src/portability/pendingDeepLink';
+import { ingestIncomingUrl } from './src/portability/pendingFileImport';
 
 function renderRoute(route: Route) {
   switch (route.name) {
@@ -83,6 +85,8 @@ function renderRoute(route: Route) {
       return <ReadinessScreen />;
     case 'trust':
       return <TrustScreen />;
+    case 'report':
+      return <ReportScreen />;
     default:
       return <HomeScreen />;
   }
@@ -109,7 +113,11 @@ export default function App() {
     const onUrl = (url: string | null | undefined) => {
       if (!url) return;
       const parsed = parseImportDeepLink(url);
-      if (parsed.ok) setPendingDeepLink(parsed.encoded);
+      if (parsed.ok) {
+        setPendingDeepLink(parsed.encoded);
+        return;
+      }
+      void ingestIncomingUrl(url);
     };
     Linking.getInitialURL().then(onUrl).catch(() => {});
     const sub = Linking.addEventListener('url', (e) => onUrl(e.url));
