@@ -54,6 +54,7 @@ export const es: Strings = {
     emptyBody: 'Elige una rutina para empezar a registrar series, reps y descansos.',
     emptyAction: 'Elegir rutina',
     noSessions: 'Las sesiones completadas aparecerán aquí con tiempo, series y volumen.',
+    nextUpNew: 'Aún sin entrenar',
   },
   progress: {
     title: 'Progreso',

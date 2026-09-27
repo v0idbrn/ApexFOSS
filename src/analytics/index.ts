@@ -7,3 +7,4 @@ export * from './trends';
 export * from './adherence';
 export * from './plateau';
 export * from './progression';
+export * from './scheduling';

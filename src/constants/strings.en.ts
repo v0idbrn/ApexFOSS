@@ -52,6 +52,7 @@ export const en = {
     emptyBody: 'Pick a routine to start logging sets, reps and rest timers.',
     emptyAction: 'Choose routine',
     noSessions: 'Completed sessions will show up here with time, sets and volume.',
+    nextUpNew: 'Not trained yet',
   },
   progress: {
     title: 'Progress',

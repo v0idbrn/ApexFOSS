@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { makeDbActions } from '../../data/actions';
 import { loadDashboard, type DashboardData, type DashboardSession } from '../../data/dashboard';
+import { loadNextUp, type NextUpInfo } from '../../data/scheduling';
 import { loadActiveWorkout, startWorkoutSession } from '../../workout/runner';
 import { useActiveSessionStore } from '../../state/activeSessionStore';
 import { strings } from '../../constants/strings';
@@ -34,6 +35,7 @@ export function TrainScreen() {
   const [active, setActive] = useState<ActiveRow | null>(null);
   const [routines, setRoutines] = useState<RoutineRow[]>([]);
   const [lastSession, setLastSession] = useState<DashboardSession | null>(null);
+  const [nextUp, setNextUp] = useState<NextUpInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setSession = useActiveSessionStore((s) => s.setSession);
@@ -64,6 +66,11 @@ export function TrainScreen() {
     } catch {
       setLastSession(null);
     }
+    try {
+      setNextUp(await loadNextUp(database));
+    } catch {
+      setNextUp(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -84,6 +91,21 @@ export function TrainScreen() {
       setBusy(false);
     }
   }, [lastSession, busy, setSession, startWorkout]);
+
+  const startNext = useCallback(async () => {
+    if (!nextUp || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const sessionId = await startWorkoutSession(database, nextUp.routineId);
+      setSession(sessionId, nextUp.routineName);
+      startWorkout();
+    } catch {
+      setError(strings.workout.startFailed);
+    } finally {
+      setBusy(false);
+    }
+  }, [nextUp, busy, setSession, startWorkout]);
 
   const fmtDate = (ts: number) =>
     new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -154,6 +176,45 @@ export function TrainScreen() {
               </Enter>
             )}
           </View>
+
+          {nextUp ? (
+            <Enter delayMs={40}>
+              <Card testID="train-next-up" className="mt-4">
+                <Text className="text-overline uppercase text-accent-ink">{strings.workout.nextUp}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${strings.workout.nextUp}: ${nextUp.routineName} (${nextUp.programName})`}
+                  onPress={() => push({ name: 'programDetail', programId: nextUp.programId })}
+                  testID="train-next-up-program"
+                  style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
+                  className="min-h-12 justify-center"
+                >
+                  <Text numberOfLines={1} className="mt-1 text-heading text-fg">
+                    {nextUp.routineName}
+                  </Text>
+                  <Text numberOfLines={1} className="mt-0.5 text-caption text-dim">
+                    {nextUp.programName}
+                  </Text>
+                  {nextUp.neverTrained ? (
+                    <Text className="mt-0.5 text-caption text-warning">{strings.train.nextUpNew}</Text>
+                  ) : null}
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${strings.routines.start} ${nextUp.routineName}`}
+                  onPress={() => void startNext()}
+                  disabled={busy}
+                  testID="train-next-up-start"
+                  style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
+                  className={`mt-2 min-h-12 items-center justify-center rounded-lg bg-accent px-4 ${
+                    busy ? 'opacity-50' : ''
+                  }`}
+                >
+                  <Text className="text-base font-semibold text-fg">{strings.routines.start}</Text>
+                </Pressable>
+              </Card>
+            </Enter>
+          ) : null}
 
           <Enter delayMs={60}>
             <SectionHeader
