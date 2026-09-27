@@ -415,3 +415,104 @@ describe('HistoryDetailScreen a11y and i18n (Phase 2L Stage H)', () => {
     expect(typeof compare.props.onPress).toBe('function');
   });
 });
+
+describe('HistoryDetailScreen session adherence (Phase 3D)', () => {
+  const detailWithAdherence: HistoryDetail = {
+    ...detailWithBlock,
+    blocks: [
+      {
+        ...detailWithBlock.blocks[0],
+        steps: [
+          {
+            ...detailWithBlock.blocks[0].steps[0],
+            logs: [
+              { ...detailWithBlock.blocks[0].steps[0].logs[0], executionType: 'modified', overrideReason: null },
+              {
+                blockIndex: 0,
+                stepIndex: 0,
+                round: 1,
+                setIndex: 2,
+                weightGrams: 70_000,
+                reps: 6,
+                durationMs: null,
+                rir: null,
+                executionType: 'drop',
+                overrideReason: null,
+              },
+            ],
+            skipped: [{ blockIndex: 0, stepIndex: 0, round: 1, setIndex: 3 }],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('shows the planned denominator and recorded deviations', async () => {
+    mockedLoad.mockResolvedValue(detailWithAdherence);
+    const renderer = await renderDetail();
+    const summary = renderer.root.findAllByProps({ testID: 'history-adherence-summary' })[0];
+    expect(summary).toBeDefined();
+    expect(flatten(summary.props.children)).toContain('1/6');
+    const deviations = renderer.root.findAllByProps({ testID: 'history-adherence-deviations' })[0];
+    expect(deviations).toBeDefined();
+    const text = flatten(deviations.props.children);
+    expect(text).toContain('1 ' + strings.history.skippedSets);
+    expect(text).toContain('1 ' + strings.history.adherenceModified);
+    expect(text).toContain('1 ' + strings.history.adherenceDrop);
+  });
+
+  it('marks a fully performed plan as completed', async () => {
+    mockedLoad.mockResolvedValue({
+      ...detailWithBlock,
+      blocks: [
+        {
+          ...detailWithBlock.blocks[0],
+          steps: [
+            {
+              ...detailWithBlock.blocks[0].steps[0],
+              logs: Array.from({ length: 6 }, (_, i) => ({
+                blockIndex: 0,
+                stepIndex: 0,
+                round: Math.floor(i / 3) + 1,
+                setIndex: (i % 3) + 1,
+                weightGrams: 80_000,
+                reps: 5,
+                durationMs: null,
+                rir: 2,
+                executionType: 'normal' as const,
+                overrideReason: null,
+              })),
+              skipped: [],
+            },
+          ],
+        },
+      ],
+    });
+    const renderer = await renderDetail();
+    const summary = renderer.root.findAllByProps({ testID: 'history-adherence-summary' })[0];
+    const text = flatten(summary.props.children);
+    expect(text).toContain('6/6');
+    expect(text).toContain(strings.history.completed);
+    expect(renderer.root.findAllByProps({ testID: 'history-adherence-deviations' })).toHaveLength(0);
+  });
+
+  it('shows no adherence card when the plan has no sets', async () => {
+    mockedLoad.mockResolvedValue(detail);
+    const renderer = await renderDetail();
+    expect(renderer.root.findAllByProps({ testID: 'history-adherence' })).toHaveLength(0);
+  });
+
+  it('localizes the adherence card to Spanish under the es locale', async () => {
+    const original: Locale = getActiveStringsLocale();
+    try {
+      setStringsLocale('es');
+      mockedLoad.mockResolvedValue(detailWithAdherence);
+      const renderer = await renderDetail();
+      const joined = textsOf(renderer).join(' ');
+      expect(joined).toContain(strings.history.adherence);
+      expect(joined).toContain(strings.history.adherenceModified);
+    } finally {
+      setStringsLocale(original);
+    }
+  });
+});

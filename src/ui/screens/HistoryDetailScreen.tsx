@@ -14,6 +14,9 @@ import { strings } from '../../constants/strings';
 import { overrideReasonLabel } from './WorkoutScreen';
 import { formatCount, formatKg, msToSeconds } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps } from '../../analytics/load';
+import { summarizeAdherence, type AdherenceSummary } from '../../analytics/adherence';
+import { normalizeExecutionType } from '../../workout/execution';
+import { plannedSets } from '../../workout/sessionProgress';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, TextField } from '../components';
 import { Enter } from '../motion';
@@ -205,6 +208,23 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
     });
   }, [detail]);
 
+  // Session adherence (Phase 3D): prescription denominator + recorded rows.
+  const adherence = useMemo<AdherenceSummary | null>(() => {
+    if (!detail) return null;
+    const performed = detail.blocks.flatMap((block) =>
+      block.steps.flatMap((step) => step.logs.map((log) => ({
+        // loadSessionDetail only returns performed rows here; skipped live apart.
+        isCompleted: true,
+        executionType: normalizeExecutionType(log.executionType),
+      }))),
+    );
+    const skipped = detail.blocks.reduce(
+      (n, block) => n + block.steps.reduce((m, step) => m + step.skipped.length, 0),
+      0,
+    );
+    return summarizeAdherence({ planned: plannedSets(detail.definition), performed, skipped });
+  }, [detail]);
+
   if (loading) {
     return (
       <Screen>
@@ -268,6 +288,33 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
               </Text>
             ) : null}
           </Card>
+
+          {adherence && adherence.planned > 0 ? (
+            <Card className="mt-3" testID="history-adherence">
+              <Text accessibilityRole="header" className="text-xs font-semibold uppercase tracking-wider text-dim">
+                {strings.history.adherence}
+              </Text>
+              <Text className="mt-2 text-sm text-fg" testID="history-adherence-summary">
+                {adherence.plannedPerformed}/{adherence.planned} {strings.workout.plannedSets}
+                {adherence.status === 'complete' ? ` · ${strings.history.completed}` : ''}
+              </Text>
+              {adherence.skipped > 0 ||
+              adherence.modified > 0 ||
+              adherence.extra > 0 ||
+              adherence.drop > 0 ? (
+                <Text className="mt-0.5 text-sm text-dim" testID="history-adherence-deviations">
+                  {[
+                    adherence.skipped > 0 ? `${adherence.skipped} ${strings.history.skippedSets}` : null,
+                    adherence.modified > 0 ? `${adherence.modified} ${strings.history.adherenceModified}` : null,
+                    adherence.extra > 0 ? `${adherence.extra} ${strings.history.adherenceExtra}` : null,
+                    adherence.drop > 0 ? `${adherence.drop} ${strings.history.adherenceDrop}` : null,
+                  ]
+                    .filter((part): part is string => part !== null)
+                    .join(' · ')}
+                </Text>
+              ) : null}
+            </Card>
+          ) : null}
 
           {sessionLoad && sessionLoad.completedSetCount > 0 ? (
             <Card className="mt-3">
