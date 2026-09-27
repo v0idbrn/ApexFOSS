@@ -103,5 +103,28 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      // v8 (Phase 4A): programs container + optional routine linkage.
+      // Older routines read null program_id = unassigned; backups without
+      // programs remain valid (optional BackupData.programs).
+      toVersion: 8,
+      steps: [
+        addColumns({
+          table: 'routines',
+          columns: [
+            { name: 'program_id', type: 'string', isOptional: true, isIndexed: true },
+            { name: 'program_order', type: 'number', isOptional: true },
+          ],
+        }),
+        createTable({
+          name: 'programs',
+          columns: [
+            { name: 'name', type: 'string' },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
   ],
 });

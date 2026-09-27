@@ -108,9 +108,17 @@ export class PortabilityError extends Error {
   }
 }
 
+/** A program container (Phase 4A): name only; membership lives on routines. */
+export interface PortableProgram {
+  name: string;
+}
+
 /** Backup row shapes (logical, not Watermelon dumps). */
 export interface BackupRoutine extends PortableRoutine {
-  /** Parallel exercise keys used by blocks (subset of backup exercises). */
+  /** Index into backup.data.programs, or null/absent when unassigned (Phase 4A). */
+  programIndex?: number | null;
+  /** Order within the program; null/absent when unassigned or legacy. */
+  programOrder?: number | null;
 }
 
 export interface BackupSession {
@@ -178,7 +186,7 @@ export interface BackupEquipmentItem {
 
 export interface BackupData {
   exercises: PortableExercise[];
-  routines: PortableRoutine[];
+  routines: BackupRoutine[];
   sessions: BackupSession[];
   sessionExercises: BackupSessionExercise[];
   setLogs: BackupSetLog[];
@@ -186,6 +194,8 @@ export interface BackupData {
   readinessTests?: BackupReadinessTest[];
   /** Absent on backups created before schema v4 — restore treats as empty. */
   equipmentItems?: BackupEquipmentItem[];
+  /** Absent on backups created before schema v8 — restore treats as empty. */
+  programs?: PortableProgram[];
 }
 
 export interface ApexBackup {

@@ -152,6 +152,8 @@ async function renderScreen(): Promise<ReactTestRenderer> {
             <TabLauncher />
             {route.name === 'routines' ? (
               <RoutineListScreen />
+            ) : route.name === 'programs' ? (
+              <Text testID="programs-route" />
             ) : route.name === 'routineEditor' ? (
               <Text testID={route.routineId === null ? 'editor-new' : `editor:${route.routineId}`} />
             ) : route.name === 'routinePreview' ? (
@@ -211,6 +213,20 @@ describe('RoutineListScreen presentation (Phase 2L STAGE F)', () => {
       action!.props.onPress();
     });
     expect(nodesByTestId(renderer, 'editor-new').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows the programs entry card even when there are no routines (Phase 4A)', async () => {
+    setup({ rows: [] });
+    const renderer = await renderScreen();
+
+    expect(nodesByTestId(renderer, 'programs-entry').length).toBeGreaterThanOrEqual(1);
+    const texts = textsOf(renderer);
+    expect(texts).toContain(strings.programs.title);
+    expect(texts).toContain(strings.programs.subtitle);
+    expect(texts).toContain(strings.routines.empty); // empty state stays reachable
+
+    await press(renderer, 'programs-entry-open');
+    expect(nodesByTestId(renderer, 'programs-route').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows exercise, block and step counts on the routine card', async () => {

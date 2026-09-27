@@ -22,6 +22,8 @@ export type Route =
   | { name: 'more' }
   | { name: 'exercises' }
   | { name: 'exerciseEditor'; exerciseId: string | null }
+  | { name: 'programs' }
+  | { name: 'programDetail'; programId: string }
   | { name: 'routineEditor'; routineId: string | null }
   | { name: 'routinePreview'; draft: RoutineDraft }
   | { name: 'workout' }

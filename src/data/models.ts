@@ -26,9 +26,25 @@ export class Routine extends Model {
   };
 
   @text('name') name!: string;
+  /** Phase 4A: owning program; null = unassigned. */
+  @text('program_id') programId!: string | null;
+  /** Phase 4A: order within the program; null = unassigned/legacy. */
+  @field('program_order') programOrder!: number | null;
   @field('created_at') createdAt!: number;
   @field('updated_at') updatedAt!: number;
   @children('routine_blocks') blocks!: any;
+}
+
+/** Phase 4A: higher-level training program — a named, ordered list of routines. */
+export class Program extends Model {
+  static table = 'programs';
+  static associations = {
+    routines: { type: 'has_many' as const, foreignKey: 'program_id' },
+  };
+
+  @text('name') name!: string;
+  @field('created_at') createdAt!: number;
+  @field('updated_at') updatedAt!: number;
 }
 
 export class RoutineBlock extends Model {
@@ -179,6 +195,7 @@ export class AppSetting extends Model {
 export const modelClasses = [
   Exercise,
   Routine,
+  Program,
   RoutineBlock,
   RoutineBlockStep,
   Prescription,

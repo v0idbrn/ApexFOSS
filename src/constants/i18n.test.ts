@@ -216,17 +216,26 @@ describe('strings facade', () => {
   });
 });
 
-describe('schema v7 (Phase 3C execution metadata)', () => {
-  it('schemaVersion is 7 and app_settings exists with migration toVersion 7', () => {
-    expect(schemaVersion).toBe(7);
-    expect(schema.version).toBe(7);
-    const table = schema.tables['app_settings'];
-    expect(table).toBeDefined();
-    const cols = table.columnArray.map((c) => c.name);
-    expect(cols).toEqual(['key', 'value', 'created_at', 'updated_at']);
+describe('schema v8 (Phase 4A programs)', () => {
+  it('schemaVersion is 8 with programs table and routine linkage', () => {
+    expect(schemaVersion).toBe(8);
+    expect(schema.version).toBe(8);
+    const settings = schema.tables['app_settings'];
+    expect(settings).toBeDefined();
+    expect(settings.columnArray.map((c) => c.name)).toEqual(['key', 'value', 'created_at', 'updated_at']);
+    const programs = schema.tables['programs'];
+    expect(programs).toBeDefined();
+    expect(programs.columnArray.map((c) => c.name)).toEqual(['name', 'created_at', 'updated_at']);
+    const routines = schema.tables['routines'];
+    const routineCols = routines.columnArray.map((c) => c.name);
+    expect(routineCols).toContain('program_id');
+    expect(routineCols).toContain('program_order');
+    const programIdCol = routines.columnArray.find((c) => c.name === 'program_id');
+    expect(programIdCol?.isIndexed).toBe(true);
+    expect(programIdCol?.isOptional).toBe(true);
     expect(migrations.validated).toBe(true);
-    expect(migrations.maxVersion).toBe(7);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(7);
+    expect(migrations.maxVersion).toBe(8);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(8);
   });
 });
 

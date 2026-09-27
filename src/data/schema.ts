@@ -11,9 +11,12 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
  * v6 (i18n): app_settings for device preferences (locale override). Not backed up.
  * v7 (Phase 3C): optional set_logs.execution_type + set_logs.override_reason
  * for adaptive execution (skipped/extra/drop/modified marking + athlete-stated
- * reason). Older rows read null → treated as legacy normal/voided rows.
+ * reason). Older rows read null ��' treated as legacy normal/voided rows.
+ * v8 (Phase 4A): programs table (higher-level training structure) plus
+ * optional routines.program_id / routines.program_order linking an ordered
+ * list of existing routines to a program. Older rows read null ��' unassigned.
  */
-export const schemaVersion = 7;
+export const schemaVersion = 8;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -31,6 +34,16 @@ export const schema = appSchema({
     }),
     tableSchema({
       name: 'routines',
+      columns: [
+        { name: 'name', type: 'string' },
+        { name: 'program_id', type: 'string', isOptional: true, isIndexed: true },
+        { name: 'program_order', type: 'number', isOptional: true },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'programs',
       columns: [
         { name: 'name', type: 'string' },
         { name: 'created_at', type: 'number' },

@@ -443,6 +443,7 @@ describe('backup create / restore', () => {
       setLogs: 0,
       readinessTests: 0,
       equipmentItems: 0,
+      programs: 0,
     });
   });
 
@@ -766,6 +767,99 @@ describe('adaptive execution portability (schema v7)', () => {
     badReason.data.setLogs[0].overrideReason = 'tired';
     badReason.checksum = semanticChecksum(badReason.data);
     expect(() => parseBackup(JSON.stringify(badReason))).toThrow(
+      expect.objectContaining({ code: 'invalid_string' }),
+    );
+  });
+});
+
+describe('program portability (schema v8)', () => {
+  async function dbWithProgram(): Promise<Database> {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const exerciseId = await actions.createExercise({
+      name: 'Squat',
+      category: 'legs',
+      equipment: 'barbell',
+      metricFlags: 3,
+    });
+    const programId = await actions.createProgram('Strength base');
+    const dayA = await actions.createRoutine('Day A');
+    const blockId = await actions.createBlock(dayA, { name: 'Main', kind: 'normal', rounds: 1 });
+    await actions.createStep(blockId, exerciseId, 'Squat');
+    await actions.assignRoutineToProgram(dayA, programId);
+    const dayB = await actions.createRoutine('Day B');
+    await actions.assignRoutineToProgram(dayB, programId);
+    await actions.createRoutine('Loose day'); // stays unassigned
+    return db;
+  }
+
+  it('programs and membership round-trip through create → validate → restore', async () => {
+    const db = await dbWithProgram();
+    const backup = await createBackup(db);
+    expect(backup.data.programs).toEqual([{ name: 'Strength base' }]);
+    const byName = new Map(backup.data.routines.map((r) => [r.name, r]));
+    expect(byName.get('Day A')).toMatchObject({ programIndex: 0, programOrder: 1 });
+    expect(byName.get('Day B')).toMatchObject({ programIndex: 0, programOrder: 2 });
+    expect(byName.get('Loose day')).toMatchObject({ programIndex: null });
+    expect(backupSummary(backup).programs).toBe(1);
+
+    const db2 = makeDb();
+    await restoreBackup(db2, serializeBackup(backup));
+    const actions2 = makeDbActions(db2);
+    const programs = await actions2.listProgramsWithCounts();
+    expect(programs).toHaveLength(1);
+    expect(programs[0].name).toBe('Strength base');
+    expect(programs[0].routineCount).toBe(2);
+    const members = await actions2.listProgramRoutines(programs[0].id);
+    expect(members.map((m) => m.name)).toEqual(['Day A', 'Day B']);
+    expect(members.map((m) => m.order)).toEqual([1, 2]);
+    const unassigned = await actions2.listUnassignedRoutines();
+    expect(unassigned.map((r) => r.name)).toEqual(['Loose day']);
+  });
+
+  it('older backups without programs validate and restore as unassigned', async () => {
+    const db = await dbWithProgram();
+    const backup = await createBackup(db);
+    const raw = JSON.parse(serializeBackup(backup)) as any;
+    delete raw.data.programs;
+    for (const r of raw.data.routines) {
+      delete r.programIndex;
+      delete r.programOrder;
+    }
+    raw.checksum = semanticChecksum(raw.data);
+    const parsed = parseBackup(JSON.stringify(raw));
+    expect(parsed.data.programs).toBeUndefined();
+
+    const db2 = makeDb();
+    await restoreBackup(db2, JSON.stringify(raw));
+    const actions2 = makeDbActions(db2);
+    expect(await actions2.listProgramsWithCounts()).toEqual([]);
+    const unassigned = await actions2.listUnassignedRoutines();
+    expect(unassigned.map((r) => r.name).sort()).toEqual(['Day A', 'Day B', 'Loose day']);
+  });
+
+  it('rejects invalid program data before the checksum', async () => {
+    const db = await dbWithProgram();
+    const b = await createBackup(db);
+
+    const dangling = JSON.parse(serializeBackup(b)) as any;
+    dangling.data.routines[0].programIndex = 5;
+    dangling.checksum = semanticChecksum(dangling.data);
+    expect(() => parseBackup(JSON.stringify(dangling))).toThrow(
+      expect.objectContaining({ code: 'invalid_reference' }),
+    );
+
+    const notArray = JSON.parse(serializeBackup(b)) as any;
+    notArray.data.programs = 'nope';
+    notArray.checksum = semanticChecksum(notArray.data);
+    expect(() => parseBackup(JSON.stringify(notArray))).toThrow(
+      expect.objectContaining({ code: 'missing_field' }),
+    );
+
+    const nameless = JSON.parse(serializeBackup(b)) as any;
+    nameless.data.programs[0] = {};
+    nameless.checksum = semanticChecksum(nameless.data);
+    expect(() => parseBackup(JSON.stringify(nameless))).toThrow(
       expect.objectContaining({ code: 'invalid_string' }),
     );
   });

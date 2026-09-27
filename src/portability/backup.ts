@@ -4,10 +4,12 @@ import type {
   BackupData,
   BackupEquipmentItem,
   BackupReadinessTest,
+  BackupRoutine,
   BackupSession,
   BackupSessionExercise,
   BackupSetLog,
   PortableExercise,
+  PortableProgram,
   PortableRoutine,
 } from './types';
 import { BACKUP_FORMAT, MAX_BACKUP_JSON_BYTES, BACKUP_FORMAT_VERSION, PortabilityError } from './types';
@@ -38,6 +40,11 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
   const setLogRows = await db.get<any>('set_logs').query().fetch();
   const readinessRows = await db.get<any>('readiness_tests').query(Q.sortBy('tested_at', 'asc')).fetch();
   const equipmentRows = await db.get<any>('equipment_items').query(Q.sortBy('created_at', 'asc')).fetch();
+  const programRows = await db.get<any>('programs').query(Q.sortBy('created_at', 'asc')).fetch();
+
+  // Programs (schema v8): name-only containers; membership lives on routines.
+  const programs: PortableProgram[] = programRows.map((p) => ({ name: p.name }));
+  const programIndexById = new Map<string, number>(programRows.map((p, i) => [p.id, i]));
 
   // Package-local exercise keys (stable by first-use across routines, then leftover sorted by name).
   const localIdToKey = new Map<string, string>();
@@ -75,7 +82,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
   for (const t of transRows) transByFrom.set(t.fromStepId, t);
 
   // First-use order: walk routines → blocks → steps to assign exercise keys.
-  const routines: PortableRoutine[] = [];
+  const routines: BackupRoutine[] = [];
   const routineIndexById = new Map<string, number>();
   for (const r of routineRows) {
     const blocks = (blocksByRoutine.get(r.id) ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder);
@@ -124,7 +131,12 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
       }
     }
     routineIndexById.set(r.id, routines.length);
-    routines.push({ name: r.name, blocks: portableBlocks });
+    routines.push({
+      name: r.name,
+      blocks: portableBlocks,
+      programIndex: r.programId != null ? (programIndexById.get(r.programId) ?? null) : null,
+      programOrder: r.programOrder ?? null,
+    });
   }
 
   // Orphan exercises (not referenced) still included.
@@ -226,7 +238,16 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     perSide: e.perSide === true || e.perSide === 1,
   }));
 
-  const data: BackupData = { exercises, routines, sessions, sessionExercises, setLogs, readinessTests, equipmentItems };
+  const data: BackupData = {
+    exercises,
+    routines,
+    sessions,
+    sessionExercises,
+    setLogs,
+    readinessTests,
+    equipmentItems,
+    programs,
+  };
   return {
     format: BACKUP_FORMAT,
     formatVersion: BACKUP_FORMAT_VERSION,
@@ -297,6 +318,16 @@ export function validateBackup(raw: unknown): ApexBackup {
   if (equipmentItemsRaw !== undefined && !Array.isArray(equipmentItemsRaw)) {
     throw new PortabilityError('missing_field', 'data.equipmentItems');
   }
+  const programsRaw = d.programs;
+  if (programsRaw !== undefined && !Array.isArray(programsRaw)) {
+    throw new PortabilityError('missing_field', 'data.programs');
+  }
+  const programsList: unknown[] = Array.isArray(programsRaw) ? programsRaw : [];
+  for (const [i, p] of programsList.entries()) {
+    if (typeof p !== 'object' || p === null) throw new PortabilityError('missing_field', `programs[${i}]`);
+    const pp = p as Record<string, unknown>;
+    if (typeof pp.name !== 'string' || !pp.name) throw new PortabilityError('invalid_string', `programs[${i}].name`);
+  }
 
   const exerciseKeys = new Set<string>();
   for (const [i, e] of exercises.entries()) {
@@ -320,6 +351,19 @@ export function validateBackup(raw: unknown): ApexBackup {
     if (!Array.isArray(rr.blocks)) throw new PortabilityError('missing_field', `routines[${i}].blocks`);
     // Empty blocks allowed in backup (routine may be unconfigured); non-empty must be valid.
     if (typeof rr.name !== 'string' || !rr.name) throw new PortabilityError('invalid_string', `routines[${i}].name`);
+    if (rr.programIndex !== undefined && rr.programIndex !== null) {
+      const idx = rr.programIndex;
+      if (typeof idx !== 'number' || !Number.isInteger(idx) || idx < 0 || idx >= programsList.length) {
+        throw new PortabilityError('invalid_reference', `routines[${i}].programIndex`);
+      }
+    }
+    if (
+      rr.programOrder !== undefined &&
+      rr.programOrder !== null &&
+      (typeof rr.programOrder !== 'number' || !Number.isInteger(rr.programOrder) || rr.programOrder < 0)
+    ) {
+      throw new PortabilityError('invalid_integer', `routines[${i}].programOrder`);
+    }
     for (const [j, block] of (rr.blocks as unknown[]).entries()) {
       if (typeof block !== 'object' || block === null) throw new PortabilityError('missing_field', `routines[${i}].blocks[${j}]`);
       const b = block as Record<string, unknown>;
@@ -464,6 +508,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
     setLogs: ((await db.get('set_logs').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     readinessTests: ((await db.get('readiness_tests').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     equipmentItems: ((await db.get('equipment_items').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
+    programs: ((await db.get('programs').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
   };
 
   try {
@@ -498,6 +543,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
       for (const r of oldReadiness) await r.markAsDeleted();
       const oldEquipment = await db.get('equipment_items').query().fetch();
       for (const e of oldEquipment) await e.markAsDeleted();
+      const oldPrograms = await db.get('programs').query().fetch();
+      for (const p of oldPrograms) await p.markAsDeleted();
 
       // Insert backup content. Map package keys → new local exercise ids.
       const keyToId = new Map<string, string>();
@@ -517,11 +564,27 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         hooks.onRowCreated?.('exercises', exCount);
       }
 
+      // Programs first so routine membership can reference them by index.
+      const programIds: string[] = [];
+      let programN = 0;
+      for (const p of backup.data.programs ?? []) {
+        const row = await db.get<any>('programs').create((rec: any) => {
+          rec.name = p.name;
+          rec.createdAt = Date.now();
+          rec.updatedAt = Date.now();
+        });
+        programIds.push(row.id);
+        programN += 1;
+        hooks.onRowCreated?.('programs', programN);
+      }
+
       const routineIds: string[] = [];
       let blockN = 0;
       for (const r of backup.data.routines) {
         const routine = await db.get<any>('routines').create((rec: any) => {
           rec.name = r.name;
+          rec.programId = r.programIndex != null ? programIds[r.programIndex] ?? null : null;
+          rec.programOrder = r.programOrder ?? null;
           rec.createdAt = Date.now();
           rec.updatedAt = Date.now();
         });
@@ -697,6 +760,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         for (const e of await db.get('exercises').query().fetch()) await e.markAsDeleted();
         for (const r of await db.get('readiness_tests').query().fetch()) await r.markAsDeleted();
         for (const e of await db.get('equipment_items').query().fetch()) await e.markAsDeleted();
+        for (const p of await db.get('programs').query().fetch()) await p.markAsDeleted();
 
         // Re-insert snapshot rows (raw create with original ids where possible).
         const idMap = new Map<string, string>();
@@ -711,9 +775,20 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           });
           idMap.set(raw.id, row.id);
         }
+        // Programs before routines so program_id remaps via idMap.
+        for (const raw of snap.programs) {
+          const row = await db.get('programs').create((rec: any) => {
+            rec.name = raw.name;
+            rec.createdAt = raw.created_at ?? Date.now();
+            rec.updatedAt = raw.updated_at ?? Date.now();
+          });
+          idMap.set(raw.id, row.id);
+        }
         for (const raw of snap.routines) {
           const row = await db.get('routines').create((rec: any) => {
             rec.name = raw.name;
+            rec.programId = raw.program_id ? idMap.get(raw.program_id) ?? null : null;
+            rec.programOrder = raw.program_order ?? null;
             rec.createdAt = raw.created_at ?? Date.now();
             rec.updatedAt = raw.updated_at ?? Date.now();
           });
@@ -864,6 +939,7 @@ export function backupSummary(backup: ApexBackup): {
   setLogs: number;
   readinessTests: number;
   equipmentItems: number;
+  programs: number;
 } {
   return {
     exercises: backup.data.exercises.length,
@@ -872,5 +948,6 @@ export function backupSummary(backup: ApexBackup): {
     setLogs: backup.data.setLogs.length,
     readinessTests: backup.data.readinessTests?.length ?? 0,
     equipmentItems: backup.data.equipmentItems?.length ?? 0,
+    programs: backup.data.programs?.length ?? 0,
   };
 }

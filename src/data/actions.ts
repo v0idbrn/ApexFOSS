@@ -6,6 +6,7 @@ import { initialCursor } from '../engine/cursor';
 import {
   Exercise,
   Routine,
+  Program,
   RoutineBlock,
   RoutineBlockStep,
   Prescription,
@@ -106,6 +107,16 @@ export interface DbActions {
   updateRoutineName(id: string, name: string): Promise<void>;
   deleteRoutine(id: string): Promise<void>;
   listRoutinesWithCounts(): Promise<Array<{ id: string; name: string; blockCount: number; stepCount: number }>>;
+
+  createProgram(name: string): Promise<string>;
+  renameProgram(id: string, name: string): Promise<void>;
+  /** Detaches member routines (preserved) and deletes the program container. */
+  deleteProgram(id: string): Promise<void>;
+  listProgramsWithCounts(): Promise<Array<{ id: string; name: string; routineCount: number }>>;
+  listProgramRoutines(programId: string): Promise<Array<{ id: string; name: string; order: number }>>;
+  listUnassignedRoutines(): Promise<Array<{ id: string; name: string }>>;
+  assignRoutineToProgram(routineId: string, programId: string): Promise<void>;
+  removeRoutineFromProgram(routineId: string): Promise<void>;
   loadRoutineDraft(routineId: string): Promise<RoutineDraft>;
   saveRoutineDraft(draft: RoutineDraft): Promise<string>;
   createBlock(routineId: string, input: { name: string; kind: string; rounds: number }): Promise<string>;
@@ -267,6 +278,112 @@ export function makeDbActions(db: Database): DbActions {
         blockCount: blockCountByRoutine.get(r.id) ?? 0,
         stepCount: stepCountByRoutine.get(r.id) ?? 0,
       }));
+    },
+
+    async createProgram(name) {
+      return db.write(async () => {
+        const p = await db.get<Program>('programs').create((rec) => {
+          rec.name = name;
+          rec.createdAt = now();
+          rec.updatedAt = now();
+        });
+        return p.id;
+      });
+    },
+
+    async renameProgram(id, name) {
+      await db.write(async () => {
+        const p = await db.get<Program>('programs').find(id);
+        await p.update((rec) => {
+          rec.name = name;
+          rec.updatedAt = now();
+        });
+      });
+    },
+
+    async deleteProgram(id) {
+      await db.write(async () => {
+        const members = await db
+          .get<Routine>('routines')
+          .query(Q.where('program_id', id))
+          .fetch();
+        for (const r of members) {
+          await r.update((rec) => {
+            rec.programId = null;
+            rec.programOrder = null;
+            rec.updatedAt = now();
+          });
+        }
+        const p = await db.get<Program>('programs').find(id);
+        await p.markAsDeleted();
+      });
+    },
+
+    async listProgramsWithCounts() {
+      const programs = await db.get<Program>('programs').query(Q.sortBy('created_at', 'asc')).fetch();
+      const routines = await db.get<Routine>('routines').query().fetch();
+      const countByProgram = new Map<string, number>();
+      for (const r of routines) {
+        if (r.programId == null) continue;
+        countByProgram.set(r.programId, (countByProgram.get(r.programId) ?? 0) + 1);
+      }
+      return programs.map((p) => ({
+        id: p.id,
+        name: p.name,
+        routineCount: countByProgram.get(p.id) ?? 0,
+      }));
+    },
+
+    async listProgramRoutines(programId) {
+      const routines = await db
+        .get<Routine>('routines')
+        .query(Q.where('program_id', programId))
+        .fetch();
+      return routines
+        .map((r) => ({ id: r.id, name: r.name, order: r.programOrder ?? Number.MAX_SAFE_INTEGER }))
+        .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+    },
+
+    async listUnassignedRoutines() {
+      // Filter in memory: WatermelonDB has no portable IS NULL operator and
+      // routine counts are small (no N+1, single fetch).
+      const routines = await db
+        .get<Routine>('routines')
+        .query(Q.sortBy('updated_at', 'desc'))
+        .fetch();
+      return routines.filter((r) => r.programId == null).map((r) => ({ id: r.id, name: r.name }));
+    },
+
+    async assignRoutineToProgram(routineId, programId) {
+      await db.write(async () => {
+        // Verify the program exists before mutating the routine.
+        await db.get<Program>('programs').find(programId);
+        const members = await db
+          .get<Routine>('routines')
+          .query(Q.where('program_id', programId))
+          .fetch();
+        let next = 1;
+        for (const m of members) {
+          if (m.id !== routineId && m.programOrder != null && m.programOrder >= next) next = m.programOrder + 1;
+        }
+        const routine = await db.get<Routine>('routines').find(routineId);
+        await routine.update((rec) => {
+          rec.programId = programId;
+          rec.programOrder = next;
+          rec.updatedAt = now();
+        });
+      });
+    },
+
+    async removeRoutineFromProgram(routineId) {
+      await db.write(async () => {
+        const routine = await db.get<Routine>('routines').find(routineId);
+        await routine.update((rec) => {
+          rec.programId = null;
+          rec.programOrder = null;
+          rec.updatedAt = now();
+        });
+      });
     },
 
     async loadRoutineDraft(routineId) {
