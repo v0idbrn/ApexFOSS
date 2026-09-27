@@ -74,6 +74,12 @@ import { Numpad, NumpadField } from '../Numpad';
 import { sessionProgress } from '../../workout/sessionProgress';
 import { loadSessionDetail } from '../../data/history';
 import { saveSessionNote } from '../../data/notes';
+import {
+  analyzeStepEvidence,
+  loadProgressionSnapshot,
+} from '../../data/progression';
+import type { ProgressionEvidence } from '../../analytics/progression';
+import { SessionProgressionSummary } from '../ProgressionCard';
 import { calculateSessionLoad, gramRepsToKgReps } from '../../analytics/load';
 import { formatCount } from '../../utils/units';
 import { TempoActiveCard, TempoReadyCard } from '../TempoTrainer';
@@ -235,6 +241,8 @@ export function WorkoutScreen() {
   const [summary, setSummary] = useState<SessionSummary | null>(null);
   // Post-workout session note — loaded with the completed view, saved on Done.
   const [noteText, setNoteText] = useState('');
+  // Phase 3B: deterministic progression evidence for the trained steps.
+  const [postProgression, setPostProgression] = useState<ProgressionEvidence[] | null>(null);
 
   // RIR autoregulation — runtime ephemeral only (never mutates definition/snapshots).
   const [autoregEnabled, setAutoregEnabled] = useState(false);
@@ -283,7 +291,7 @@ export function WorkoutScreen() {
     if (!completedView || !rt) return;
     let cancelled = false;
     loadSessionDetail(database, rt.sessionId)
-      .then((detail) => {
+      .then(async (detail) => {
         if (cancelled || !detail) return;
         const load = calculateSessionLoad({
           sessionId: detail.id,
@@ -308,6 +316,34 @@ export function WorkoutScreen() {
           volumeGramReps: load.resistanceGramReps,
         });
         setNoteText(detail.note ?? '');
+        // Progression evidence for the trained steps (same batched snapshot;
+        // best-evidence step per exercise, engine-owned verdicts only).
+        try {
+          const prog = await loadProgressionSnapshot(database);
+          const now = Date.now();
+          const seenExercises = new Set<string>();
+          const evidenceList: ProgressionEvidence[] = [];
+          for (const block of detail.blocks) {
+            for (const step of block.steps) {
+              const stepDef = detail.definition.blocks[block.blockIndex]?.steps[step.stepIndex];
+              if (!stepDef) continue;
+              const identityKey = stepDef.exerciseId ?? `name:${stepDef.exerciseName}`;
+              if (seenExercises.has(identityKey)) continue;
+              const evidence = analyzeStepEvidence(prog, stepDef, now);
+              if (evidence) {
+                seenExercises.add(identityKey);
+                evidenceList.push(evidence);
+              }
+            }
+          }
+          evidenceList.sort((a, b) => {
+            const rank = (s: ProgressionEvidence['state']) => (s === 'progress' ? 0 : s === 'maintain' ? 1 : 2);
+            return rank(a.state) - rank(b.state);
+          });
+          setPostProgression(evidenceList.length > 0 ? evidenceList.slice(0, 3) : []);
+        } catch {
+          setPostProgression(null);
+        }
       })
       .catch(() => {});
     return () => {
@@ -903,6 +939,15 @@ export function WorkoutScreen() {
               unit={strings.load.kgReps}
             />
           </View>
+          {postProgression && postProgression.length > 0 ? (
+            <View className="mt-6 w-full max-w-sm items-stretch">
+              {postProgression.map((ev, i) => (
+                <View key={i} className={i > 0 ? 'mt-2' : undefined}>
+                  <SessionProgressionSummary evidence={ev} testID={`post-progression-${i}`} />
+                </View>
+              ))}
+            </View>
+          ) : null}
           <View className="mt-6 w-full max-w-sm">
             <TextField
               label={strings.notes.label}

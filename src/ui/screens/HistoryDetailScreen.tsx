@@ -3,6 +3,13 @@ import { ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { loadSessionDetail, type HistoryDetail } from '../../data/history';
 import { saveSessionNote } from '../../data/notes';
+import {
+  analyzeStepEvidence,
+  loadProgressionSnapshot,
+  type ProgressionSnapshot,
+} from '../../data/progression';
+import type { ProgressionEvidence } from '../../analytics/progression';
+import { SessionProgressionSummary } from '../ProgressionCard';
 import { strings } from '../../constants/strings';
 import { formatCount, formatKg, msToSeconds } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps } from '../../analytics/load';
@@ -110,6 +117,32 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
     if (!detail) return;
     setNoteText(detail.note ?? '');
     setNoteSaved(false);
+  }, [detail]);
+
+  // Progression intelligence (Phase 3B): one batched snapshot → engine per step.
+  const [stepEvidence, setStepEvidence] = useState<Map<string, ProgressionEvidence>>(new Map());
+  useEffect(() => {
+    if (!detail) return;
+    let cancelled = false;
+    loadProgressionSnapshot(database)
+      .then((prog: ProgressionSnapshot) => {
+        if (cancelled) return;
+        const now = Date.now();
+        const out = new Map<string, ProgressionEvidence>();
+        for (const block of detail.blocks) {
+          for (const step of block.steps) {
+            const stepDef = detail.definition.blocks[block.blockIndex]?.steps[step.stepIndex];
+            if (!stepDef) continue;
+            const evidence = analyzeStepEvidence(prog, stepDef, now);
+            if (evidence) out.set(`${block.blockIndex}:${step.stepIndex}`, evidence);
+          }
+        }
+        setStepEvidence(out);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [detail]);
 
   const saveNote = useCallback(async () => {
@@ -246,6 +279,14 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
               return (
                 <Card key={`b${block.blockIndex}s${step.stepIndex}`} className="mb-2">
                   <Text className="text-base font-medium text-fg">{step.exerciseName || strings.common.none}</Text>
+                  {stepEvidence.get(`${block.blockIndex}:${step.stepIndex}`) ? (
+                    <View className="mt-2">
+                      <SessionProgressionSummary
+                        evidence={stepEvidence.get(`${block.blockIndex}:${step.stepIndex}`)!}
+                        testID={`history-progression-${block.blockIndex}-${step.stepIndex}`}
+                      />
+                    </View>
+                  ) : null}
                   {target ? <Text className="mt-0.5 text-xs text-dim">{strings.workout.target}: {target}</Text> : null}
                   <Text className="mt-2 text-xs font-semibold uppercase tracking-wider text-dim">
                     {strings.history.actualPerformed}

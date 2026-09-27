@@ -79,14 +79,64 @@ Conservative, deterministic:
 The engine **never invents an increment** (no `+2.5 kg` fallback). When the
 upper rep bound is reached at the target weight, the progression opportunity is
 real and reported, but the suggested next weight exists **only** if the caller
-provides `achievableNextWeightGrams` — derived from real data, e.g. the
+provides `achievableNextWeightGrams` — derived from real data via the
 persistent equipment inventory (schema v4, `src/data/equipment.ts`) resolved
-through `solveLoadInventory` (`src/analytics/inventory.ts`).
+through `solveLoadInventory` (`src/analytics/inventory.ts`), composed in
+`resolveAchievableNextWeightGrams` (`src/analytics/progressionWiring.ts`).
 
 - `achievableNextWeightGrams > targetWeight` → `suggestedWeightGrams` set,
   source `'equipment_inventory'`.
 - otherwise/absent → `suggestedWeightGrams` undefined, source `'none'`;
   the UI should ask the athlete what load to attempt next.
+
+Sourcing semantics (implemented, `progressionWiring.ts`): because
+`solveLoadInventory` resolves *for* a target (an exactly-reachable target
+returns the target itself), the next load above the target needs two probes:
+(1) solve(target) — an achieved load strictly above the target wins directly;
+(2) otherwise the target is exactly reachable → solve(target + smallest unit
+contribution) and accept the result only if it exceeds the target. A
+plates-only inventory (no bar registered as a fixed item) cannot exceed a
+barbell target and yields no suggestion — conservative by design. With very
+sparse, irregular inventories a far-above reachable load may be skipped rather
+than mis-suggested.
+
+---
+
+## Phase 3B integration (consumer contract)
+
+The engine is consumed through a strict data path — the UI never reimplements
+its rules:
+
+```
+workout_sessions + set_logs + definition_json + exercises + equipment_items
+  → src/data/progression.ts   (batched loaders, no N+1)
+  → src/analytics/progressionWiring.ts (pure: inventory → achievable load,
+      latest-prescription selection, ID-first)
+  → analyzeProgression() / analyzeStepEvidence()
+  → ProgressionEvidence
+  → UI (renders verdicts; localizes reason codes via strings.progression.*)
+```
+
+Consumers:
+
+- **Progress tab** — `ProgressionOverviewSection`: three transparent groups
+  (progressing / maintaining / not-enough-data), one row per analyzed exercise
+  with the engine's own reason as the row subtitle. Empty state explains what
+  evidence is required.
+- **HistoryDetailScreen** — per-step `SessionProgressionSummary` cards when
+  the step's immutable prescription is analyzable (rep range + target weight).
+- **WorkoutScreen completed view** — post-workout summary cards for the
+  trained exercises (best-state first, max 3).
+
+Reason codes are never exposed raw: `progressionReasonLabel` maps every stable
+code through `strings.progression.reason.*` (EN/ES parity enforced by the i18n
+contract tests). States are distinguished by label + badge tone, never by color
+alone.
+
+Validated on device (Samsung Galaxy A04, Android 14, release build): EN/ES
+rendering, empty/insufficient states, navigation, zero crashes. The populated
+verdict flow is covered by the Jest integration suites (LokiJS DB → engine →
+component assertions).
 
 ## Reason codes
 

@@ -2,12 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { loadDashboard, type DashboardData } from '../../data/dashboard';
+import {
+  loadProgressionSnapshot,
+  summarizeProgression,
+  type ProgressionOverview,
+} from '../../data/progression';
 import { strings } from '../../constants/strings';
 import { gramRepsToKgReps } from '../../analytics/load';
 import { formatCount } from '../../utils/units';
 import { useNav } from '../navigation';
 import { EmptyState, ListRow, MetricCard, Screen, SectionHeader } from '../components';
 import { Enter } from '../motion';
+import { ProgressionOverviewSection } from '../ProgressionOverview';
 
 /**
  * Progress hub (Phase 2L tab 4): one destination for the whole analytical
@@ -17,12 +23,20 @@ import { Enter } from '../motion';
 export function ProgressScreen() {
   const { push, selectTab } = useNav();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  // Progression intelligence (Phase 3B): one batched snapshot → pure engine.
+  const [progression, setProgression] = useState<ProgressionOverview | null>(null);
 
   const reload = useCallback(async () => {
     try {
       setDashboard(await loadDashboard(database, Date.now()));
     } catch {
       setDashboard(null);
+    }
+    try {
+      const prog = await loadProgressionSnapshot(database);
+      setProgression(summarizeProgression(prog, Date.now()));
+    } catch {
+      setProgression(null);
     }
   }, []);
 
@@ -71,6 +85,13 @@ export function ProgressScreen() {
                 unit={strings.home.weekTimeUnit}
               />
             </View>
+          </Enter>
+
+          <Enter delayMs={80}>
+            <ProgressionOverviewSection
+              overview={progression}
+              onOpenExercise={(exerciseId) => push({ name: 'exerciseEditor', exerciseId })}
+            />
           </Enter>
 
           <Enter delayMs={80}>

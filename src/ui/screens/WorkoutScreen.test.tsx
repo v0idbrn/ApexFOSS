@@ -33,6 +33,13 @@ jest.mock('../../workout/runner', () => ({
 }));
 jest.mock('../../data/history', () => ({ loadSessionDetail: jest.fn() }));
 jest.mock('../../data/notes', () => ({ saveSessionNote: jest.fn() }));
+jest.mock('../../data/progression', () => ({
+  loadProgressionSnapshot: jest.fn(),
+  analyzeStepEvidence: jest.fn(),
+  summarizeProgression: jest.fn(),
+  progressionInputFor: jest.fn(),
+  latestPrescriptionFor: jest.fn(),
+}));
 jest.mock('../navigation', () => {
   const nav = {
     route: { name: 'workout' },
@@ -46,6 +53,12 @@ jest.mock('../navigation', () => {
   };
   return { useNav: jest.fn(() => nav), __nav: nav };
 });
+
+import { loadProgressionSnapshot, analyzeStepEvidence } from '../../data/progression';
+import type { ProgressionEvidence } from '../../analytics/progression';
+
+const mockedProgSnap = loadProgressionSnapshot as jest.MockedFunction<typeof loadProgressionSnapshot>;
+const mockedStepEvidence = analyzeStepEvidence as jest.MockedFunction<typeof analyzeStepEvidence>;
 
 const mockedLoad = loadActiveWorkout as jest.MockedFunction<typeof loadActiveWorkout>;
 const mockedApply = applyWorkoutEvent as jest.MockedFunction<typeof applyWorkoutEvent>;
@@ -299,6 +312,14 @@ beforeEach(() => {
   mockedDetail.mockResolvedValue(detailFixture);
   mockedNote.mockResolvedValue('');
   mockedReconcile.mockResolvedValue(undefined);
+  // Phase 3B defaults: no analyzable progression unless a test opts in.
+  mockedProgSnap.mockResolvedValue({
+    analytics: { sessions: [], exercises: [] },
+    timestamps: new Map(),
+    historicalPrescriptions: new Map(),
+    equipmentItems: [],
+  });
+  mockedStepEvidence.mockReturnValue(null);
   mockedExpired.mockReturnValue(false);
 });
 
@@ -688,5 +709,100 @@ describe('WorkoutScreen view-model helpers', () => {
         targetRir: null,
       }),
     ).toBe(strings.common.none);
+  });
+});
+
+describe('WorkoutScreen post-workout progression (Phase 3B)', () => {
+  const postEvidence: ProgressionEvidence = {
+    state: 'progress',
+    reason: 'REPS_RANGE_COMPLETED',
+    explanation: 'test-only',
+    baseline: {
+      exerciseName: 'Bench Press',
+      exerciseId: null,
+      timestampMs: START - 86_400_000,
+      sessionId: 's0',
+      weightGrams: 60_000,
+      reps: 5,
+      actualRir: null,
+      actualTempo: null,
+      equipmentClass: 'barbell',
+      isSubstitution: false,
+      prescription,
+      estimated1rmGrams: null,
+    },
+    current: {
+      exerciseName: 'Bench Press',
+      exerciseId: null,
+      timestampMs: START,
+      sessionId: 'sess_1',
+      weightGrams: 60_000,
+      reps: 5,
+      actualRir: null,
+      actualTempo: null,
+      equipmentClass: 'barbell',
+      isSubstitution: false,
+      prescription,
+      estimated1rmGrams: null,
+    },
+    comparableCount: 2,
+    currentPrescription: prescription,
+    comparability: {
+      comparable: true,
+      mismatches: [],
+      identityMatch: 'name_only',
+      prescriptionMatch: true,
+      equipmentMatch: true,
+      rirAvailable: false,
+      tempoAvailable: false,
+    },
+    atTargetWeight: true,
+    repsVsRange: { achieved: 5, min: 5, max: 5 },
+    suggestedWeightGrams: undefined,
+    weightIncrementSource: 'none',
+  };
+
+  it('shows the engine verdict for the trained exercise after completion', async () => {
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockedStepEvidence.mockReturnValue(postEvidence);
+    const renderer = await renderWorkout();
+
+    await pressButton(renderer, strings.workout.finish);
+    const [, , buttons] = alertSpy.mock.calls[0] as unknown as [
+      string,
+      string,
+      Array<{ text: string; onPress?: () => void }>,
+    ];
+    mockedApply.mockResolvedValue(
+      makeRuntime({ cursor: activeCursor({ status: 'completed', timer: null, lastReversible: null }) }),
+    );
+    await act(async () => {
+      buttons.find((b) => b.text === strings.workout.finish)!.onPress!();
+    });
+
+    expect(renderer.root.findAllByProps({ testID: 'post-progression-0' }).length).toBeGreaterThanOrEqual(1);
+    const texts = textsOf(renderer);
+    expect(texts).toContain(strings.progression.stateProgress);
+  });
+
+  it('shows no progression section when the engine has no comparable evidence', async () => {
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const renderer = await renderWorkout();
+
+    await pressButton(renderer, strings.workout.finish);
+    const [, , buttons] = alertSpy.mock.calls[0] as unknown as [
+      string,
+      string,
+      Array<{ text: string; onPress?: () => void }>,
+    ];
+    mockedApply.mockResolvedValue(
+      makeRuntime({ cursor: activeCursor({ status: 'completed', timer: null, lastReversible: null }) }),
+    );
+    await act(async () => {
+      buttons.find((b) => b.text === strings.workout.finish)!.onPress!();
+    });
+
+    expect(renderer.root.findAllByProps({ testID: 'post-progression-0' })).toHaveLength(0);
+    expect(textsOf(renderer)).toContain(strings.workout.sessionSaved);
   });
 });
