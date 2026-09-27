@@ -170,8 +170,30 @@ describe('routine import — atomic success', () => {
     expect(preview.stepCount).toBe(3);
     expect(preview.exerciseCount).toBe(1);
     expect(preview.formatVersion).toBe(1);
+    expect(preview.matchedExerciseNames).toEqual([]);
+    expect(preview.newExerciseNames).toEqual(['Back Squat']);
     expect(await db.get('routines').query().fetchCount()).toBe(0);
     expect(await db.get('exercises').query().fetchCount()).toBe(0);
+  });
+
+  it('preview classifies matched and new exercise names for review', async () => {
+    const db = makeDb();
+    await makeDbActions(db).createExercise({
+      name: 'Back Squat',
+      category: 'legs',
+      equipment: 'barbell',
+      metricFlags: 3,
+    });
+    const meta = new Map([
+      ['ex_local', { name: 'Back Squat', category: 'legs', equipment: 'barbell', metricFlags: 3 }],
+    ]);
+    const pkg = packageFor('Review', meta);
+    const preview = await previewRoutineImport(db, serializeRoutinePackage(pkg));
+    expect(preview.matchedExercises).toBe(1);
+    expect(preview.matchedExerciseNames).toEqual(['Back Squat']);
+    expect(preview.newExercises).toBe(0);
+    expect(preview.newExerciseNames).toEqual([]);
+    expect(await db.get('exercises').query().fetchCount()).toBe(1);
   });
 
   it('rejects invalid package before any mutation', async () => {

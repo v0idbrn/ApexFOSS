@@ -5,6 +5,22 @@ import { createBackup, serializeBackup } from './backup';
 import { buildImportDeepLink, encodeRoutineTransport } from './encoding';
 import { fitsQr, encodeQr, type QrMatrix } from './qr';
 import { strings } from '../constants/strings';
+import { PortabilityError } from './types';
+
+export function portabilityErrorMessage(e: unknown): string {
+  if (e instanceof PortabilityError) {
+    if (e.code === 'checksum_mismatch') return strings.portability.checksumMismatch;
+    if (
+      e.code === 'schema_mismatch' ||
+      e.code === 'unsupported_version' ||
+      e.code === 'unsupported_backup_version'
+    ) {
+      return strings.portability.newerVersion;
+    }
+    return strings.portability.invalidPayload;
+  }
+  return e instanceof Error ? e.message : strings.portability.invalidPayload;
+}
 
 /** Offline share-sheet for portable routine packages. No cloud, no filesystem. */
 

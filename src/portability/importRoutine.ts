@@ -39,9 +39,14 @@ export async function previewRoutineImport(db: Database, raw: unknown | string):
   const localKeys = new Set(
     existing.map((e) => exerciseMatchKey(e.name, e.category, e.equipment, e.metricFlags)),
   );
-  let matched = 0;
+  const matchedNames: string[] = [];
+  const newNames: string[] = [];
   for (const ex of pkg.exercises) {
-    if (localKeys.has(exerciseMatchKey(ex.name, ex.category, ex.equipment, ex.metricFlags))) matched++;
+    if (localKeys.has(exerciseMatchKey(ex.name, ex.category, ex.equipment, ex.metricFlags))) {
+      matchedNames.push(ex.name);
+    } else {
+      newNames.push(ex.name);
+    }
   }
   let steps = 0;
   for (const b of pkg.routine.blocks) steps += b.steps.length;
@@ -53,8 +58,10 @@ export async function previewRoutineImport(db: Database, raw: unknown | string):
     formatVersion: pkg.formatVersion,
     producerApp: pkg.producer.app,
     producerVersion: pkg.producer.version,
-    matchedExercises: matched,
-    newExercises: pkg.exercises.length - matched,
+    matchedExercises: matchedNames.length,
+    newExercises: newNames.length,
+    matchedExerciseNames: matchedNames,
+    newExerciseNames: newNames,
   };
 }
 

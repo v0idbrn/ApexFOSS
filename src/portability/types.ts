@@ -73,6 +73,8 @@ export interface ImportPreview {
   /** How many referenced exercises already exist locally (name+category+equipment+flags). */
   matchedExercises: number;
   newExercises: number;
+  matchedExerciseNames: string[];
+  newExerciseNames: string[];
 }
 
 export type PortabilityErrorCode =
