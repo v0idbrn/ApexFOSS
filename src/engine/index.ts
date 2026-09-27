@@ -4,10 +4,16 @@ import {
   Effect,
   EngineEvent,
   ExecutionCursor,
+  ReversibleSet,
   RoutineDefinition,
   CursorPosition,
   ENGINE_DEFAULTS,
 } from '../types/engine';
+
+/** Extra/drop-set counter key inside cursor.extraCounts (position-scoped). */
+function extraKey(blockIndex: number, stepIndex: number, round: number): string {
+  return `${blockIndex}:${stepIndex}:${round}`;
+}
 
 /**
  * Pure Workout Execution Engine (frozen architecture):
@@ -169,11 +175,21 @@ export function dispatch(
 ): DispatchResult {
   if (cursor.status === 'completed') {
     // Only recovery-neutral events accepted on a completed session; others are no-ops.
+    // Exception (Phase 3C): extra/drop sets may be logged after completion — the
+    // canonical "finished all prescribed sets, then added more" flow. The row is
+    // recorded; status, position and timers stay completed/empty.
+    if (event.type === 'LOG_EXTRA_SET') {
+      return onLogExtraSet(definition, cursor, event.now, event.set, event.executionType);
+    }
     return { cursor, effects: [] };
   }
   switch (event.type) {
     case 'COMPLETE_SET':
       return onCompleteSet(definition, cursor, event.now, event.set);
+    case 'SKIP_SET':
+      return onSkipSet(definition, cursor, event.now);
+    case 'LOG_EXTRA_SET':
+      return onLogExtraSet(definition, cursor, event.now, event.set, event.executionType);
     case 'SKIP_STEP':
       return onSkipStep(definition, cursor, event.now);
     case 'SKIP_TIMER':
@@ -189,19 +205,8 @@ export function dispatch(
   }
 }
 
-function onCompleteSet(
-  def: RoutineDefinition,
-  cursor: ExecutionCursor,
-  now: number,
-  set: import('../types/engine').SetPayload,
-): DispatchResult {
-  const block = def.blocks[cursor.blockIndex];
-  const step = block?.steps[cursor.stepIndex];
-  if (!block || !step) {
-    return { cursor: { ...cursor, status: 'completed', timer: null }, effects: [{ kind: 'COMPLETE_SESSION' }] };
-  }
-
-  const lastReversible = {
+function reversibleAt(cursor: ExecutionCursor): ReversibleSet {
+  return {
     kind: 'set' as const,
     setLogId: null,
     blockIndex: cursor.blockIndex,
@@ -209,6 +214,15 @@ function onCompleteSet(
     round: cursor.round,
     setIndex: cursor.setIndex,
   };
+}
+
+function onCompleteSet(
+  def: RoutineDefinition,
+  cursor: ExecutionCursor,
+  now: number,
+  set: import('../types/engine').SetPayload,
+): DispatchResult {
+  const lastReversible = reversibleAt(cursor);
   const logEffect: Effect = {
     kind: 'LOG_SET',
     blockIndex: cursor.blockIndex,
@@ -217,6 +231,45 @@ function onCompleteSet(
     setIndex: cursor.setIndex,
     set,
   };
+  return advanceAfterSet(def, cursor, now, logEffect, lastReversible);
+}
+
+/**
+ * Skip the current set (Phase 3C): the prescribed position is recorded as
+ * skipped (LOG_SKIPPED_SET) and execution advances exactly as if the set had
+ * been logged — same rest timing, same target progression. Undo restores the
+ * skipped position so the athlete can still perform it.
+ */
+function onSkipSet(def: RoutineDefinition, cursor: ExecutionCursor, now: number): DispatchResult {
+  const lastReversible = reversibleAt(cursor);
+  const logEffect: Effect = {
+    kind: 'LOG_SKIPPED_SET',
+    blockIndex: cursor.blockIndex,
+    stepIndex: cursor.stepIndex,
+    round: cursor.round,
+    setIndex: cursor.setIndex,
+  };
+  return advanceAfterSet(def, cursor, now, logEffect, lastReversible);
+}
+
+/**
+ * Shared post-set advance for COMPLETE_SET and SKIP_SET: rest between sets
+ * while prescribed sets remain, otherwise step/block timing. The first effect
+ * is always the caller's log effect (performed or skipped record).
+ */
+function advanceAfterSet(
+  def: RoutineDefinition,
+  cursor: ExecutionCursor,
+  now: number,
+  logEffect: Effect,
+  lastReversible: NonNullable<ExecutionCursor['lastReversible']>,
+): DispatchResult {
+  const block = def.blocks[cursor.blockIndex];
+  const step = block?.steps[cursor.stepIndex];
+  if (!block || !step) {
+    return { cursor: { ...cursor, status: 'completed', timer: null }, effects: [{ kind: 'COMPLETE_SESSION' }] };
+  }
+
   const effects: Effect[] = [logEffect];
   let next: ExecutionCursor = { ...cursor, timer: null, lastReversible };
 
@@ -263,22 +316,81 @@ function onCompleteSet(
   return { cursor: timer.cursor, effects: [...effects, ...timer.effects] };
 }
 
+/**
+ * Log an extra or drop set (Phase 3C): recorded against the current step at
+ * the next extra position (prescribed set count + extras already logged for
+ * this position), without advancing the cursor and without starting a timer.
+ * Drop sets continue immediately by design; extra sets leave timing to the
+ * athlete. Undo still works via lastReversible.
+ */
+function onLogExtraSet(
+  def: RoutineDefinition,
+  cursor: ExecutionCursor,
+  _now: number,
+  set: import('../types/engine').SetPayload,
+  executionType: 'extra' | 'drop',
+): DispatchResult {
+  const block = def.blocks[cursor.blockIndex];
+  const step = block?.steps[cursor.stepIndex];
+  if (!block || !step) {
+    return { cursor: { ...cursor, status: 'completed', timer: null }, effects: [{ kind: 'COMPLETE_SESSION' }] };
+  }
+  const targetSets = Math.max(1, step.prescription.targetSets ?? 1);
+  const key = extraKey(cursor.blockIndex, cursor.stepIndex, cursor.round);
+  const extras = cursor.extraCounts?.[key] ?? 0;
+  const setIndex = targetSets + extras + 1;
+  const lastReversible = {
+    kind: 'set' as const,
+    setLogId: null,
+    blockIndex: cursor.blockIndex,
+    stepIndex: cursor.stepIndex,
+    round: cursor.round,
+    setIndex,
+  };
+  return {
+    cursor: {
+      ...cursor,
+      lastReversible,
+      extraCounts: { ...cursor.extraCounts, [key]: extras + 1 },
+    },
+    effects: [
+      {
+        kind: 'LOG_SET',
+        blockIndex: cursor.blockIndex,
+        stepIndex: cursor.stepIndex,
+        round: cursor.round,
+        setIndex,
+        set,
+        executionType,
+      },
+    ],
+  };
+}
+
 function onSkipStep(def: RoutineDefinition, cursor: ExecutionCursor, _now: number): DispatchResult {
   const rawTarget = computeTarget(def, cursor.blockIndex, cursor.stepIndex, cursor.round);
-  const base: ExecutionCursor = { ...cursor, timer: null, lastReversible: null };
+  // The skipped-away-from position is recorded (Phase 3C); undo restores it.
+  const skipped: Effect = {
+    kind: 'LOG_SKIPPED_SET',
+    blockIndex: cursor.blockIndex,
+    stepIndex: cursor.stepIndex,
+    round: cursor.round,
+    setIndex: cursor.setIndex,
+  };
+  const base: ExecutionCursor = { ...cursor, timer: null, lastReversible: reversibleAt(cursor) };
   if (rawTarget.sessionComplete) {
     return {
       cursor: { ...base, status: 'completed' },
-      effects: [{ kind: 'CANCEL_TIMER' }, { kind: 'CANCEL_NOTIFICATION' }, { kind: 'COMPLETE_SESSION' }],
+      effects: [skipped, { kind: 'CANCEL_TIMER' }, { kind: 'CANCEL_NOTIFICATION' }, { kind: 'COMPLETE_SESSION' }],
     };
   }
   const { target, restStep } = resolveRestStep(def, rawTarget, _now);
   if (restStep) {
     const timer = startTimer(base, 'auto', restStep.durationMs, _now, target);
-    return { cursor: timer.cursor, effects: timer.effects };
+    return { cursor: timer.cursor, effects: [skipped, ...timer.effects] };
   }
   const next = moveTo(base, target);
-  return { cursor: next, effects: [...navigationEffects(cursor, target)] };
+  return { cursor: next, effects: [skipped, ...navigationEffects(cursor, target)] };
 }
 
 function onTimerDone(def: RoutineDefinition, cursor: ExecutionCursor): DispatchResult {
@@ -312,6 +424,8 @@ function onUndo(cursor: ExecutionCursor): DispatchResult {
     timer: null,
     lastReversible: null,
     startedAt: cursor.startedAt,
+    // Preserve extra-set accounting so later extras don't collide (Phase 3C).
+    ...(cursor.extraCounts ? { extraCounts: cursor.extraCounts } : null),
   };
   return {
     cursor: restored,

@@ -155,6 +155,10 @@ export interface BackupSetLog {
   rir: number | null;
   isCompleted: number;
   completedAt: number | null;
+  /** Phase 3C execution marking; absent on older backups → legacy semantics. */
+  executionType?: string | null;
+  /** Phase 3C athlete-stated reason; absent on older backups → none stated. */
+  overrideReason?: string | null;
 }
 
 /** Readiness tap tests (Phase 2E). Optional on older backups. */

@@ -2,20 +2,20 @@ import { schemaVersion, schema } from './schema';
 import { migrations } from './migrations';
 
 /**
- * Migration / data-version sanity for Phase 2J + i18n (schema v6).
- * Goal: prove the installed schema is v6, migrations infrastructure is wired,
+ * Migration / data-version sanity for Phase 2J + i18n (schema v6) + Phase 3C (schema v7).
+ * Goal: prove the installed schema is v7, migrations infrastructure is wired,
  * routine_blocks carries optional interval_json, readiness_tests,
- * equipment_items and app_settings exist, and workout_sessions carries
- * optional note.
+ * equipment_items and app_settings exist, workout_sessions carries
+ * optional note, and set_logs carries optional execution metadata.
  *
  * WatermelonDB shape: schema.tables is a name→table map;
  * schemaMigrations() returns { sortedMigrations, minVersion, maxVersion, validated }.
  */
 
 describe('migration / data version sanity', () => {
-  it('schemaVersion is 6 (i18n app_settings device preferences)', () => {
-    expect(schemaVersion).toBe(6);
-    expect(schema.version).toBe(6);
+  it('schemaVersion is 7 (Phase 3C adaptive execution metadata)', () => {
+    expect(schemaVersion).toBe(7);
+    expect(schema.version).toBe(7);
   });
 
   it('all twelve release tables are present with expected names', () => {
@@ -39,16 +39,17 @@ describe('migration / data version sanity', () => {
     expect(names).toHaveLength(12);
   });
 
-  it('migrations infrastructure is validated; v1→v2 through v5→v6 steps', () => {
+  it('migrations infrastructure is validated; v1→v2 through v6→v7 steps', () => {
     expect(migrations.validated).toBe(true);
     expect(migrations.minVersion).toBe(1);
-    expect(migrations.maxVersion).toBe(6);
-    expect(migrations.sortedMigrations).toHaveLength(5);
+    expect(migrations.maxVersion).toBe(7);
+    expect(migrations.sortedMigrations).toHaveLength(6);
     expect(migrations.sortedMigrations[0].toVersion).toBe(2);
     expect(migrations.sortedMigrations[1].toVersion).toBe(3);
     expect(migrations.sortedMigrations[2].toVersion).toBe(4);
     expect(migrations.sortedMigrations[3].toVersion).toBe(5);
     expect(migrations.sortedMigrations[4].toVersion).toBe(6);
+    expect(migrations.sortedMigrations[5].toVersion).toBe(7);
   });
 
   it('app_settings has key/value + timestamps (schema v6)', () => {
@@ -121,5 +122,14 @@ describe('migration / data version sanity', () => {
     expect(byName.get('duration_ms')?.isOptional).toBe(true);
     expect(byName.get('rir')?.isOptional).toBe(true);
     expect(byName.get('is_completed')?.isOptional).toBeFalsy();
+  });
+
+  it('set_logs has optional execution metadata (schema v7 adaptive execution)', () => {
+    const t = schema.tables['set_logs'];
+    const byName = new Map(t.columnArray.map((c) => [c.name, c]));
+    expect(byName.get('execution_type')?.isOptional).toBe(true);
+    expect(byName.get('execution_type')?.type).toBe('string');
+    expect(byName.get('override_reason')?.isOptional).toBe(true);
+    expect(byName.get('override_reason')?.type).toBe('string');
   });
 });

@@ -1,5 +1,6 @@
 import { Database, Q } from '@nozbe/watermelondb';
 import { RoutineDefinition, ExecutionCursor, Effect, StepDef, BlockDef, TransitionType } from '../types/engine';
+import { classifySetExecution, normalizeOverrideReason } from '../workout/execution';
 import { RoutineDraft, emptyPrescription } from '../types/draft';
 import { initialCursor } from '../engine/cursor';
 import {
@@ -539,6 +540,9 @@ export function makeDbActions(db: Database): DbActions {
     async applyEffects(session, cursor, effects) {
       let createdLogId: string | null = null;
       let createdLogKey: string | null = null;
+      // Only performed sets are voidable: skipped rows carry no setLogId so the
+      // runner-applied cursor still agrees with the pure engine dispatch.
+      let createdLogVoidable = false;
       await db.write(async () => {
         const definition: RoutineDefinition = JSON.parse(session.definitionJson);
         // NOTE: never call db.write() inside this writer (WatermelonDB's writer queue is
@@ -566,6 +570,10 @@ export function makeDbActions(db: Database): DbActions {
             if (!block || !step) continue;
             const orderIndex = block.steps.indexOf(step);
             const se = await ensureSessionExercise(effect.blockIndex, orderIndex, step.exerciseName);
+            // Phase 3C: extra/drop marking travels on the effect; normal flow is
+            // classified against the immutable prescription (definition never mutated).
+            const executionType: 'normal' | 'modified' | 'extra' | 'drop' =
+              effect.executionType ?? classifySetExecution(step.prescription, effect.set);
             const log = await setLogsCol().create((rec) => {
               rec.sessionExerciseId = se.id;
               rec.blockIndex = effect.blockIndex;
@@ -579,6 +587,35 @@ export function makeDbActions(db: Database): DbActions {
               rec.rir = effect.set.rir;
               rec.isCompleted = 1;
               rec.completedAt = now();
+              rec.executionType = executionType;
+              rec.overrideReason = normalizeOverrideReason(effect.set.overrideReason);
+              rec.createdAt = now();
+              rec.updatedAt = now();
+            });
+            createdLogId = log.id;
+            createdLogKey = `${effect.blockIndex}:${effect.stepIndex}:${effect.round}:${effect.setIndex}`;
+            createdLogVoidable = true;
+          } else if (effect.kind === 'LOG_SKIPPED_SET') {
+            const block: BlockDef | undefined = definition.blocks[effect.blockIndex];
+            const step: StepDef | undefined = block?.steps[effect.stepIndex];
+            if (!block || !step) continue;
+            const orderIndex = block.steps.indexOf(step);
+            const se = await ensureSessionExercise(effect.blockIndex, orderIndex, step.exerciseName);
+            const log = await setLogsCol().create((rec) => {
+              rec.sessionExerciseId = se.id;
+              rec.blockIndex = effect.blockIndex;
+              rec.stepIndex = effect.stepIndex;
+              rec.round = effect.round;
+              rec.setIndex = effect.setIndex;
+              rec.weightGrams = null;
+              rec.reps = null;
+              rec.durationMs = null;
+              rec.distanceMm = null;
+              rec.rir = null;
+              rec.isCompleted = 0;
+              rec.completedAt = null;
+              rec.executionType = 'skipped';
+              rec.overrideReason = null;
               rec.createdAt = now();
               rec.updatedAt = now();
             });
@@ -608,7 +645,7 @@ export function makeDbActions(db: Database): DbActions {
       });
       // Application-layer duty: attach the real set_log id so UNDO can void it.
       const last = cursor.lastReversible;
-      if (createdLogId && last && last.kind === 'set') {
+      if (createdLogId && createdLogVoidable && last && last.kind === 'set') {
         const key = `${last.blockIndex}:${last.stepIndex}:${last.round}:${last.setIndex}`;
         if (key === createdLogKey) {
           return { ...cursor, lastReversible: { ...last, setLogId: createdLogId } };

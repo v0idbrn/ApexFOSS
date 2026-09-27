@@ -187,19 +187,27 @@ describe('transition edge cases', () => {
     expect(ses.sessionStatus).toBe('completed');
   });
 
-  it('undo after skip restores previous position when lastReversible exists', async () => {
+  it('undo after skip restores the skipped position (Phase 3C)', async () => {
     const db = makeDb();
-    const { rt } = await setup(db, draft('UndoAfterSkip', { sets: 3, steps: 1 }));
+    const { rt } = await setup(db, draft('UndoAfterSkip', { sets: 3, steps: 2 }));
     const a = await applyWorkoutEvent(db, rt, { type: 'COMPLETE_SET', now: T0, set: SET });
-    // a may be in rest timer — skip then skip step
+    // a may be in rest timer — skip then skip step (lands on step 2, session stays active)
     const b = a.cursor.timer ? await applyWorkoutEvent(db, a, { type: 'SKIP_TIMER', now: T0 + 1 }) : a;
     const c = await applyWorkoutEvent(db, b, { type: 'SKIP_STEP', now: T0 + 2 });
-    // undo should be available if lastReversible survived SKIP_STEP? Day 3: SKIP_STEP clears lastReversible
-    // Document actual semantics: after SKIP_STEP lastReversible is null → UNDO is no-op
+    expect(c.cursor.status).toBe('active');
+    expect(c.cursor.stepIndex).toBe(1);
+    // Phase 3C: SKIP_STEP records the skipped set and keeps it reversible.
+    expect(c.cursor.lastReversible).toMatchObject({ kind: 'set', stepIndex: 0, setIndex: 2 });
+    const skippedRows = (await db.get<any>('set_logs').query().fetch()).filter(
+      (l: any) => l.isCompleted === 0 && l.executionType === 'skipped',
+    );
+    expect(skippedRows).toHaveLength(1);
+    expect([skippedRows[0].stepIndex, skippedRows[0].setIndex]).toEqual([0, 2]);
     const d = await applyWorkoutEvent(db, c, { type: 'UNDO_LAST', now: T0 + 3 });
     expect(d.cursor.lastReversible).toBeNull();
-    // cursor remains consistent
-    expect(['active', 'completed']).toContain(d.cursor.status);
+    expect(d.cursor.status).toBe('active');
+    // Restored to the skipped position so the athlete can still perform it.
+    expect([d.cursor.stepIndex, d.cursor.setIndex]).toEqual([0, 2]);
   });
 
   it('auto_advance transition starts a timer', async () => {

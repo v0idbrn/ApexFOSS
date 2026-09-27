@@ -195,3 +195,163 @@ describe('Persistence — session lifecycle & snapshot immutability (§11)', () 
     expect(active!.id).toBe(sessionId);
   });
 });
+
+describe('Persistence — adaptive execution (Phase 3C: prescription ≠ actual)', () => {
+  it('modified set persists actuals + marking while the definition snapshot stays frozen', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const { routineId, def } = await buildContrastRoutine(db);
+    const routine = await db.get<any>('routines').find(routineId);
+    const sessionId = await actions.startSession(routine, def);
+    const session = await db.get<any>('workout_sessions').find(sessionId);
+    const before = definitionOf(session);
+    expect(before.blocks[0].steps[0].prescription.targetWeightGrams).toBe(120000);
+
+    // Athlete performs 100kg × 5 instead of prescribed 120kg × 5, stating a reason.
+    const r1 = dispatch(def, cursorOf(session), {
+      type: 'COMPLETE_SET',
+      now: T0,
+      set: { weightGrams: 100000, reps: 5, durationMs: null, distanceMm: null, rir: 2, overrideReason: 'load_reduced' },
+    });
+    await actions.applyEffects(session, r1.cursor, r1.effects);
+    const logs = await db.get<any>('set_logs').query().fetch();
+    expect(logs).toHaveLength(1);
+    expect(logs[0].weightGrams).toBe(100000);
+    expect(logs[0].reps).toBe(5);
+    expect(logs[0].isCompleted).toBe(1);
+    expect(logs[0].executionType).toBe('modified');
+    expect(logs[0].overrideReason).toBe('load_reduced');
+
+    // Prescription snapshot untouched by the athlete's deviation.
+    const after = definitionOf(await db.get<any>('workout_sessions').find(sessionId));
+    expect(after.blocks[0].steps[0].prescription.targetWeightGrams).toBe(120000);
+  });
+
+  it('unmodified set is marked normal with no reason', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const { routineId, def } = await buildContrastRoutine(db);
+    const routine = await db.get<any>('routines').find(routineId);
+    const sessionId = await actions.startSession(routine, def);
+    const session = await db.get<any>('workout_sessions').find(sessionId);
+    const r1 = dispatch(def, cursorOf(session), {
+      type: 'COMPLETE_SET',
+      now: T0,
+      set: { weightGrams: 120000, reps: 5, durationMs: null, distanceMm: null, rir: 2 },
+    });
+    await actions.applyEffects(session, r1.cursor, r1.effects);
+    const logs = await db.get<any>('set_logs').query().fetch();
+    expect(logs).toHaveLength(1);
+    expect(logs[0].executionType).toBe('normal');
+    expect(logs[0].overrideReason).toBeNull();
+  });
+
+  it('skipped set leaves an adherence record and advances (Phase 3C case 8)', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const { routineId, def } = await buildContrastRoutine(db);
+    const routine = await db.get<any>('routines').find(routineId);
+    const sessionId = await actions.startSession(routine, def);
+    const session = await db.get<any>('workout_sessions').find(sessionId);
+    const r1 = dispatch(def, cursorOf(session), { type: 'SKIP_SET', now: T0 });
+    await actions.applyEffects(session, r1.cursor, r1.effects);
+    const logs = await db.get<any>('set_logs').query().fetch();
+    expect(logs).toHaveLength(1);
+    expect(logs[0].isCompleted).toBe(0);
+    expect(logs[0].executionType).toBe('skipped');
+    expect(logs[0].weightGrams).toBeNull();
+    expect(logs[0].reps).toBeNull();
+    // Cursor advanced to the next step (contrast edge is immediate).
+    expect(r1.cursor.stepIndex).toBe(1);
+  });
+
+  it('extra and drop sets log beyond the prescribed count without moving the cursor', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const { routineId, def } = await buildContrastRoutine(db);
+    const routine = await db.get<any>('routines').find(routineId);
+    const sessionId = await actions.startSession(routine, def);
+    const session = await db.get<any>('workout_sessions').find(sessionId);
+    // Step A prescribes 1 set: extras land at setIndex 2, 3.
+    const base = { weightGrams: 120000, reps: 5, durationMs: null, distanceMm: null, rir: 2 };
+    const r1 = dispatch(def, cursorOf(session), { type: 'LOG_EXTRA_SET', now: T0, set: base, executionType: 'extra' });
+    const c1 = await actions.applyEffects(session, r1.cursor, r1.effects);
+    const r2 = dispatch(def, c1, {
+      type: 'LOG_EXTRA_SET',
+      now: T0 + 1000,
+      set: { ...base, weightGrams: 80000 },
+      executionType: 'drop',
+    });
+    await actions.applyEffects(session, r2.cursor, r2.effects);
+    const logs = await db.get<any>('set_logs').query().fetch();
+    expect(logs.map((l: any) => [l.setIndex, l.executionType, l.weightGrams])).toEqual([
+      [2, 'extra', 120000],
+      [3, 'drop', 80000],
+    ]);
+    // Cursor stayed on the step; prescribed flow untouched.
+    expect(r2.cursor.stepIndex).toBe(0);
+    expect(r2.cursor.setIndex).toBe(1);
+    const frozen = definitionOf(await db.get<any>('workout_sessions').find(sessionId));
+    expect(frozen.blocks[0].steps[0].prescription.targetSets).toBe(1);
+  });
+
+  it('undo voids an extra set without touching its type marker', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const { routineId, def } = await buildContrastRoutine(db);
+    const routine = await db.get<any>('routines').find(routineId);
+    const sessionId = await actions.startSession(routine, def);
+    const session = await db.get<any>('workout_sessions').find(sessionId);
+    const base = { weightGrams: 120000, reps: 5, durationMs: null, distanceMm: null, rir: 2 };
+    const r1 = dispatch(def, cursorOf(session), { type: 'LOG_EXTRA_SET', now: T0, set: base, executionType: 'extra' });
+    const c1 = await actions.applyEffects(session, r1.cursor, r1.effects);
+    const logs1 = await db.get<any>('set_logs').query().fetch();
+    const withId = {
+      ...c1,
+      lastReversible: { kind: 'set', setLogId: logs1[0].id, blockIndex: 0, stepIndex: 0, round: 1, setIndex: 2 } as const,
+    };
+    const rUndo = dispatch(def, withId, { type: 'UNDO_LAST', now: T0 + 1000 });
+    await actions.applyEffects(session, rUndo.cursor, rUndo.effects);
+    const logs2 = await db.get<any>('set_logs').query().fetch();
+    expect(logs2).toHaveLength(1);
+    expect(logs2[0].isCompleted).toBe(0);
+    expect(logs2[0].executionType).toBe('extra');
+  });
+
+  it('execution metadata survives a reload roundtrip', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const { routineId, def } = await buildContrastRoutine(db);
+    const routine = await db.get<any>('routines').find(routineId);
+    const sessionId = await actions.startSession(routine, def);
+    const session = await db.get<any>('workout_sessions').find(sessionId);
+    const r1 = dispatch(def, cursorOf(session), {
+      type: 'COMPLETE_SET',
+      now: T0,
+      set: { weightGrams: 100000, reps: 5, durationMs: null, distanceMm: null, rir: 1, overrideReason: 'fatigue' },
+    });
+    await actions.applyEffects(session, r1.cursor, r1.effects);
+    const reloaded = await db.get<any>('set_logs').query().fetch();
+    expect(reloaded[0].executionType).toBe('modified');
+    expect(reloaded[0].overrideReason).toBe('fatigue');
+    expect(reloaded[0].rir).toBe(1);
+  });
+
+  it('unknown reason strings are normalized to null, never persisted raw', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const { routineId, def } = await buildContrastRoutine(db);
+    const routine = await db.get<any>('routines').find(routineId);
+    const sessionId = await actions.startSession(routine, def);
+    const session = await db.get<any>('workout_sessions').find(sessionId);
+    const r1 = dispatch(def, cursorOf(session), {
+      type: 'COMPLETE_SET',
+      now: T0,
+      set: { weightGrams: 100000, reps: 5, durationMs: null, distanceMm: null, rir: 2, overrideReason: 'tired' as never },
+    });
+    await actions.applyEffects(session, r1.cursor, r1.effects);
+    const logs = await db.get<any>('set_logs').query().fetch();
+    expect(logs[0].executionType).toBe('modified');
+    expect(logs[0].overrideReason).toBeNull();
+  });
+});

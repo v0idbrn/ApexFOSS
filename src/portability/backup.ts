@@ -202,6 +202,8 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
       rir: log.rir ?? null,
       isCompleted: log.isCompleted,
       completedAt: log.completedAt ?? null,
+      executionType: log.executionType ?? null,
+      overrideReason: log.overrideReason ?? null,
     });
   }
 
@@ -375,6 +377,18 @@ export function validateBackup(raw: unknown): ApexBackup {
     if (typeof l.sessionExerciseIndex !== 'number' || !Number.isInteger(l.sessionExerciseIndex) ||
         l.sessionExerciseIndex < 0 || l.sessionExerciseIndex >= sessionExercises.length) {
       throw new PortabilityError('invalid_reference', `setLogs[${i}].sessionExerciseIndex`);
+    }
+    // Phase 3C execution metadata: optional (absent on older backups → legacy semantics).
+    if (l.executionType !== undefined && l.executionType !== null &&
+        (typeof l.executionType !== 'string' ||
+          !['normal', 'modified', 'extra', 'drop', 'skipped'].includes(l.executionType))) {
+      throw new PortabilityError('invalid_string', `setLogs[${i}].executionType`);
+    }
+    if (l.overrideReason !== undefined && l.overrideReason !== null &&
+        (typeof l.overrideReason !== 'string' ||
+          !['load_reduced', 'load_increased', 'reps_reduced', 'reps_increased', 'fatigue',
+            'pain_discomfort', 'equipment_unavailable', 'time_constraint', 'other'].includes(l.overrideReason))) {
+      throw new PortabilityError('invalid_string', `setLogs[${i}].overrideReason`);
     }
   }
 
@@ -620,6 +634,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           rec.rir = log.rir;
           rec.isCompleted = log.isCompleted;
           rec.completedAt = log.completedAt;
+          rec.executionType = log.executionType ?? null;
+          rec.overrideReason = log.overrideReason ?? null;
           rec.createdAt = Date.now();
           rec.updatedAt = Date.now();
         });

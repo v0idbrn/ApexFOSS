@@ -208,6 +208,7 @@ const detailFixture: HistoryDetail = {
               rir: 2,
             },
           ],
+          skipped: [],
         },
       ],
     },
@@ -430,7 +431,7 @@ describe('WorkoutScreen set logging (mocked runner)', () => {
       expect.anything(),
       expect.objectContaining({
         type: 'COMPLETE_SET',
-        set: { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, rir: 2 },
+        set: { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, rir: 2, overrideReason: null },
       }),
     );
 
@@ -444,6 +445,125 @@ describe('WorkoutScreen set logging (mocked runner)', () => {
     });
     // Undo only becomes available after a logged set (runner-provided cursor).
     expect(buttonByLabel(renderer, strings.workout.undo).props.disabled).toBe(false);
+  });
+});
+
+describe('WorkoutScreen adaptive execution (Phase 3C)', () => {
+  it('dispatches SKIP_SET and keeps the step when skipping the current set', async () => {
+    mockedApply.mockResolvedValue(makeRuntime());
+    const renderer = await renderWorkout();
+
+    await pressButton(renderer, strings.workout.skipSet);
+
+    expect(mockedApply).toHaveBeenCalledTimes(1);
+    expect(mockedApply).toHaveBeenCalledWith(
+      database,
+      expect.anything(),
+      expect.objectContaining({ type: 'SKIP_SET' }),
+    );
+  });
+
+  it('dispatches LOG_EXTRA_SET as extra with the current inputs and no reason by default', async () => {
+    mockedApply.mockResolvedValue(makeRuntime());
+    const renderer = await renderWorkout();
+
+    await pressButton(renderer, strings.workout.extraSet);
+
+    expect(mockedApply).toHaveBeenCalledTimes(1);
+    expect(mockedApply).toHaveBeenCalledWith(
+      database,
+      expect.anything(),
+      expect.objectContaining({
+        type: 'LOG_EXTRA_SET',
+        executionType: 'extra',
+        set: { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, rir: 2, overrideReason: null },
+      }),
+    );
+  });
+
+  it('dispatches LOG_EXTRA_SET as drop', async () => {
+    mockedApply.mockResolvedValue(makeRuntime());
+    const renderer = await renderWorkout();
+
+    await pressButton(renderer, strings.workout.dropSet);
+
+    expect(mockedApply).toHaveBeenCalledWith(
+      database,
+      expect.anything(),
+      expect.objectContaining({ type: 'LOG_EXTRA_SET', executionType: 'drop' }),
+    );
+  });
+
+  it('hides the reason row while inputs match the prescription', async () => {
+    const renderer = await renderWorkout();
+    expect(nodesWith(renderer, { testID: 'override-reasons' })).toHaveLength(0);
+  });
+
+  it('shows reason chips when inputs differ and attaches the chosen reason', async () => {
+    mockedApply.mockResolvedValue(makeRuntime());
+    const renderer = await renderWorkout();
+
+    // Diverge weight 60 → 55 so the set counts as modified.
+    await act(async () => {
+      pressByTestID(renderer, 'key-clear').props.onPress();
+    });
+    await act(async () => {
+      pressByTestID(renderer, 'key-5').props.onPress();
+    });
+    await act(async () => {
+      pressByTestID(renderer, 'key-5').props.onPress();
+    });
+    expect(fieldDisplay(renderer, 'field-weight')).toBe('55');
+    expect(nodesWith(renderer, { testID: 'override-reasons' })).toHaveLength(1);
+    expect(pressByTestID(renderer, 'reason-load_reduced')).toBeDefined();
+
+    await act(async () => {
+      pressByTestID(renderer, 'reason-load_reduced').props.onPress();
+    });
+    await pressButton(renderer, strings.workout.completeSet);
+
+    expect(mockedApply).toHaveBeenCalledWith(
+      database,
+      expect.anything(),
+      expect.objectContaining({
+        type: 'COMPLETE_SET',
+        set: {
+          weightGrams: 55_000,
+          reps: 5,
+          durationMs: null,
+          distanceMm: null,
+          rir: 2,
+          overrideReason: 'load_reduced',
+        },
+      }),
+    );
+  });
+
+  it('toggling a selected reason clears it', async () => {
+    const renderer = await renderWorkout();
+
+    await act(async () => {
+      pressByTestID(renderer, 'key-clear').props.onPress();
+    });
+    await act(async () => {
+      pressByTestID(renderer, 'key-5').props.onPress();
+    });
+    expect(nodesWith(renderer, { testID: 'override-reasons' })).toHaveLength(1);
+
+    const chip = (reason: string) => pressByTestID(renderer, `reason-${reason}`);
+    expect(chip('load_reduced').props.accessibilityState).toEqual({ checked: false });
+    await act(async () => {
+      chip('load_reduced').props.onPress();
+    });
+    expect(pressByTestID(renderer, 'reason-load_reduced').props.accessibilityState).toEqual({
+      checked: true,
+    });
+    await act(async () => {
+      pressByTestID(renderer, 'reason-load_reduced').props.onPress();
+    });
+    expect(pressByTestID(renderer, 'reason-load_reduced').props.accessibilityState).toEqual({
+      checked: false,
+    });
   });
 });
 

@@ -74,6 +74,7 @@ function detail(name: string, exerciseName: string, actualWeightGrams: number | 
                 rir: 2,
               },
             ],
+            skipped: [],
           },
         ],
       },

@@ -204,6 +204,7 @@ const detailWithBlock: HistoryDetail = {
               rir: 2,
             },
           ],
+          skipped: [],
         },
       ],
     },
@@ -311,6 +312,78 @@ describe('HistoryDetailScreen progression intelligence (Phase 3B)', () => {
     const renderer = await renderDetail();
     expect(renderer.root.findAllByProps({ testID: 'history-progression-0-0' })).toHaveLength(0);
     expect(textsOf(renderer)).toContain('Bench Press');
+  });
+});
+
+describe('HistoryDetailScreen adaptive execution markers (Phase 3C)', () => {
+  const detailWithExecution: HistoryDetail = {
+    ...detailWithBlock,
+    blocks: [
+      {
+        ...detailWithBlock.blocks[0],
+        steps: [
+          {
+            ...detailWithBlock.blocks[0].steps[0],
+            logs: [
+              {
+                ...detailWithBlock.blocks[0].steps[0].logs[0],
+                executionType: 'modified',
+                overrideReason: 'load_reduced',
+              },
+              {
+                blockIndex: 0,
+                stepIndex: 0,
+                round: 1,
+                setIndex: 4,
+                weightGrams: 60_000,
+                reps: 8,
+                durationMs: null,
+                rir: null,
+                executionType: 'drop',
+                overrideReason: null,
+              },
+            ],
+            skipped: [{ blockIndex: 0, stepIndex: 0, round: 1, setIndex: 2 }],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('marks modified/extra/drop sets and lists skipped positions', async () => {
+    mockedLoad.mockResolvedValue(detailWithExecution);
+    const renderer = await renderDetail();
+    const joined = textsOf(renderer).join(' ');
+    expect(joined).toContain(strings.history.execModified);
+    expect(joined).toContain(strings.workout.reasonLoadReduced);
+    expect(joined).toContain(strings.history.execDrop);
+    expect(joined).toContain(strings.history.skippedSets);
+    expect(joined).toContain('R1S2');
+  });
+
+  it('shows no markers for plain legacy rows', async () => {
+    mockedLoad.mockResolvedValue(detailWithBlock);
+    const renderer = await renderDetail();
+    const joined = textsOf(renderer).join(' ');
+    expect(joined).not.toContain(strings.history.execModified);
+    expect(joined).not.toContain(strings.history.execExtra);
+    expect(joined).not.toContain(strings.history.execDrop);
+    expect(joined).not.toContain(strings.history.skippedSets);
+  });
+
+  it('localizes execution markers to Spanish under the es locale', async () => {
+    const original: Locale = getActiveStringsLocale();
+    try {
+      setStringsLocale('es');
+      mockedLoad.mockResolvedValue(detailWithExecution);
+      const renderer = await renderDetail();
+      const joined = textsOf(renderer).join(' ');
+      expect(joined).toContain(strings.history.execModified);
+      expect(joined).toContain(strings.history.execDrop);
+      expect(joined).toContain(strings.history.skippedSets);
+    } finally {
+      setStringsLocale(original);
+    }
   });
 });
 

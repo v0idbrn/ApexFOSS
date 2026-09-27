@@ -93,6 +93,7 @@ function makeDetail(overrides?: Partial<HistoryDetail>): HistoryDetail {
                 rir: null,
               },
             ],
+            skipped: [],
           },
         ],
       },
@@ -159,6 +160,7 @@ describe('CSV export', () => {
                   rir: null,
                 },
               ],
+              skipped: [],
             },
           ],
         },
@@ -201,6 +203,20 @@ describe('CSV export', () => {
     // last four columns empty
     expect(dataLine.endsWith(',,,')).toBe(true);
     expect(dataLine).not.toMatch(/,,0,/);
+  });
+
+  it('skipped positions never leak into the performed-work CSV (Phase 3C)', () => {
+    const d = makeDetail();
+    d.blocks[0].steps[0].skipped = [{ blockIndex: 0, stepIndex: 0, round: 1, setIndex: 3 }];
+    d.blocks[0].steps[0].logs = d.blocks[0].steps[0].logs.map((l) => ({
+      ...l,
+      executionType: 'modified',
+      overrideReason: 'load_reduced',
+    }));
+    const csv = sessionsToCsv([d]);
+    // Same row count as without skipped entries: header + 3 performed rows.
+    expect(csv.trim().split('\r\n')).toHaveLength(4);
+    expect(csv).not.toContain('skipped');
   });
 
   it('multiline CSV stays parseable (CRLF record separators)', () => {

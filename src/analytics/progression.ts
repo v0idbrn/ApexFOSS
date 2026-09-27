@@ -14,7 +14,6 @@ import {
 } from './load';
 import { estimate1rmGrams } from './records';
 import { rankSubstitutions, type SubstitutionExercise } from './substitutions';
-import { equipmentClassOf } from './substitutions';
 
 /** Prescription target for an exercise (mirrors types/engine.ts Prescription). */
 export interface PrescriptionTarget {

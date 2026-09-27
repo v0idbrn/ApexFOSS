@@ -21,6 +21,10 @@ import { schemaMigrations, addColumns, createTable } from '@nozbe/watermelondb/S
  * override keyed by `locale`). Older installs start empty → device locale.
  * app_settings is intentionally absent from backups (device preference,
  * not training data) — pre-v5 backup files restore unchanged.
+ *
+ * v6 → v7 (Phase 3C): optional set_logs.execution_type +
+ * set_logs.override_reason for adaptive execution marking. Older rows read
+ * null → legacy normal/voided semantics preserved.
  */
 export const migrations = schemaMigrations({
   migrations: [
@@ -83,6 +87,18 @@ export const migrations = schemaMigrations({
             { name: 'value', type: 'string' },
             { name: 'created_at', type: 'number' },
             { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
+    {
+      toVersion: 7,
+      steps: [
+        addColumns({
+          table: 'set_logs',
+          columns: [
+            { name: 'execution_type', type: 'string', isOptional: true },
+            { name: 'override_reason', type: 'string', isOptional: true },
           ],
         }),
       ],

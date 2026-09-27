@@ -643,6 +643,134 @@ describe('session notes portability (schema v5)', () => {
   });
 });
 
+describe('adaptive execution portability (schema v7)', () => {
+  async function dbWithExecutionRows(): Promise<Database> {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const exerciseId = await actions.createExercise({
+      name: 'Squat',
+      category: 'legs',
+      equipment: 'barbell',
+      metricFlags: 3,
+    });
+    const routineId = await actions.createRoutine('Legs');
+    const blockId = await actions.createBlock(routineId, { name: 'Main', kind: 'normal', rounds: 1 });
+    const stepId = await actions.createStep(blockId, exerciseId, 'Squat');
+    await actions.upsertPrescription(stepId, {
+      targetSets: 3,
+      targetRepsMin: 5,
+      targetRepsMax: 5,
+      targetDurationMs: null,
+      targetWeightGrams: 100000,
+      targetRir: 2,
+      tempo: { eccentricMs: null, pauseBottomMs: null, concentricMs: null, pauseTopMs: null },
+    });
+    await actions.upsertTransition(blockId, stepId, { toStepId: null }, 'immediate', 0);
+    const routine = (await db.get('routines').find(routineId)) as InstanceType<typeof Routine>;
+    const def = await serializeRoutine(db, routine);
+    const sessionId = await actions.startSession(routine as any, def);
+    const session = (await db.get('workout_sessions').find(sessionId)) as InstanceType<typeof WorkoutSession>;
+    const cursor = {
+      status: 'completed',
+      blockIndex: 0,
+      stepIndex: 0,
+      round: 1,
+      setIndex: 0,
+      timer: null,
+      lastReversible: null,
+      startedAt: Date.now(),
+    } as const;
+    await actions.applyEffects(session, cursor as never, [
+      {
+        kind: 'LOG_SET',
+        blockIndex: 0,
+        stepIndex: 0,
+        round: 1,
+        setIndex: 1,
+        set: { weightGrams: 90000, reps: 5, durationMs: null, distanceMm: null, rir: 2, overrideReason: 'load_reduced' },
+      },
+      { kind: 'LOG_SKIPPED_SET', blockIndex: 0, stepIndex: 0, round: 1, setIndex: 2 },
+      {
+        kind: 'LOG_SET',
+        blockIndex: 0,
+        stepIndex: 0,
+        round: 1,
+        setIndex: 4,
+        set: { weightGrams: 60000, reps: 8, durationMs: null, distanceMm: null, rir: null },
+        executionType: 'drop',
+      },
+    ]);
+    await actions.completeSession(session, cursor as never);
+    return db;
+  }
+
+  it('execution metadata round-trips through create → validate → restore', async () => {
+    const db = await dbWithExecutionRows();
+    const backup = await createBackup(db);
+    const bySetIndex = new Map(backup.data.setLogs.map((l) => [l.setIndex, l]));
+    expect(bySetIndex.get(1)).toMatchObject({ executionType: 'modified', overrideReason: 'load_reduced' });
+    expect(bySetIndex.get(2)).toMatchObject({ executionType: 'skipped', overrideReason: null });
+    expect(bySetIndex.get(4)).toMatchObject({ executionType: 'drop', overrideReason: null });
+
+    const db2 = makeDb();
+    await restoreBackup(db2, serializeBackup(backup));
+    const rows = (await db2.get('set_logs').query().fetch()) as unknown as Array<{
+      setIndex: number;
+      executionType: string | null;
+      overrideReason: string | null;
+      isCompleted: number;
+    }>;
+    const byIdx = new Map(rows.map((r) => [r.setIndex, r]));
+    expect(byIdx.get(1)).toMatchObject({ executionType: 'modified', overrideReason: 'load_reduced', isCompleted: 1 });
+    expect(byIdx.get(2)).toMatchObject({ executionType: 'skipped', overrideReason: null, isCompleted: 0 });
+    expect(byIdx.get(4)).toMatchObject({ executionType: 'drop', overrideReason: null, isCompleted: 1 });
+  });
+
+  it('older backups without execution fields remain valid and restore as legacy nulls', async () => {
+    const db = await dbWithExecutionRows();
+    const backup = await createBackup(db);
+    const raw = JSON.parse(serializeBackup(backup)) as any;
+    for (const log of raw.data.setLogs) {
+      delete log.executionType;
+      delete log.overrideReason;
+    }
+    raw.checksum = semanticChecksum(raw.data);
+    const parsed = parseBackup(JSON.stringify(raw));
+    expect(parsed.data.setLogs.every((l) => l.executionType === undefined && l.overrideReason === undefined)).toBe(true);
+
+    const db2 = makeDb();
+    await restoreBackup(db2, JSON.stringify(raw));
+    const rows = (await db2.get('set_logs').query().fetch()) as unknown as Array<{
+      executionType: string | null;
+      overrideReason: string | null;
+    }>;
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) {
+      expect(r.executionType).toBeNull();
+      expect(r.overrideReason).toBeNull();
+    }
+  });
+
+  it('rejects invalid execution metadata before the checksum', async () => {
+    const db = await dbWithExecutionRows();
+    const b = await createBackup(db);
+    const badType = JSON.parse(serializeBackup(b)) as any;
+    badType.data.setLogs[0].executionType = 'deleted';
+    badType.checksum = semanticChecksum(badType.data);
+    expect(() => parseBackup(JSON.stringify(badType))).toThrow(
+      expect.objectContaining({ code: 'invalid_string' }),
+    );
+
+    const badReason = JSON.parse(serializeBackup(b)) as any;
+    badReason.data.setLogs[0].executionType = 'modified';
+    badReason.data.setLogs[0].overrideReason = 'tired';
+    badReason.checksum = semanticChecksum(badReason.data);
+    expect(() => parseBackup(JSON.stringify(badReason))).toThrow(
+      expect.objectContaining({ code: 'invalid_string' }),
+    );
+  });
+});
+
 describe('helpers', () => {
   it('uniqueRoutineName exported and deterministic', () => {
     expect(uniqueRoutineName('A', new Set())).toBe('A');

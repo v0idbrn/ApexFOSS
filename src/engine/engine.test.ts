@@ -218,6 +218,104 @@ describe('Workout Execution Engine — SKIP and UNDO', () => {
     expect(effects.some((e) => e.kind === 'ADVANCE_STEP')).toBe(true);
   });
 
+  it('skip records the skipped-away-from set (Phase 3C)', () => {
+    const { cursor, effects } = dispatch(def, initialCursor(def, T0), { type: 'SKIP_STEP', now: T0 });
+    expect(effects[0]).toMatchObject({
+      kind: 'LOG_SKIPPED_SET',
+      blockIndex: 0,
+      stepIndex: 0,
+      round: 1,
+      setIndex: 1,
+    });
+    // The skipped position stays reversible so the athlete can still perform it.
+    expect(cursor.lastReversible).toMatchObject({
+      kind: 'set',
+      setLogId: null,
+      blockIndex: 0,
+      stepIndex: 0,
+      round: 1,
+      setIndex: 1,
+    });
+  });
+
+  it('skip set records and advances within the step (Phase 3C)', () => {
+    const { cursor, effects } = dispatch(def, initialCursor(def, T0), { type: 'SKIP_SET', now: T0 });
+    expect(effects[0]).toMatchObject({
+      kind: 'LOG_SKIPPED_SET',
+      blockIndex: 0,
+      stepIndex: 0,
+      round: 1,
+      setIndex: 1,
+    });
+    expect(cursor.setIndex).toBe(2);
+    expect(cursor.stepIndex).toBe(0);
+    expect(cursor.timer).not.toBeNull();
+    expect(cursor.timer?.kind).toBe('rest');
+  });
+
+  it('skip set on the last prescribed set advances the step (Phase 3C)', () => {
+    let cursor = initialCursor(def, T0);
+    cursor = { ...cursor, setIndex: 3 };
+    const { cursor: next, effects } = dispatch(def, cursor, { type: 'SKIP_SET', now: T0 });
+    expect(effects[0]).toMatchObject({ kind: 'LOG_SKIPPED_SET', setIndex: 3 });
+    expect(next.stepIndex).toBe(1);
+    expect(next.setIndex).toBe(1);
+  });
+
+  it('extra set logs at the next extra position without advancing (Phase 3C)', () => {
+    let cursor = initialCursor(def, T0);
+    const set = SET(40_000, 8);
+    const r1 = dispatch(def, cursor, { type: 'LOG_EXTRA_SET', now: T0, set, executionType: 'drop' });
+    expect(r1.effects).toHaveLength(1);
+    expect(r1.effects[0]).toMatchObject({
+      kind: 'LOG_SET',
+      blockIndex: 0,
+      stepIndex: 0,
+      round: 1,
+      setIndex: 4, // targetSets(3) + 1
+      executionType: 'drop',
+    });
+    expect(r1.cursor.setIndex).toBe(1);
+    expect(r1.cursor.stepIndex).toBe(0);
+    expect(r1.cursor.timer).toBeNull();
+    expect(r1.cursor.lastReversible).toMatchObject({ kind: 'set', setIndex: 4 });
+    expect(r1.cursor.extraCounts).toEqual({ '0:0:1': 1 });
+
+    const r2 = dispatch(def, r1.cursor, { type: 'LOG_EXTRA_SET', now: T0, set, executionType: 'extra' });
+    expect(r2.effects[0]).toMatchObject({ kind: 'LOG_SET', setIndex: 5, executionType: 'extra' });
+    expect(r2.cursor.extraCounts).toEqual({ '0:0:1': 2 });
+  });
+
+  it('extra set after session completion still logs without reopening it (Phase 3C)', () => {
+    const single = routine([block('b1', 'Main', 'normal', 1, [step('a', 'A', 1)])]);
+    let cursor = initialCursor(single, T0);
+    const r1 = dispatch(single, cursor, { type: 'COMPLETE_SET', now: T0, set: SET() });
+    expect(r1.cursor.status).toBe('completed');
+    const r2 = dispatch(single, r1.cursor, { type: 'LOG_EXTRA_SET', now: T0, set: SET(), executionType: 'extra' });
+    expect(r2.cursor.status).toBe('completed');
+    expect(r2.cursor.timer).toBeNull();
+    expect(r2.effects).toHaveLength(1);
+    expect(r2.effects[0]).toMatchObject({ kind: 'LOG_SET', setIndex: 2, executionType: 'extra' });
+    const r3 = dispatch(single, r2.cursor, { type: 'LOG_EXTRA_SET', now: T0, set: SET(), executionType: 'drop' });
+    expect(r3.effects[0]).toMatchObject({ kind: 'LOG_SET', setIndex: 3, executionType: 'drop' });
+  });
+
+  it('extra set on a missing step completes the session defensively', () => {
+    const bad = { ...initialCursor(def, T0), blockIndex: 9, stepIndex: 9 };
+    const r = dispatch(def, bad, { type: 'LOG_EXTRA_SET', now: T0, set: SET(), executionType: 'extra' });
+    expect(r.effects).toEqual([{ kind: 'COMPLETE_SESSION' }]);
+  });
+
+  it('undo preserves extra-set accounting (Phase 3C)', () => {
+    let cursor = initialCursor(def, T0);
+    const r1 = dispatch(def, cursor, { type: 'LOG_EXTRA_SET', now: T0, set: SET(), executionType: 'extra' });
+    const r2 = dispatch(def, r1.cursor, { type: 'UNDO_LAST', now: T0 });
+    expect(r2.effects[0]).toMatchObject({ kind: 'VOID_LAST_SET' });
+    expect(r2.cursor.extraCounts).toEqual({ '0:0:1': 1 });
+    const r3 = dispatch(def, r2.cursor, { type: 'LOG_EXTRA_SET', now: T0, set: SET(), executionType: 'extra' });
+    expect(r3.effects[0]).toMatchObject({ kind: 'LOG_SET', setIndex: 5 });
+  });
+
   it('undo reverts the last completed set (while it is the last event)', () => {
     let { cursor } = dispatch(def, initialCursor(def, T0), { type: 'COMPLETE_SET', now: T0, set: SET(50000, 8) });
     expect(cursor.setIndex).toBe(2);
@@ -235,11 +333,22 @@ describe('Workout Execution Engine — SKIP and UNDO', () => {
     expect(r.effects).toHaveLength(0);
   });
 
-  it('skip clears the undo reference (no arbitrary history rebuilds)', () => {
+  it('undo after step-skip restores the skipped position (Phase 3C)', () => {
     let { cursor } = dispatch(def, initialCursor(def, T0), { type: 'COMPLETE_SET', now: T0, set: SET() });
     cursor = dispatch(def, cursor, { type: 'SKIP_STEP', now: T0 }).cursor;
     const r = dispatch(def, cursor, { type: 'UNDO_LAST', now: T0 });
-    expect(r.effects).toHaveLength(0);
+    expect(r.effects[0]).toMatchObject({ kind: 'VOID_LAST_SET' });
+    // Restored to the skipped set so the athlete can still perform it.
+    expect(r.cursor).toMatchObject({ blockIndex: 0, stepIndex: 0, round: 1, setIndex: 2, status: 'active' });
+    expect(r.cursor.timer).toBeNull();
+    expect(r.cursor.lastReversible).toBeNull();
+  });
+
+  it('undo after set-skip restores the skipped set (Phase 3C)', () => {
+    const { cursor } = dispatch(def, initialCursor(def, T0), { type: 'SKIP_SET', now: T0 });
+    const r = dispatch(def, cursor, { type: 'UNDO_LAST', now: T0 });
+    expect(r.effects[0]).toMatchObject({ kind: 'VOID_LAST_SET' });
+    expect(r.cursor).toMatchObject({ blockIndex: 0, stepIndex: 0, round: 1, setIndex: 1, status: 'active' });
   });
 });
 

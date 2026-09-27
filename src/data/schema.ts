@@ -9,8 +9,11 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
  * v4 (Phase 2J): equipment_items for persistent gym inventory (per-side plates etc).
  * v5 (Phase 2J): optional workout_sessions.note — post-workout session notes.
  * v6 (i18n): app_settings for device preferences (locale override). Not backed up.
+ * v7 (Phase 3C): optional set_logs.execution_type + set_logs.override_reason
+ * for adaptive execution (skipped/extra/drop/modified marking + athlete-stated
+ * reason). Older rows read null → treated as legacy normal/voided rows.
  */
-export const schemaVersion = 6;
+export const schemaVersion = 7;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -135,6 +138,8 @@ export const schema = appSchema({
         { name: 'rir', type: 'number', isOptional: true },
         { name: 'is_completed', type: 'number' },
         { name: 'completed_at', type: 'number', isOptional: true },
+        { name: 'execution_type', type: 'string', isOptional: true },
+        { name: 'override_reason', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

@@ -126,7 +126,38 @@ export interface ExecutionCursor extends CursorPosition {
   startedAt: number;
   /** Interval trainer state while on an interval block; absent/cleared otherwise. */
   interval?: PersistedInterval | null;
+  /**
+   * Extra/drop sets logged per position (Phase 3C): key
+   * `${blockIndex}:${stepIndex}:${round}` → count. Keeps extra setIndex
+   * assignment deterministic under event replay. Absent = none logged.
+   */
+  extraCounts?: Record<string, number>;
 }
+
+/**
+ * How a logged set relates to its prescription (Phase 3C: prescription ≠ actual).
+ * - normal: matches prescription (or no prescription to compare against)
+ * - modified: performed with at least one differing load/rep/duration/RIR value
+ * - extra: set beyond the prescribed set count
+ * - drop: extra set performed as a drop set (lower load, immediate continuation)
+ * - skipped: prescribed set that was not performed (no performance recorded)
+ */
+export type ExecutionType = 'normal' | 'modified' | 'extra' | 'drop' | 'skipped';
+
+/**
+ * Athlete-stated reason for deviating from prescription (Phase 3C).
+ * Optional and explicit only — the engine never infers a cause from values.
+ */
+export type OverrideReason =
+  | 'load_reduced'
+  | 'load_increased'
+  | 'reps_reduced'
+  | 'reps_increased'
+  | 'fatigue'
+  | 'pain_discomfort'
+  | 'equipment_unavailable'
+  | 'time_constraint'
+  | 'other';
 
 export interface SetPayload {
   weightGrams: number | null;
@@ -134,18 +165,32 @@ export interface SetPayload {
   durationMs: number | null;
   distanceMm: number | null;
   rir: number | null;
+  /** Athlete-stated override reason; absent/null = none stated. Passed through to the log. */
+  overrideReason?: OverrideReason | null;
 }
 
 export type EngineEvent =
   | { type: 'COMPLETE_SET'; now: number; set: SetPayload }
+  | { type: 'SKIP_SET'; now: number }
   | { type: 'SKIP_STEP'; now: number }
   | { type: 'SKIP_TIMER'; now: number }
   | { type: 'TIMER_EXPIRE'; now: number }
   | { type: 'UNDO_LAST'; now: number }
-  | { type: 'COMPLETE_SESSION'; now: number };
+  | { type: 'COMPLETE_SESSION'; now: number }
+  | { type: 'LOG_EXTRA_SET'; now: number; set: SetPayload; executionType: 'extra' | 'drop' };
 
 export type Effect =
-  | { kind: 'LOG_SET'; blockIndex: number; stepIndex: number; round: number; setIndex: number; set: SetPayload }
+  | {
+      kind: 'LOG_SET';
+      blockIndex: number;
+      stepIndex: number;
+      round: number;
+      setIndex: number;
+      set: SetPayload;
+      /** Present only for extra/drop sets logged via LOG_EXTRA_SET. */
+      executionType?: 'extra' | 'drop';
+    }
+  | { kind: 'LOG_SKIPPED_SET'; blockIndex: number; stepIndex: number; round: number; setIndex: number }
   | { kind: 'VOID_LAST_SET'; setLogId: string | null }
   | { kind: 'START_TIMER'; timerKind: 'rest' | 'auto'; durationMs: number; expiresAt: number }
   | { kind: 'CANCEL_TIMER' }

@@ -5,7 +5,8 @@ import { strings } from '../../constants/strings';
 import { formatCountdown, formatKg, formatTempo, gramsToKg, kgToGrams, secondsToMs } from '../../utils/units';
 import { useTimerStore } from '../../state/timerStore';
 import { useActiveSessionStore } from '../../state/activeSessionStore';
-import type { BlockDef, EngineEvent, IntervalSpec, PersistedInterval, Prescription, SetPayload, StepDef } from '../../types/engine';
+import type { BlockDef, EngineEvent, IntervalSpec, OverrideReason, PersistedInterval, Prescription, SetPayload, StepDef } from '../../types/engine';
+import { classifySetExecution, OVERRIDE_REASONS } from '../../workout/execution';
 import {
   applyWorkoutEvent,
   discardWorkout,
@@ -158,7 +159,7 @@ interface SessionSummary {
   volumeGramReps: number;
 }
 
-const toPayload = (step: StepDef, input: NumpadInput): SetPayload => {
+const toPayload = (step: StepDef, input: NumpadInput, overrideReason: OverrideReason | null): SetPayload => {
   const p = step.prescription;
   const w = input.weightKg.trim();
   const r = input.reps.trim();
@@ -170,8 +171,33 @@ const toPayload = (step: StepDef, input: NumpadInput): SetPayload => {
     durationMs: d ? secondsToMs(Math.max(0, Number(d))) : p.targetDurationMs,
     distanceMm: null,
     rir: rir ? Math.max(0, Math.round(Number(rir))) : p.targetRir,
+    overrideReason,
   };
 };
+
+/** Localized label for an athlete-stated override reason (Phase 3C). */
+export function overrideReasonLabel(reason: OverrideReason): string {
+  switch (reason) {
+    case 'load_reduced':
+      return strings.workout.reasonLoadReduced;
+    case 'load_increased':
+      return strings.workout.reasonLoadIncreased;
+    case 'reps_reduced':
+      return strings.workout.reasonRepsReduced;
+    case 'reps_increased':
+      return strings.workout.reasonRepsIncreased;
+    case 'fatigue':
+      return strings.workout.reasonFatigue;
+    case 'pain_discomfort':
+      return strings.workout.reasonPain;
+    case 'equipment_unavailable':
+      return strings.workout.reasonEquipment;
+    case 'time_constraint':
+      return strings.workout.reasonTime;
+    case 'other':
+      return strings.workout.reasonOther;
+  }
+}
 
 const validNumber = (s: string): boolean => isValidNumpadValue(s);
 
@@ -351,6 +377,9 @@ export function WorkoutScreen() {
     };
   }, [completedView, rt?.sessionId]);
 
+  // Athlete-stated override reason (Phase 3C): optional, explicit, reset per set.
+  const [overrideReason, setOverrideReason] = useState<OverrideReason | null>(null);
+
   // Reset actual inputs whenever the target set/step changes.
   const step = rt && rt.cursor.status === 'active' ? rt.definition.blocks[rt.cursor.blockIndex]?.steps[rt.cursor.stepIndex] : undefined;
   const posKey = rt ? `${rt.cursor.blockIndex}:${rt.cursor.stepIndex}:${rt.cursor.round}:${rt.cursor.setIndex}` : '';
@@ -359,6 +388,7 @@ export function WorkoutScreen() {
       setInputs(emptyInputs());
       setActiveField(null);
       setAutoregSuggestion(null);
+      setOverrideReason(null);
       return;
     }
     const p = step.prescription;
@@ -383,6 +413,7 @@ export function WorkoutScreen() {
       pendingAutoregRef.current = null;
     }
     setActiveField('weight');
+    setOverrideReason(null);
     // New set/step: discard any in-flight tempo/interval (no stale phase timestamps).
     setTempo(idleTempoRuntime());
     releaseTempoKeepAwake();
@@ -722,6 +753,10 @@ export function WorkoutScreen() {
   const { weightKg, reps, durationS, rir } = inputs;
   const inputsValid =
     validNumber(weightKg) && validNumber(reps) && validNumber(durationS) && validNumber(rir);
+  // Phase 3C: show the optional reason row only when the entered actuals differ
+  // from the prescription (same pure classifier the persistence layer uses).
+  const inputsDiffer =
+    step != null && classifySetExecution(step.prescription, toPayload(step, inputs, null)) === 'modified';
 
   const onNumpadKey = (key: NumpadKey) => {
     if (!activeField || busy) return;
@@ -758,13 +793,37 @@ export function WorkoutScreen() {
         rec,
       };
     }
-    void apply({ type: 'COMPLETE_SET', now: Date.now(), set: toPayload(step, inputs) });
+    void apply({ type: 'COMPLETE_SET', now: Date.now(), set: toPayload(step, inputs, overrideReason) });
   };
 
   const onSkip = () => {
     if (!rt) return;
     if (rt.cursor.timer) void apply({ type: 'SKIP_TIMER', now: Date.now() });
     else void apply({ type: 'SKIP_STEP', now: Date.now() });
+  };
+
+  /**
+   * Skip the current set (Phase 3C): the prescribed position is recorded as
+   * skipped and execution advances. Undo restores the position.
+   */
+  const onSkipSet = () => {
+    if (!rt || busy) return;
+    void apply({ type: 'SKIP_SET', now: Date.now() });
+  };
+
+  /**
+   * Log an additional set (Phase 3C): 'extra' for work beyond the prescription,
+   * 'drop' for an immediate lower-load continuation. Cursor position is kept;
+   * the set lands at the next extra index for this step.
+   */
+  const onExtraSet = (executionType: 'extra' | 'drop') => {
+    if (!step || !inputsValid || !rt || busy) return;
+    void apply({
+      type: 'LOG_EXTRA_SET',
+      now: Date.now(),
+      set: toPayload(step, inputs, overrideReason),
+      executionType,
+    });
   };
 
   /**
@@ -1293,11 +1352,65 @@ export function WorkoutScreen() {
                 />
               </View>
 
+              {step && inputsDiffer ? (
+                <View className="mt-3" testID="override-reasons">
+                  <Text className="text-xs font-semibold uppercase tracking-wider text-dim">
+                    {strings.workout.reasonLabel}
+                  </Text>
+                  <View className="mt-2 flex-row flex-wrap gap-2">
+                    {OVERRIDE_REASONS.map((reason) => {
+                      const selected = overrideReason === reason;
+                      return (
+                        <Pressable
+                          key={reason}
+                          testID={`reason-${reason}`}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: selected }}
+                          accessibilityLabel={overrideReasonLabel(reason)}
+                          onPress={() => setOverrideReason((prev) => (prev === reason ? null : reason))}
+                          disabled={busy}
+                          className={`min-h-11 items-center justify-center rounded-lg border px-3 ${
+                            selected ? 'border-accent bg-accent/20' : 'border-line bg-surface'
+                          }`}
+                        >
+                          <Text className={`text-sm ${selected ? 'font-semibold text-accent-ink' : 'text-dim'}`}>
+                            {overrideReasonLabel(reason)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : null}
+
               <View className="mt-5">
                 <Button label={strings.workout.completeSet} onPress={onComplete} disabled={busy || !inputsValid} />
               </View>
               <View className="mt-3">
                 <Button label={strings.workout.skip} variant="secondary" onPress={onSkip} disabled={busy} />
+              </View>
+              <View className="mt-3 flex-row gap-2">
+                <Button
+                  label={strings.workout.skipSet}
+                  variant="ghost"
+                  onPress={onSkipSet}
+                  disabled={busy}
+                  className="flex-1"
+                />
+                <Button
+                  label={strings.workout.extraSet}
+                  variant="ghost"
+                  onPress={() => onExtraSet('extra')}
+                  disabled={busy || !inputsValid}
+                  className="flex-1"
+                />
+                <Button
+                  label={strings.workout.dropSet}
+                  variant="ghost"
+                  onPress={() => onExtraSet('drop')}
+                  disabled={busy || !inputsValid}
+                  className="flex-1"
+                />
               </View>
                 </>
               ) : null}

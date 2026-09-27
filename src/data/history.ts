@@ -41,6 +41,18 @@ export interface HistoryStepRow {
   reps: number | null;
   durationMs: number | null;
   rir: number | null;
+  /** Phase 3C execution marking; absent/null = legacy normal row. */
+  executionType?: string | null;
+  /** Phase 3C athlete-stated reason; null = none stated. */
+  overrideReason?: string | null;
+}
+
+/** A prescribed position recorded as skipped (Phase 3C adherence record). */
+export interface HistorySkippedRow {
+  blockIndex: number;
+  stepIndex: number;
+  round: number;
+  setIndex: number;
 }
 
 export interface HistoryBlockView {
@@ -58,6 +70,8 @@ export interface HistoryBlockView {
     targetDurationMs: number | null;
     targetRir: number | null;
     logs: HistoryStepRow[];
+    /** Skipped prescribed positions (never performed, never voided). */
+    skipped: HistorySkippedRow[];
   }>;
 }
 
@@ -150,12 +164,27 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
         : await db.get<SetLog>('set_logs').query(Q.where('session_exercise_id', Q.oneOf(seIds))).fetch();
 
     // Group logs by block/step (ignore voided rows for display of performed sets).
+    // Skipped records (isCompleted 0 + execution_type 'skipped') are collected
+    // separately for adherence display; voided rows stay invisible.
     const logsByStep = new Map<string, HistoryStepRow[]>();
+    const skippedByStep = new Map<string, HistorySkippedRow[]>();
     let totalCompletedSets = 0;
     for (const log of allLogs) {
-      if (log.isCompleted !== 1) continue;
-      totalCompletedSets += 1;
       const key = `${log.blockIndex}:${log.stepIndex}`;
+      if (log.isCompleted !== 1) {
+        if (log.executionType === 'skipped') {
+          const list = skippedByStep.get(key) ?? [];
+          list.push({
+            blockIndex: log.blockIndex,
+            stepIndex: log.stepIndex,
+            round: log.round,
+            setIndex: log.setIndex,
+          });
+          skippedByStep.set(key, list);
+        }
+        continue;
+      }
+      totalCompletedSets += 1;
       const list = logsByStep.get(key) ?? [];
       list.push({
         blockIndex: log.blockIndex,
@@ -166,6 +195,8 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
         reps: log.reps,
         durationMs: log.durationMs,
         rir: log.rir,
+        executionType: log.executionType ?? null,
+        overrideReason: log.overrideReason ?? null,
       });
       logsByStep.set(key, list);
     }
@@ -180,6 +211,10 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
           if (a.round !== b.round) return a.round - b.round;
           return a.setIndex - b.setIndex;
         });
+        const skipped = (skippedByStep.get(`${blockIndex}:${stepIndex}`) ?? []).slice().sort((a, b) => {
+          if (a.round !== b.round) return a.round - b.round;
+          return a.setIndex - b.setIndex;
+        });
         const p = step.prescription;
         return {
           stepIndex,
@@ -191,6 +226,7 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
           targetDurationMs: p.targetDurationMs,
           targetRir: p.targetRir,
           logs,
+          skipped,
         };
       }),
     }));

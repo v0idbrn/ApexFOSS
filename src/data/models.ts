@@ -146,6 +146,10 @@ export class SetLog extends Model {
   @field('rir') rir!: number | null;
   @field('is_completed') isCompleted!: number;
   @field('completed_at') completedAt!: number | null;
+  /** Phase 3C execution marking: normal|modified|extra|drop|skipped; null = legacy row. */
+  @text('execution_type') executionType!: string | null;
+  /** Phase 3C athlete-stated override reason (closed enum); null = none stated. */
+  @text('override_reason') overrideReason!: string | null;
   @field('created_at') createdAt!: number;
   @field('updated_at') updatedAt!: number;
 }

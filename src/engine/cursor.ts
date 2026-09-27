@@ -25,6 +25,20 @@ export function parseCursor(json: string): ExecutionCursor {
       cursor.timer.pausedAt = null;
     }
   }
+  // Extra-set accounting is optional; discard malformed payloads rather than crash.
+  if (cursor.extraCounts !== undefined && cursor.extraCounts !== null) {
+    const counts = cursor.extraCounts;
+    if (typeof counts !== 'object' || Array.isArray(counts)) {
+      delete cursor.extraCounts;
+    } else {
+      for (const [key, value] of Object.entries(counts)) {
+        if (!/^\d+:\d+:\d+$/.test(key) || typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+          delete (counts as Record<string, unknown>)[key];
+        }
+      }
+      if (Object.keys(counts).length === 0) delete cursor.extraCounts;
+    }
+  }
   // Interval runtime is optional; discard malformed payloads rather than crash.
   if (cursor.interval && typeof cursor.interval !== 'object') {
     cursor.interval = null;

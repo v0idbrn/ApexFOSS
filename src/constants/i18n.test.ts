@@ -216,17 +216,17 @@ describe('strings facade', () => {
   });
 });
 
-describe('schema v6 (app_settings)', () => {
-  it('schemaVersion is 6 and app_settings exists with migration toVersion 6', () => {
-    expect(schemaVersion).toBe(6);
-    expect(schema.version).toBe(6);
+describe('schema v7 (Phase 3C execution metadata)', () => {
+  it('schemaVersion is 7 and app_settings exists with migration toVersion 7', () => {
+    expect(schemaVersion).toBe(7);
+    expect(schema.version).toBe(7);
     const table = schema.tables['app_settings'];
     expect(table).toBeDefined();
     const cols = table.columnArray.map((c) => c.name);
     expect(cols).toEqual(['key', 'value', 'created_at', 'updated_at']);
     expect(migrations.validated).toBe(true);
-    expect(migrations.maxVersion).toBe(6);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(6);
+    expect(migrations.maxVersion).toBe(7);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(7);
   });
 });
 

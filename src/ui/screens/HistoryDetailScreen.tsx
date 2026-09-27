@@ -11,6 +11,7 @@ import {
 import type { ProgressionEvidence } from '../../analytics/progression';
 import { SessionProgressionSummary } from '../ProgressionCard';
 import { strings } from '../../constants/strings';
+import { overrideReasonLabel } from './WorkoutScreen';
 import { formatCount, formatKg, msToSeconds } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps } from '../../analytics/load';
 import { useNav } from '../navigation';
@@ -80,6 +81,33 @@ function actualLine(l: {
 function blockKindLabel(kind: string): string {
   const map = strings.routines.blockKind as Record<string, string>;
   return map[kind] ?? kind.toUpperCase();
+}
+
+/** Localized execution marker for a performed set (Phase 3C); null when unmarked. */
+function executionLabel(executionType: string | null | undefined): string | null {
+  if (executionType === 'modified') return strings.history.execModified;
+  if (executionType === 'extra') return strings.history.execExtra;
+  if (executionType === 'drop') return strings.history.execDrop;
+  return null;
+}
+
+/** Localized athlete-stated reason (Phase 3C); null when none stated or unknown. */
+function historyReasonLabel(reason: string | null | undefined): string | null {
+  if (reason == null) return null;
+  if (
+    reason === 'load_reduced' ||
+    reason === 'load_increased' ||
+    reason === 'reps_reduced' ||
+    reason === 'reps_increased' ||
+    reason === 'fatigue' ||
+    reason === 'pain_discomfort' ||
+    reason === 'equipment_unavailable' ||
+    reason === 'time_constraint' ||
+    reason === 'other'
+  ) {
+    return overrideReasonLabel(reason);
+  }
+  return null;
 }
 
 export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
@@ -291,15 +319,31 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
                   <Text className="mt-2 text-xs font-semibold uppercase tracking-wider text-dim">
                     {strings.history.actualPerformed}
                   </Text>
-                  {step.logs.length === 0 ? (
+                  {step.logs.length === 0 && step.skipped.length === 0 ? (
                     <Text className="mt-1 text-sm text-dim">{strings.history.notLogged}</Text>
                   ) : (
-                    step.logs.map((log, i) => (
-                      <Text key={i} className="mt-1 font-mono text-sm text-fg">
-                        {log.round > 1 || block.rounds > 1 ? `R${log.round} · ` : ''}
-                        {actualLine(log)}
-                      </Text>
-                    ))
+                    <>
+                      {step.logs.map((log, i) => {
+                        const marker = executionLabel(log.executionType);
+                        const reason = historyReasonLabel(log.overrideReason);
+                        return (
+                          <Text key={i} className="mt-1 font-mono text-sm text-fg">
+                            {log.round > 1 || block.rounds > 1 ? `R${log.round} · ` : ''}
+                            {actualLine(log)}
+                            {marker ? ` · ${marker}` : ''}
+                            {reason ? ` (${reason})` : ''}
+                          </Text>
+                        );
+                      })}
+                      {step.skipped.length > 0 ? (
+                        <Text className="mt-1 text-sm text-dim">
+                          {strings.history.skippedSets}:{' '}
+                          {step.skipped
+                            .map((s) => `R${s.round}S${s.setIndex}`)
+                            .join(', ')}
+                        </Text>
+                      ) : null}
+                    </>
                   )}
                 </Card>
               );

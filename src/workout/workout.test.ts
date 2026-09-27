@@ -421,7 +421,7 @@ describe('Day 3 — skip and undo', () => {
     expect(await db.get<any>('set_logs').query().fetch()).toHaveLength(0);
   });
 
-  it('UNDO after SKIP_STEP is rejected (lastReversible cleared by skip)', async () => {
+  it('UNDO after SKIP_STEP restores the skipped set (Phase 3C record kept)', async () => {
     const db = makeDb();
     const { rt } = await startRuntime(db, simpleDraft('SkipThenUndo', { steps: [
       { sets: 2, transition: { type: 'immediate', delayMs: 0 } },
@@ -429,11 +429,17 @@ describe('Day 3 — skip and undo', () => {
     ] }));
     const afterSet = await applyWorkoutEvent(db, rt, { type: 'COMPLETE_SET', now: T0, set: SET });
     const skipped = await applyWorkoutEvent(db, afterSet, { type: 'SKIP_STEP', now: T0 });
-    expect(skipped.cursor.lastReversible).toBeNull();
+    // Phase 3C: the skipped position is recorded and stays reversible.
+    expect(skipped.cursor.lastReversible).toMatchObject({ kind: 'set', stepIndex: 0, setIndex: 2 });
     const undone = await applyWorkoutEvent(db, skipped, { type: 'UNDO_LAST', now: T0 });
-    expect(undone.cursor).toEqual(skipped.cursor);
+    expect(undone.cursor).toMatchObject({ blockIndex: 0, stepIndex: 0, round: 1, setIndex: 2, status: 'active' });
     const logs = await db.get<any>('set_logs').query().fetch();
-    expect(logs[0].isCompleted).toBe(1); // not voided
+    expect(logs).toHaveLength(2);
+    const performed = logs.find((l: any) => l.setIndex === 1);
+    expect(performed.isCompleted).toBe(1); // the completed set is untouched
+    const skippedRow = logs.find((l: any) => l.setIndex === 2);
+    expect(skippedRow.isCompleted).toBe(0);
+    expect(skippedRow.executionType).toBe('skipped');
   });
 
   it('UNDO after SKIP_TIMER still works (skip rest does not clear the last set)', async () => {

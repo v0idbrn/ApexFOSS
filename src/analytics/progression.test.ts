@@ -385,6 +385,31 @@ function makeHistPrescMap(
       expect(result.atTargetWeight).toBe(false);
     });
 
+    it('extra sets count as performances: a fourth set at the bound progresses (Phase 3C)', () => {
+      // Prescription is 3 sets, but the athlete logged a 4th (extra) set at 12 reps.
+      // The engine sees actual performances, not prescribed counts.
+      const sessions = [
+        makeSessionWithPresc('s1', now - 86400000, 'Bench Press', [makeSet(50000, 10)], 'ex_bench'),
+        makeSessionWithPresc(
+          's2',
+          now,
+          'Bench Press',
+          [makeSet(50000, 10), makeSet(50000, 10), makeSet(50000, 10), makeSet(50000, 12)],
+          'ex_bench',
+        ),
+      ];
+      const historicalPrescriptions = makeHistPrescMap([
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+      ]);
+      const input = { ...defaultInput, sessions, historicalPrescriptions, now };
+      const result = analyzeProgression(input);
+
+      expect(result.state).toBe('progress');
+      expect(result.reason).toBe('REPS_RANGE_COMPLETED');
+      expect(result.current?.reps).toBe(12);
+    });
+
     it('returns insufficient_data when no rep range defined', () => {
       const sessions = [
         makeSessionWithPresc('s1', now - 86400000, 'Bench Press', [makeSet(50000, 10)], 'ex_bench'),
