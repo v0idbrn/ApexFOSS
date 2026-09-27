@@ -3,6 +3,7 @@ import type {
   ApexBackup,
   BackupData,
   BackupEquipmentItem,
+  BackupMesocycle,
   BackupReadinessTest,
   BackupRoutine,
   BackupSession,
@@ -41,10 +42,26 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
   const readinessRows = await db.get<any>('readiness_tests').query(Q.sortBy('tested_at', 'asc')).fetch();
   const equipmentRows = await db.get<any>('equipment_items').query(Q.sortBy('created_at', 'asc')).fetch();
   const programRows = await db.get<any>('programs').query(Q.sortBy('created_at', 'asc')).fetch();
+  const mesoRows = await db.get<any>('mesocycles').query().fetch();
 
   // Programs (schema v8): name-only containers; membership lives on routines.
   const programs: PortableProgram[] = programRows.map((p) => ({ name: p.name }));
   const programIndexById = new Map<string, number>(programRows.map((p, i) => [p.id, i]));
+
+  // Mesocycles (schema v9): ordered by (program creation order, sort_order).
+  const mesoIndexById = new Map<string, number>();
+  const mesocycles: BackupMesocycle[] = [];
+  const orderedMeso = mesoRows.slice().sort((a, b) => {
+    const pa = programIndexById.get(a.programId) ?? Number.MAX_SAFE_INTEGER;
+    const pb = programIndexById.get(b.programId) ?? Number.MAX_SAFE_INTEGER;
+    return pa - pb || a.sortOrder - b.sortOrder || String(a.id).localeCompare(String(b.id));
+  });
+  for (const m of orderedMeso) {
+    const pi = programIndexById.get(m.programId);
+    if (pi == null) continue; // orphan phase — not representable in backup
+    mesoIndexById.set(m.id, mesocycles.length);
+    mesocycles.push({ name: m.name, programIndex: pi, sortOrder: m.sortOrder });
+  }
 
   // Package-local exercise keys (stable by first-use across routines, then leftover sorted by name).
   const localIdToKey = new Map<string, string>();
@@ -136,6 +153,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
       blocks: portableBlocks,
       programIndex: r.programId != null ? (programIndexById.get(r.programId) ?? null) : null,
       programOrder: r.programOrder ?? null,
+      mesocycleIndex: r.mesocycleId != null ? (mesoIndexById.get(r.mesocycleId) ?? null) : null,
     });
   }
 
@@ -247,6 +265,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     readinessTests,
     equipmentItems,
     programs,
+    mesocycles,
   };
   return {
     format: BACKUP_FORMAT,
@@ -328,6 +347,27 @@ export function validateBackup(raw: unknown): ApexBackup {
     const pp = p as Record<string, unknown>;
     if (typeof pp.name !== 'string' || !pp.name) throw new PortabilityError('invalid_string', `programs[${i}].name`);
   }
+  const mesocyclesRaw = d.mesocycles;
+  if (mesocyclesRaw !== undefined && !Array.isArray(mesocyclesRaw)) {
+    throw new PortabilityError('missing_field', 'data.mesocycles');
+  }
+  const mesocyclesList: unknown[] = Array.isArray(mesocyclesRaw) ? mesocyclesRaw : [];
+  for (const [i, m] of mesocyclesList.entries()) {
+    if (typeof m !== 'object' || m === null) throw new PortabilityError('missing_field', `mesocycles[${i}]`);
+    const mm = m as Record<string, unknown>;
+    if (typeof mm.name !== 'string' || !mm.name) throw new PortabilityError('invalid_string', `mesocycles[${i}].name`);
+    if (
+      typeof mm.programIndex !== 'number' ||
+      !Number.isInteger(mm.programIndex) ||
+      mm.programIndex < 0 ||
+      mm.programIndex >= programsList.length
+    ) {
+      throw new PortabilityError('invalid_reference', `mesocycles[${i}].programIndex`);
+    }
+    if (typeof mm.sortOrder !== 'number' || !Number.isInteger(mm.sortOrder) || mm.sortOrder < 0) {
+      throw new PortabilityError('invalid_integer', `mesocycles[${i}].sortOrder`);
+    }
+  }
 
   const exerciseKeys = new Set<string>();
   for (const [i, e] of exercises.entries()) {
@@ -363,6 +403,12 @@ export function validateBackup(raw: unknown): ApexBackup {
       (typeof rr.programOrder !== 'number' || !Number.isInteger(rr.programOrder) || rr.programOrder < 0)
     ) {
       throw new PortabilityError('invalid_integer', `routines[${i}].programOrder`);
+    }
+    if (rr.mesocycleIndex !== undefined && rr.mesocycleIndex !== null) {
+      const mi = rr.mesocycleIndex;
+      if (typeof mi !== 'number' || !Number.isInteger(mi) || mi < 0 || mi >= mesocyclesList.length) {
+        throw new PortabilityError('invalid_reference', `routines[${i}].mesocycleIndex`);
+      }
     }
     for (const [j, block] of (rr.blocks as unknown[]).entries()) {
       if (typeof block !== 'object' || block === null) throw new PortabilityError('missing_field', `routines[${i}].blocks[${j}]`);
@@ -509,6 +555,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
     readinessTests: ((await db.get('readiness_tests').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     equipmentItems: ((await db.get('equipment_items').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     programs: ((await db.get('programs').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
+    mesocycles: ((await db.get('mesocycles').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
   };
 
   try {
@@ -545,6 +592,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
       for (const e of oldEquipment) await e.markAsDeleted();
       const oldPrograms = await db.get('programs').query().fetch();
       for (const p of oldPrograms) await p.markAsDeleted();
+      const oldMesos = await db.get('mesocycles').query().fetch();
+      for (const m of oldMesos) await m.markAsDeleted();
 
       // Insert backup content. Map package keys → new local exercise ids.
       const keyToId = new Map<string, string>();
@@ -578,6 +627,22 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         hooks.onRowCreated?.('programs', programN);
       }
 
+      // Mesocycles next: phases belong to programs, routines to phases.
+      const mesoIds: string[] = [];
+      let mesoN = 0;
+      for (const m of backup.data.mesocycles ?? []) {
+        const row = await db.get<any>('mesocycles').create((rec: any) => {
+          rec.name = m.name;
+          rec.programId = programIds[m.programIndex] ?? null;
+          rec.sortOrder = m.sortOrder;
+          rec.createdAt = Date.now();
+          rec.updatedAt = Date.now();
+        });
+        mesoIds.push(row.id);
+        mesoN += 1;
+        hooks.onRowCreated?.('mesocycles', mesoN);
+      }
+
       const routineIds: string[] = [];
       let blockN = 0;
       for (const r of backup.data.routines) {
@@ -585,6 +650,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           rec.name = r.name;
           rec.programId = r.programIndex != null ? programIds[r.programIndex] ?? null : null;
           rec.programOrder = r.programOrder ?? null;
+          rec.mesocycleId = r.mesocycleIndex != null ? mesoIds[r.mesocycleIndex] ?? null : null;
           rec.createdAt = Date.now();
           rec.updatedAt = Date.now();
         });
@@ -761,6 +827,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         for (const r of await db.get('readiness_tests').query().fetch()) await r.markAsDeleted();
         for (const e of await db.get('equipment_items').query().fetch()) await e.markAsDeleted();
         for (const p of await db.get('programs').query().fetch()) await p.markAsDeleted();
+        for (const m of await db.get('mesocycles').query().fetch()) await m.markAsDeleted();
 
         // Re-insert snapshot rows (raw create with original ids where possible).
         const idMap = new Map<string, string>();
@@ -784,11 +851,23 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           });
           idMap.set(raw.id, row.id);
         }
+        // Mesocycles before routines so mesocycle_id remaps via idMap.
+        for (const raw of snap.mesocycles) {
+          const row = await db.get('mesocycles').create((rec: any) => {
+            rec.name = raw.name;
+            rec.programId = idMap.get(raw.program_id) ?? raw.program_id;
+            rec.sortOrder = raw.sort_order;
+            rec.createdAt = raw.created_at ?? Date.now();
+            rec.updatedAt = raw.updated_at ?? Date.now();
+          });
+          idMap.set(raw.id, row.id);
+        }
         for (const raw of snap.routines) {
           const row = await db.get('routines').create((rec: any) => {
             rec.name = raw.name;
             rec.programId = raw.program_id ? idMap.get(raw.program_id) ?? null : null;
             rec.programOrder = raw.program_order ?? null;
+            rec.mesocycleId = raw.mesocycle_id ? idMap.get(raw.mesocycle_id) ?? null : null;
             rec.createdAt = raw.created_at ?? Date.now();
             rec.updatedAt = raw.updated_at ?? Date.now();
           });
@@ -940,6 +1019,7 @@ export function backupSummary(backup: ApexBackup): {
   readinessTests: number;
   equipmentItems: number;
   programs: number;
+  mesocycles: number;
 } {
   return {
     exercises: backup.data.exercises.length,
@@ -949,5 +1029,6 @@ export function backupSummary(backup: ApexBackup): {
     readinessTests: backup.data.readinessTests?.length ?? 0,
     equipmentItems: backup.data.equipmentItems?.length ?? 0,
     programs: backup.data.programs?.length ?? 0,
+    mesocycles: backup.data.mesocycles?.length ?? 0,
   };
 }

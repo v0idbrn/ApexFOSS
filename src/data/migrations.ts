@@ -126,5 +126,26 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      // v9 (Phase 4B): mesocycles table (ordered phases inside a program) +
+      // optional routines.mesocycle_id. Older routines read null = not staged.
+      toVersion: 9,
+      steps: [
+        addColumns({
+          table: 'routines',
+          columns: [{ name: 'mesocycle_id', type: 'string', isOptional: true, isIndexed: true }],
+        }),
+        createTable({
+          name: 'mesocycles',
+          columns: [
+            { name: 'name', type: 'string' },
+            { name: 'program_id', type: 'string', isIndexed: true },
+            { name: 'sort_order', type: 'number' },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
   ],
 });

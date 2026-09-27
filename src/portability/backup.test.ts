@@ -444,6 +444,7 @@ describe('backup create / restore', () => {
       readinessTests: 0,
       equipmentItems: 0,
       programs: 0,
+      mesocycles: 0,
     });
   });
 
@@ -861,6 +862,109 @@ describe('program portability (schema v8)', () => {
     nameless.checksum = semanticChecksum(nameless.data);
     expect(() => parseBackup(JSON.stringify(nameless))).toThrow(
       expect.objectContaining({ code: 'invalid_string' }),
+    );
+  });
+});
+
+describe('mesocycle portability (schema v9)', () => {
+  async function dbWithMesocycles(): Promise<Database> {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const exerciseId = await actions.createExercise({
+      name: 'Squat',
+      category: 'legs',
+      equipment: 'barbell',
+      metricFlags: 3,
+    });
+    const programId = await actions.createProgram('Block A');
+    const acc = await actions.createMesocycle(programId, 'Accumulation');
+    const int = await actions.createMesocycle(programId, 'Intensification');
+    const dayA = await actions.createRoutine('Day A');
+    const blockId = await actions.createBlock(dayA, { name: 'Main', kind: 'normal', rounds: 1 });
+    await actions.createStep(blockId, exerciseId, 'Squat');
+    await actions.assignRoutineToProgram(dayA, programId);
+    await actions.assignRoutineToMesocycle(dayA, acc);
+    const dayB = await actions.createRoutine('Day B');
+    await actions.assignRoutineToProgram(dayB, programId);
+    await actions.assignRoutineToMesocycle(dayB, int);
+    const dayC = await actions.createRoutine('Day C'); // unstaged member
+    await actions.assignRoutineToProgram(dayC, programId);
+    return db;
+  }
+
+  it('mesocycles and staging round-trip through create → validate → restore', async () => {
+    const db = await dbWithMesocycles();
+    const backup = await createBackup(db);
+    expect(backup.data.mesocycles).toEqual([
+      { name: 'Accumulation', programIndex: 0, sortOrder: 1 },
+      { name: 'Intensification', programIndex: 0, sortOrder: 2 },
+    ]);
+    const byName = new Map(backup.data.routines.map((r) => [r.name, r]));
+    expect(byName.get('Day A')).toMatchObject({ mesocycleIndex: 0 });
+    expect(byName.get('Day B')).toMatchObject({ mesocycleIndex: 1 });
+    expect(byName.get('Day C')).toMatchObject({ mesocycleIndex: null });
+    expect(backupSummary(backup).mesocycles).toBe(2);
+
+    const db2 = makeDb();
+    await restoreBackup(db2, serializeBackup(backup));
+    const actions2 = makeDbActions(db2);
+    const programs = await actions2.listProgramsWithCounts();
+    expect(programs).toHaveLength(1);
+    const mesos = await actions2.listMesocycles(programs[0].id);
+    expect(mesos.map((m) => [m.name, m.sortOrder, m.routineCount])).toEqual([
+      ['Accumulation', 1, 1],
+      ['Intensification', 2, 1],
+    ]);
+    const members = await actions2.listProgramRoutines(programs[0].id);
+    const staging = new Map(members.map((m) => [m.name, m.mesocycleId]));
+    expect(staging.get('Day A')).toBe(mesos[0].id);
+    expect(staging.get('Day B')).toBe(mesos[1].id);
+    expect(staging.get('Day C')).toBeNull();
+  });
+
+  it('pre-v9 backups without mesocycles validate and restore as unstaged', async () => {
+    const db = await dbWithMesocycles();
+    const backup = await createBackup(db);
+    const raw = JSON.parse(serializeBackup(backup)) as any;
+    delete raw.data.mesocycles;
+    for (const r of raw.data.routines) delete r.mesocycleIndex;
+    raw.checksum = semanticChecksum(raw.data);
+    const parsed = parseBackup(JSON.stringify(raw));
+    expect(parsed.data.mesocycles).toBeUndefined();
+
+    const db2 = makeDb();
+    await restoreBackup(db2, JSON.stringify(raw));
+    const actions2 = makeDbActions(db2);
+    const programs = await actions2.listProgramsWithCounts();
+    expect(await actions2.listMesocycles(programs[0].id)).toEqual([]);
+    const members = await actions2.listProgramRoutines(programs[0].id);
+    expect(members.every((m) => m.mesocycleId === null)).toBe(true);
+    expect(members).toHaveLength(3);
+  });
+
+  it('rejects invalid mesocycle data before the checksum', async () => {
+    const db = await dbWithMesocycles();
+    const b = await createBackup(db);
+
+    const badProgram = JSON.parse(serializeBackup(b)) as any;
+    badProgram.data.mesocycles[0].programIndex = 7;
+    badProgram.checksum = semanticChecksum(badProgram.data);
+    expect(() => parseBackup(JSON.stringify(badProgram))).toThrow(
+      expect.objectContaining({ code: 'invalid_reference' }),
+    );
+
+    const danglingRoutine = JSON.parse(serializeBackup(b)) as any;
+    danglingRoutine.data.routines.find((r: any) => r.name === 'Day A').mesocycleIndex = 9;
+    danglingRoutine.checksum = semanticChecksum(danglingRoutine.data);
+    expect(() => parseBackup(JSON.stringify(danglingRoutine))).toThrow(
+      expect.objectContaining({ code: 'invalid_reference' }),
+    );
+
+    const notArray = JSON.parse(serializeBackup(b)) as any;
+    notArray.data.mesocycles = {};
+    notArray.checksum = semanticChecksum(notArray.data);
+    expect(() => parseBackup(JSON.stringify(notArray))).toThrow(
+      expect.objectContaining({ code: 'missing_field' }),
     );
   });
 });

@@ -7,6 +7,7 @@ import {
   Exercise,
   Routine,
   Program,
+  Mesocycle,
   RoutineBlock,
   RoutineBlockStep,
   Prescription,
@@ -110,13 +111,22 @@ export interface DbActions {
 
   createProgram(name: string): Promise<string>;
   renameProgram(id: string, name: string): Promise<void>;
-  /** Detaches member routines (preserved) and deletes the program container. */
+  /** Detaches member routines (preserved), deletes mesocycles, then the program. */
   deleteProgram(id: string): Promise<void>;
   listProgramsWithCounts(): Promise<Array<{ id: string; name: string; routineCount: number }>>;
-  listProgramRoutines(programId: string): Promise<Array<{ id: string; name: string; order: number }>>;
+  listProgramRoutines(programId: string): Promise<Array<{ id: string; name: string; order: number; mesocycleId: string | null }>>;
   listUnassignedRoutines(): Promise<Array<{ id: string; name: string }>>;
   assignRoutineToProgram(routineId: string, programId: string): Promise<void>;
   removeRoutineFromProgram(routineId: string): Promise<void>;
+
+  createMesocycle(programId: string, name: string): Promise<string>;
+  renameMesocycle(id: string, name: string): Promise<void>;
+  /** Detaches staged routines (preserved) and deletes the mesocycle container. */
+  deleteMesocycle(id: string): Promise<void>;
+  listMesocycles(programId: string): Promise<Array<{ id: string; name: string; sortOrder: number; routineCount: number }>>;
+  /** Stages a routine; rejects when routine and mesocycle belong to different programs. */
+  assignRoutineToMesocycle(routineId: string, mesocycleId: string): Promise<void>;
+  removeRoutineFromMesocycle(routineId: string): Promise<void>;
   loadRoutineDraft(routineId: string): Promise<RoutineDraft>;
   saveRoutineDraft(draft: RoutineDraft): Promise<string>;
   createBlock(routineId: string, input: { name: string; kind: string; rounds: number }): Promise<string>;
@@ -311,9 +321,15 @@ export function makeDbActions(db: Database): DbActions {
           await r.update((rec) => {
             rec.programId = null;
             rec.programOrder = null;
+            rec.mesocycleId = null;
             rec.updatedAt = now();
           });
         }
+        const mesos = await db
+          .get<Mesocycle>('mesocycles')
+          .query(Q.where('program_id', id))
+          .fetch();
+        for (const m of mesos) await m.markAsDeleted();
         const p = await db.get<Program>('programs').find(id);
         await p.markAsDeleted();
       });
@@ -340,7 +356,12 @@ export function makeDbActions(db: Database): DbActions {
         .query(Q.where('program_id', programId))
         .fetch();
       return routines
-        .map((r) => ({ id: r.id, name: r.name, order: r.programOrder ?? Number.MAX_SAFE_INTEGER }))
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          order: r.programOrder ?? Number.MAX_SAFE_INTEGER,
+          mesocycleId: r.mesocycleId,
+        }))
         .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
     },
 
@@ -370,6 +391,8 @@ export function makeDbActions(db: Database): DbActions {
         await routine.update((rec) => {
           rec.programId = programId;
           rec.programOrder = next;
+          // Staging from a previous program no longer applies.
+          rec.mesocycleId = null;
           rec.updatedAt = now();
         });
       });
@@ -381,6 +404,100 @@ export function makeDbActions(db: Database): DbActions {
         await routine.update((rec) => {
           rec.programId = null;
           rec.programOrder = null;
+          rec.mesocycleId = null;
+          rec.updatedAt = now();
+        });
+      });
+    },
+
+    async createMesocycle(programId, name) {
+      return db.write(async () => {
+        // Verify the program exists before creating a phase inside it.
+        await db.get<Program>('programs').find(programId);
+        const existing = await db
+          .get<Mesocycle>('mesocycles')
+          .query(Q.where('program_id', programId))
+          .fetch();
+        let next = 1;
+        for (const m of existing) if (m.sortOrder >= next) next = m.sortOrder + 1;
+        const row = await db.get<Mesocycle>('mesocycles').create((rec) => {
+          rec.name = name;
+          rec.programId = programId;
+          rec.sortOrder = next;
+          rec.createdAt = now();
+          rec.updatedAt = now();
+        });
+        return row.id;
+      });
+    },
+
+    async renameMesocycle(id, name) {
+      await db.write(async () => {
+        const m = await db.get<Mesocycle>('mesocycles').find(id);
+        await m.update((rec) => {
+          rec.name = name;
+          rec.updatedAt = now();
+        });
+      });
+    },
+
+    async deleteMesocycle(id) {
+      await db.write(async () => {
+        const staged = await db
+          .get<Routine>('routines')
+          .query(Q.where('mesocycle_id', id))
+          .fetch();
+        for (const r of staged) {
+          await r.update((rec) => {
+            rec.mesocycleId = null;
+            rec.updatedAt = now();
+          });
+        }
+        const m = await db.get<Mesocycle>('mesocycles').find(id);
+        await m.markAsDeleted();
+      });
+    },
+
+    async listMesocycles(programId) {
+      const mesos = await db
+        .get<Mesocycle>('mesocycles')
+        .query(Q.where('program_id', programId))
+        .fetch();
+      const routines = await db.get<Routine>('routines').query().fetch();
+      const countByMeso = new Map<string, number>();
+      for (const r of routines) {
+        if (r.mesocycleId == null) continue;
+        countByMeso.set(r.mesocycleId, (countByMeso.get(r.mesocycleId) ?? 0) + 1);
+      }
+      return mesos
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          sortOrder: m.sortOrder,
+          routineCount: countByMeso.get(m.id) ?? 0,
+        }))
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    },
+
+    async assignRoutineToMesocycle(routineId, mesocycleId) {
+      await db.write(async () => {
+        const meso = await db.get<Mesocycle>('mesocycles').find(mesocycleId);
+        const routine = await db.get<Routine>('routines').find(routineId);
+        if (routine.programId == null || routine.programId !== meso.programId) {
+          throw new Error('routine is not a member of the mesocycle program');
+        }
+        await routine.update((rec) => {
+          rec.mesocycleId = mesocycleId;
+          rec.updatedAt = now();
+        });
+      });
+    },
+
+    async removeRoutineFromMesocycle(routineId) {
+      await db.write(async () => {
+        const routine = await db.get<Routine>('routines').find(routineId);
+        await routine.update((rec) => {
+          rec.mesocycleId = null;
           rec.updatedAt = now();
         });
       });

@@ -27,24 +27,37 @@ interface ProgramRow {
 interface RoutineRow {
   id: string;
   name: string;
+  mesocycleId: string | null;
+}
+
+interface MesocycleRow {
+  id: string;
+  name: string;
+  sortOrder: number;
+  routineCount: number;
 }
 
 /**
- * Program detail (Phase 4A): rename, ordered member routines (tap opens the
- * routine editor), remove, add from unassigned routines, and delete program
- * (detaches — routines are never cascaded).
+ * Program detail (Phase 4A + 4B): rename, mesocycle phases (create / rename /
+ * delete with staged routines preserved), member routines with per-routine
+ * staging chips, add from unassigned routines, and delete program.
+ * Delete operations detach — routines are never cascaded.
  */
 export function ProgramDetailScreen({ programId }: { programId: string }) {
   const { pop, push } = useNav();
   const [program, setProgram] = useState<ProgramRow | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [members, setMembers] = useState<RoutineRow[]>([]);
-  const [unassigned, setUnassigned] = useState<RoutineRow[]>([]);
+  const [unassigned, setUnassigned] = useState<Array<{ id: string; name: string }>>([]);
+  const [mesos, setMesos] = useState<MesocycleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [mesoName, setMesoName] = useState('');
+  const [mesoError, setMesoError] = useState<string | null>(null);
+  const [mesoDrafts, setMesoDrafts] = useState<Record<string, string>>({});
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -58,11 +71,15 @@ export function ProgramDetailScreen({ programId }: { programId: string }) {
         setProgram(null);
         setMembers([]);
         setUnassigned([]);
+        setMesos([]);
         return;
       }
       setNotFound(false);
       setProgram(found);
       setName(found.name);
+      const loadedMesos = await actions.listMesocycles(programId);
+      setMesos(loadedMesos);
+      setMesoDrafts(Object.fromEntries(loadedMesos.map((m) => [m.id, m.name])));
       setMembers(await actions.listProgramRoutines(programId));
       setUnassigned(await actions.listUnassignedRoutines());
     } catch (e) {
@@ -75,6 +92,15 @@ export function ProgramDetailScreen({ programId }: { programId: string }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const run = async (fn: () => Promise<void>) => {
+    try {
+      await fn();
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
 
   const saveName = async () => {
     const trimmed = name.trim();
@@ -94,38 +120,61 @@ export function ProgramDetailScreen({ programId }: { programId: string }) {
     }
   };
 
-  const assign = async (routineId: string) => {
-    try {
-      await makeDbActions(database).assignRoutineToProgram(routineId, programId);
-      await reload();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+  const createMesocycle = () => {
+    const trimmed = mesoName.trim();
+    if (!trimmed) {
+      setMesoError(strings.programs.nameRequired);
+      return;
     }
+    void run(async () => {
+      await makeDbActions(database).createMesocycle(programId, trimmed);
+      setMesoName('');
+    });
   };
+
+  const saveMesocycle = (mesoId: string) => {
+    const trimmed = (mesoDrafts[mesoId] ?? '').trim();
+    if (!trimmed) {
+      setMesoError(strings.programs.nameRequired);
+      return;
+    }
+    void run(async () => {
+      await makeDbActions(database).renameMesocycle(mesoId, trimmed);
+    });
+  };
+
+  const deleteMesocycle = (meso: MesocycleRow) => {
+    confirmDestructive(strings.programs.deleteMesocycleConfirm, () => {
+      void run(async () => {
+        await makeDbActions(database).deleteMesocycle(meso.id);
+      });
+    });
+  };
+
+  const toggleStage = (row: RoutineRow, mesoId: string | null) => {
+    void run(async () => {
+      const actions = makeDbActions(database);
+      if (mesoId == null) await actions.removeRoutineFromMesocycle(row.id);
+      else if (row.mesocycleId === mesoId) await actions.removeRoutineFromMesocycle(row.id);
+      else await actions.assignRoutineToMesocycle(row.id, mesoId);
+    });
+  };
+
+  const assign = (routineId: string) =>
+    run(() => makeDbActions(database).assignRoutineToProgram(routineId, programId));
 
   const removeMember = (row: RoutineRow) => {
     confirmDestructive(`${strings.programs.remove}?\n\n${row.name}`, () => {
-      void (async () => {
-        try {
-          await makeDbActions(database).removeRoutineFromProgram(row.id);
-          await reload();
-        } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      })();
+      void run(() => makeDbActions(database).removeRoutineFromProgram(row.id));
     });
   };
 
   const removeProgram = () => {
     confirmDestructive(strings.programs.deleteConfirm, () => {
-      void (async () => {
-        try {
-          await makeDbActions(database).deleteProgram(programId);
-          pop();
-        } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      })();
+      void makeDbActions(database)
+        .deleteProgram(programId)
+        .then(pop)
+        .catch((e) => setError(e instanceof Error ? e.message : String(e)));
     });
   };
 
@@ -161,6 +210,56 @@ export function ProgramDetailScreen({ programId }: { programId: string }) {
                 />
               </Card>
 
+              <SectionHeader title={strings.programs.mesocycles} />
+              <Card testID="meso-create-card" className="mb-2">
+                <TextField
+                  label={strings.programs.mesocycleName}
+                  value={mesoName}
+                  onChangeText={(t) => {
+                    setMesoName(t);
+                    setMesoError(null);
+                  }}
+                  error={mesoError}
+                  testID="meso-name-input"
+                />
+                <Button
+                  label={strings.programs.createMesocycle}
+                  onPress={createMesocycle}
+                  disabled={loading}
+                  className="mt-3"
+                />
+              </Card>
+              {mesos.length === 0 ? (
+                <Text className="text-sm text-dim">{strings.programs.noMesocycles}</Text>
+              ) : (
+                mesos.map((m) => (
+                  <Card key={m.id} testID={`meso-card-${m.id}`} className="mb-2">
+                    <TextField
+                      label={`${strings.programs.renameMesocycle} · ${m.routineCount} ${strings.programs.routinesLabel}`}
+                      value={mesoDrafts[m.id] ?? m.name}
+                      onChangeText={(t) => setMesoDrafts((prev) => ({ ...prev, [m.id]: t }))}
+                      testID={`meso-rename-input-${m.id}`}
+                    />
+                    <View className="mt-2 flex-row gap-2">
+                      <View className="flex-1">
+                        <Button
+                          label={strings.common.save}
+                          variant="secondary"
+                          onPress={() => saveMesocycle(m.id)}
+                        />
+                      </View>
+                      <View className="flex-1">
+                        <Button
+                          label={strings.programs.deleteMesocycle}
+                          variant="danger"
+                          onPress={() => deleteMesocycle(m)}
+                        />
+                      </View>
+                    </View>
+                  </Card>
+                ))
+              )}
+
               <SectionHeader title={strings.programs.members} />
               {members.length === 0 ? (
                 <Text className="text-sm text-dim">{strings.programs.noMembers}</Text>
@@ -180,6 +279,48 @@ export function ProgramDetailScreen({ programId }: { programId: string }) {
                         {row.name}
                       </Text>
                     </Pressable>
+                    {mesos.length > 0 ? (
+                      <View className="mt-1 flex-row flex-wrap gap-2">
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${row.name}: ${strings.programs.noStage}`}
+                          accessibilityState={{ selected: row.mesocycleId === null }}
+                          onPress={() => toggleStage(row, null)}
+                          testID={`stage-none-${row.id}`}
+                          className={`min-h-10 flex-row items-center rounded-lg border px-3 ${
+                            row.mesocycleId === null ? 'border-accent bg-accent/10' : 'border-line bg-surface-2'
+                          }`}
+                        >
+                          <Text
+                            className={`text-sm ${
+                              row.mesocycleId === null ? 'text-accent-ink' : 'text-dim'
+                            }`}
+                          >
+                            {strings.programs.noStage}
+                          </Text>
+                        </Pressable>
+                        {mesos.map((m) => {
+                          const active = row.mesocycleId === m.id;
+                          return (
+                            <Pressable
+                              key={m.id}
+                              accessibilityRole="button"
+                              accessibilityLabel={`${row.name}: ${m.name}`}
+                              accessibilityState={{ selected: active }}
+                              onPress={() => toggleStage(row, m.id)}
+                              testID={`stage-${row.id}-${m.id}`}
+                              className={`min-h-10 flex-row items-center rounded-lg border px-3 ${
+                                active ? 'border-accent bg-accent/10' : 'border-line bg-surface-2'
+                              }`}
+                            >
+                              <Text className={`text-sm ${active ? 'text-accent-ink' : 'text-dim'}`}>
+                                {m.name}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    ) : null}
                     <Button
                       label={strings.programs.remove}
                       variant="secondary"
@@ -213,7 +354,7 @@ export function ProgramDetailScreen({ programId }: { programId: string }) {
                       <Button
                         label={strings.programs.addRoutine}
                         variant="primary"
-                        onPress={() => void assign(row.id)}
+                        onPress={() => assign(row.id)}
                       />
                     </View>
                   </Card>

@@ -83,3 +83,92 @@ describe('program actions (Phase 4A)', () => {
     expect(await actions.listProgramRoutines(p)).toEqual([]);
   });
 });
+
+describe('mesocycle actions (Phase 4B)', () => {
+  it('creates ordered mesocycles inside a program with staged counts', async () => {
+    const actions = makeDbActions(makeDb());
+    const p = await actions.createProgram('Block A');
+    const m1 = await actions.createMesocycle(p, 'Accumulation');
+    const m2 = await actions.createMesocycle(p, 'Intensification');
+    expect(await actions.listMesocycles(p)).toEqual([
+      { id: m1, name: 'Accumulation', sortOrder: 1, routineCount: 0 },
+      { id: m2, name: 'Intensification', sortOrder: 2, routineCount: 0 },
+    ]);
+    const r = await actions.createRoutine('Day A');
+    await actions.assignRoutineToProgram(r, p);
+    await actions.assignRoutineToMesocycle(r, m1);
+    expect((await actions.listMesocycles(p))[0].routineCount).toBe(1);
+    expect(await actions.listProgramRoutines(p)).toEqual([
+      { id: r, name: 'Day A', order: 1, mesocycleId: m1 },
+    ]);
+  });
+
+  it('rejects mesocycles for missing programs and cross-program staging', async () => {
+    const actions = makeDbActions(makeDb());
+    const p1 = await actions.createProgram('One');
+    const p2 = await actions.createProgram('Two');
+    await expect(actions.createMesocycle('missing', 'Phase')).rejects.toThrow();
+
+    const r = await actions.createRoutine('Day');
+    await actions.assignRoutineToProgram(r, p1);
+    const m2 = await actions.createMesocycle(p2, 'Phase');
+    await expect(actions.assignRoutineToMesocycle(r, m2)).rejects.toThrow();
+    expect((await actions.listProgramRoutines(p1))[0].mesocycleId).toBeNull();
+  });
+
+  it('unstaging keeps the routine in the program', async () => {
+    const actions = makeDbActions(makeDb());
+    const p = await actions.createProgram('Block');
+    const m = await actions.createMesocycle(p, 'Phase 1');
+    const r = await actions.createRoutine('Day');
+    await actions.assignRoutineToProgram(r, p);
+    await actions.assignRoutineToMesocycle(r, m);
+    await actions.removeRoutineFromMesocycle(r);
+    expect(await actions.listProgramRoutines(p)).toEqual([
+      { id: r, name: 'Day', order: 1, mesocycleId: null },
+    ]);
+    expect((await actions.listMesocycles(p))[0].routineCount).toBe(0);
+  });
+
+  it('deleting a mesocycle detaches staged routines but keeps the program', async () => {
+    const actions = makeDbActions(makeDb());
+    const p = await actions.createProgram('Block');
+    const m = await actions.createMesocycle(p, 'Doomed phase');
+    const r = await actions.createRoutine('Day');
+    await actions.assignRoutineToProgram(r, p);
+    await actions.assignRoutineToMesocycle(r, m);
+    await actions.deleteMesocycle(m);
+    expect(await actions.listMesocycles(p)).toEqual([]);
+    expect(await actions.listProgramRoutines(p)).toEqual([
+      { id: r, name: 'Day', order: 1, mesocycleId: null },
+    ]);
+    expect(await actions.listProgramsWithCounts()).toHaveLength(1);
+  });
+
+  it('deleting a program also deletes its mesocycles', async () => {
+    const actions = makeDbActions(makeDb());
+    const p = await actions.createProgram('Doomed');
+    const m = await actions.createMesocycle(p, 'Phase');
+    const r = await actions.createRoutine('Day');
+    await actions.assignRoutineToProgram(r, p);
+    await actions.assignRoutineToMesocycle(r, m);
+    await actions.deleteProgram(p);
+    expect(await actions.listMesocycles(p)).toEqual([]);
+    expect(await actions.listUnassignedRoutines()).toEqual([{ id: r, name: 'Day' }]);
+  });
+
+  it('moving a routine to another program clears its staging', async () => {
+    const actions = makeDbActions(makeDb());
+    const p1 = await actions.createProgram('One');
+    const p2 = await actions.createProgram('Two');
+    const m1 = await actions.createMesocycle(p1, 'Phase');
+    const r = await actions.createRoutine('Day');
+    await actions.assignRoutineToProgram(r, p1);
+    await actions.assignRoutineToMesocycle(r, m1);
+    await actions.assignRoutineToProgram(r, p2);
+    expect(await actions.listProgramRoutines(p2)).toEqual([
+      { id: r, name: 'Day', order: 1, mesocycleId: null },
+    ]);
+    expect((await actions.listMesocycles(p1))[0].routineCount).toBe(0);
+  });
+});

@@ -3,24 +3,24 @@ import { migrations } from './migrations';
 
 /**
  * Migration / data-version sanity for Phase 2J + i18n (schema v6) + Phase 3C (schema v7)
- * + Phase 4A programs (schema v8).
- * Goal: prove the installed schema is v8, migrations infrastructure is wired,
+ * + Phase 4A programs (schema v8) + Phase 4B mesocycles (schema v9).
+ * Goal: prove the installed schema is v9, migrations infrastructure is wired,
  * routine_blocks carries optional interval_json, readiness_tests,
  * equipment_items and app_settings exist, workout_sessions carries
- * optional note, set_logs carries optional execution metadata, and programs
- * plus routine program linkage exist.
+ * optional note, set_logs carries optional execution metadata, and programs,
+ * mesocycles plus routine linkage exist.
  *
  * WatermelonDB shape: schema.tables is a name→table map;
  * schemaMigrations() returns { sortedMigrations, minVersion, maxVersion, validated }.
  */
 
 describe('migration / data version sanity', () => {
-  it('schemaVersion is 8 (Phase 4A programs)', () => {
-    expect(schemaVersion).toBe(8);
-    expect(schema.version).toBe(8);
+  it('schemaVersion is 9 (Phase 4B mesocycles)', () => {
+    expect(schemaVersion).toBe(9);
+    expect(schema.version).toBe(9);
   });
 
-  it('all thirteen release tables are present with expected names', () => {
+  it('all fourteen release tables are present with expected names', () => {
     const names = Object.keys(schema.tables).sort();
     expect(names).toEqual(
       [
@@ -28,6 +28,7 @@ describe('migration / data version sanity', () => {
         'block_transitions',
         'equipment_items',
         'exercises',
+        'mesocycles',
         'programs',
         'readiness_tests',
         'routine_block_steps',
@@ -39,21 +40,15 @@ describe('migration / data version sanity', () => {
         'workout_sessions',
       ].sort(),
     );
-    expect(names).toHaveLength(13);
+    expect(names).toHaveLength(14);
   });
 
-  it('migrations infrastructure is validated; v1→v2 through v7→v8 steps', () => {
+  it('migrations infrastructure is validated; v1→v2 through v8→v9 steps', () => {
     expect(migrations.validated).toBe(true);
     expect(migrations.minVersion).toBe(1);
-    expect(migrations.maxVersion).toBe(8);
-    expect(migrations.sortedMigrations).toHaveLength(7);
-    expect(migrations.sortedMigrations[0].toVersion).toBe(2);
-    expect(migrations.sortedMigrations[1].toVersion).toBe(3);
-    expect(migrations.sortedMigrations[2].toVersion).toBe(4);
-    expect(migrations.sortedMigrations[3].toVersion).toBe(5);
-    expect(migrations.sortedMigrations[4].toVersion).toBe(6);
-    expect(migrations.sortedMigrations[5].toVersion).toBe(7);
-    expect(migrations.sortedMigrations[6].toVersion).toBe(8);
+    expect(migrations.maxVersion).toBe(9);
+    expect(migrations.sortedMigrations).toHaveLength(8);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toEqual([2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   it('programs table exists with name + timestamps (schema v8)', () => {
@@ -65,7 +60,18 @@ describe('migration / data version sanity', () => {
     expect(byName.get('updated_at')?.type).toBe('number');
   });
 
-  it('routines carry optional indexed program_id and program_order (schema v8)', () => {
+  it('mesocycles table exists with program linkage and order (schema v9)', () => {
+    const t = schema.tables['mesocycles'];
+    expect(t).toBeDefined();
+    const byName = new Map(t.columnArray.map((c) => [c.name, c]));
+    expect(byName.get('name')?.type).toBe('string');
+    expect(byName.get('program_id')?.type).toBe('string');
+    expect(byName.get('program_id')?.isIndexed).toBe(true);
+    expect(byName.get('program_id')?.isOptional).toBeFalsy();
+    expect(byName.get('sort_order')?.type).toBe('number');
+  });
+
+  it('routines carry optional indexed program and mesocycle linkage (schema v8/v9)', () => {
     const t = schema.tables['routines'];
     const byName = new Map(t.columnArray.map((c) => [c.name, c]));
     expect(byName.get('program_id')?.isOptional).toBe(true);
@@ -73,6 +79,9 @@ describe('migration / data version sanity', () => {
     expect(byName.get('program_id')?.type).toBe('string');
     expect(byName.get('program_order')?.isOptional).toBe(true);
     expect(byName.get('program_order')?.type).toBe('number');
+    expect(byName.get('mesocycle_id')?.isOptional).toBe(true);
+    expect(byName.get('mesocycle_id')?.isIndexed).toBe(true);
+    expect(byName.get('mesocycle_id')?.type).toBe('string');
   });
 
   it('app_settings has key/value + timestamps (schema v6)', () => {

@@ -14,9 +14,11 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
  * reason). Older rows read null ��' treated as legacy normal/voided rows.
  * v8 (Phase 4A): programs table (higher-level training structure) plus
  * optional routines.program_id / routines.program_order linking an ordered
- * list of existing routines to a program. Older rows read null ��' unassigned.
+ * list of existing routines to a program. Older rows read null - unassigned.
+ * v9 (Phase 4B): mesocycles table (ordered training phases inside a program)
+ * plus optional routines.mesocycle_id. Older rows read null - not staged.
  */
-export const schemaVersion = 8;
+export const schemaVersion = 9;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -38,6 +40,7 @@ export const schema = appSchema({
         { name: 'name', type: 'string' },
         { name: 'program_id', type: 'string', isOptional: true, isIndexed: true },
         { name: 'program_order', type: 'number', isOptional: true },
+        { name: 'mesocycle_id', type: 'string', isOptional: true, isIndexed: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],
@@ -46,6 +49,16 @@ export const schema = appSchema({
       name: 'programs',
       columns: [
         { name: 'name', type: 'string' },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'mesocycles',
+      columns: [
+        { name: 'name', type: 'string' },
+        { name: 'program_id', type: 'string', isIndexed: true },
+        { name: 'sort_order', type: 'number' },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

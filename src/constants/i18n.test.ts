@@ -216,26 +216,33 @@ describe('strings facade', () => {
   });
 });
 
-describe('schema v8 (Phase 4A programs)', () => {
-  it('schemaVersion is 8 with programs table and routine linkage', () => {
-    expect(schemaVersion).toBe(8);
-    expect(schema.version).toBe(8);
+describe('schema v9 (Phase 4B mesocycles)', () => {
+  it('schemaVersion is 9 with programs, mesocycles and routine linkage', () => {
+    expect(schemaVersion).toBe(9);
+    expect(schema.version).toBe(9);
     const settings = schema.tables['app_settings'];
     expect(settings).toBeDefined();
     expect(settings.columnArray.map((c) => c.name)).toEqual(['key', 'value', 'created_at', 'updated_at']);
     const programs = schema.tables['programs'];
     expect(programs).toBeDefined();
     expect(programs.columnArray.map((c) => c.name)).toEqual(['name', 'created_at', 'updated_at']);
+    const mesocycles = schema.tables['mesocycles'];
+    expect(mesocycles).toBeDefined();
+    expect(mesocycles.columnArray.map((c) => c.name)).toEqual(['name', 'program_id', 'sort_order', 'created_at', 'updated_at']);
     const routines = schema.tables['routines'];
     const routineCols = routines.columnArray.map((c) => c.name);
     expect(routineCols).toContain('program_id');
     expect(routineCols).toContain('program_order');
+    expect(routineCols).toContain('mesocycle_id');
     const programIdCol = routines.columnArray.find((c) => c.name === 'program_id');
     expect(programIdCol?.isIndexed).toBe(true);
     expect(programIdCol?.isOptional).toBe(true);
+    const mesoCol = routines.columnArray.find((c) => c.name === 'mesocycle_id');
+    expect(mesoCol?.isIndexed).toBe(true);
+    expect(mesoCol?.isOptional).toBe(true);
     expect(migrations.validated).toBe(true);
-    expect(migrations.maxVersion).toBe(8);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(8);
+    expect(migrations.maxVersion).toBe(9);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(9);
   });
 });
 

@@ -20,12 +20,21 @@ interface ProgramInput {
 interface RoutineInput {
   id: string;
   name: string;
+  mesocycleId?: string | null;
+}
+
+interface MesocycleInput {
+  id: string;
+  name: string;
+  sortOrder: number;
+  routineCount: number;
 }
 
 const PROGRAM: ProgramInput = { id: 'p1', name: 'Block A', routineCount: 2 };
-const MEMBER: RoutineInput = { id: 'r1', name: 'Day A' };
-const MEMBER2: RoutineInput = { id: 'r2', name: 'Day B' };
-const CANDIDATE: RoutineInput = { id: 'r3', name: 'Loose day' };
+const MEMBER: RoutineInput = { id: 'r1', name: 'Day A', mesocycleId: null };
+const MEMBER2: RoutineInput = { id: 'r2', name: 'Day B', mesocycleId: null };
+const CANDIDATE: RoutineInput = { id: 'r3', name: 'Loose day', mesocycleId: null };
+const MESO: MesocycleInput = { id: 'm1', name: 'Accumulation', sortOrder: 1, routineCount: 0 };
 
 function flatten(node: unknown): string {
   if (node === null || node === undefined || typeof node === 'boolean') return '';
@@ -56,18 +65,25 @@ interface SetupOptions {
   programs?: ProgramInput[];
   members?: RoutineInput[];
   unassigned?: RoutineInput[];
+  mesos?: MesocycleInput[];
 }
 
 function setup(opts: SetupOptions = {}) {
-  const { programs = [PROGRAM], members = [MEMBER, MEMBER2], unassigned = [CANDIDATE] } = opts;
+  const { programs = [PROGRAM], members = [MEMBER, MEMBER2], unassigned = [CANDIDATE], mesos = [] } = opts;
   const actions = {
     listProgramsWithCounts: jest.fn().mockResolvedValue(programs),
     listProgramRoutines: jest.fn().mockResolvedValue(members),
     listUnassignedRoutines: jest.fn().mockResolvedValue(unassigned),
+    listMesocycles: jest.fn().mockResolvedValue(mesos),
     renameProgram: jest.fn().mockResolvedValue(undefined),
     assignRoutineToProgram: jest.fn().mockResolvedValue(undefined),
     removeRoutineFromProgram: jest.fn().mockResolvedValue(undefined),
     deleteProgram: jest.fn().mockResolvedValue(undefined),
+    createMesocycle: jest.fn().mockResolvedValue('m-new'),
+    renameMesocycle: jest.fn().mockResolvedValue(undefined),
+    deleteMesocycle: jest.fn().mockResolvedValue(undefined),
+    assignRoutineToMesocycle: jest.fn().mockResolvedValue(undefined),
+    removeRoutineFromMesocycle: jest.fn().mockResolvedValue(undefined),
   };
   mockedMakeDbActions.mockReturnValue(actions as unknown as ReturnType<typeof makeDbActions>);
   return actions;
@@ -194,5 +210,91 @@ describe('ProgramDetailScreen (Phase 4A)', () => {
     const texts = textsOf(renderer);
     expect(texts).toContain(strings.programs.noMembers);
     expect(texts).toContain(strings.programs.noUnassigned);
+  });
+});
+
+describe('ProgramDetailScreen mesocycles (Phase 4B)', () => {
+  it('creates a mesocycle and refreshes phases', async () => {
+    const actions = setup();
+    const renderer = await renderScreen();
+    const input = nodeByTestId(renderer, 'meso-name-input').findByType(TextInput);
+    await act(async () => {
+      input.props.onChangeText('Weeks 1-4');
+    });
+    await act(async () => {
+      buttonByLabel(renderer, strings.programs.createMesocycle).props.onPress();
+    });
+    expect(actions.createMesocycle).toHaveBeenCalledWith('p1', 'Weeks 1-4');
+    expect(actions.listMesocycles).toHaveBeenCalledTimes(2);
+    expect(actions.listMesocycles).toHaveBeenCalledWith('p1');
+  });
+
+  it('blocks empty mesocycle names with the localized error', async () => {
+    const actions = setup();
+    const renderer = await renderScreen();
+    await act(async () => {
+      buttonByLabel(renderer, strings.programs.createMesocycle).props.onPress();
+    });
+    expect(actions.createMesocycle).not.toHaveBeenCalled();
+    expect(textsOf(renderer)).toContain(strings.programs.nameRequired);
+  });
+
+  it('lists mesocycles with rename and delete controls', async () => {
+    setup({ mesos: [MESO] });
+    const renderer = await renderScreen();
+    const texts = textsOf(renderer);
+    expect(texts).toContain(strings.programs.mesocycles);
+    expect(texts).toContain('Accumulation');
+    expect(nodeByTestId(renderer, 'meso-card-m1').type).toBeDefined();
+    expect(buttonByLabel(renderer, strings.programs.deleteMesocycle)).toBeDefined();
+  });
+
+  it('stages a routine into a mesocycle via its chip', async () => {
+    const actions = setup({ mesos: [MESO] });
+    const renderer = await renderScreen();
+    await act(async () => {
+      nodeByTestId(renderer, 'stage-r1-m1').props.onPress();
+    });
+    expect(actions.assignRoutineToMesocycle).toHaveBeenCalledWith('r1', 'm1');
+    expect(actions.removeRoutineFromMesocycle).not.toHaveBeenCalled();
+    expect(actions.listProgramRoutines).toHaveBeenCalledTimes(2);
+  });
+
+  it('unstages via the no-phase chip when the routine is staged', async () => {
+    const actions = setup({ mesos: [MESO], members: [{ ...MEMBER, mesocycleId: 'm1' }] });
+    const renderer = await renderScreen();
+    await act(async () => {
+      nodeByTestId(renderer, 'stage-none-r1').props.onPress();
+    });
+    expect(actions.removeRoutineFromMesocycle).toHaveBeenCalledWith('r1');
+    expect(actions.assignRoutineToMesocycle).not.toHaveBeenCalled();
+  });
+
+  it('renames a mesocycle from its card', async () => {
+    const actions = setup({ mesos: [MESO] });
+    const renderer = await renderScreen();
+    const input = nodeByTestId(renderer, 'meso-rename-input-m1').findByType(TextInput);
+    await act(async () => {
+      input.props.onChangeText('Accumulation v2');
+    });
+    const saves = renderer.root
+      .findAll((n) => n.props?.accessibilityRole === 'button' && n.props?.accessibilityLabel === strings.common.save)
+      .filter((n) => typeof n.props?.onPress === 'function');
+    await act(async () => {
+      saves[saves.length - 1].props.onPress();
+    });
+    expect(actions.renameMesocycle).toHaveBeenCalledWith('m1', 'Accumulation v2');
+    expect(actions.renameProgram).not.toHaveBeenCalled();
+  });
+
+  it('deletes a mesocycle after confirmation', async () => {
+    const actions = setup({ mesos: [MESO] });
+    const renderer = await renderScreen();
+    await act(async () => {
+      buttonByLabel(renderer, strings.programs.deleteMesocycle).props.onPress();
+    });
+    expect(actions.deleteMesocycle).not.toHaveBeenCalled();
+    await confirmLastAlert();
+    expect(actions.deleteMesocycle).toHaveBeenCalledWith('m1');
   });
 });

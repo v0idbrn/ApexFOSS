@@ -30,6 +30,8 @@ export class Routine extends Model {
   @text('program_id') programId!: string | null;
   /** Phase 4A: order within the program; null = unassigned/legacy. */
   @field('program_order') programOrder!: number | null;
+  /** Phase 4B: mesocycle stage inside the program; null = not staged. */
+  @text('mesocycle_id') mesocycleId!: string | null;
   @field('created_at') createdAt!: number;
   @field('updated_at') updatedAt!: number;
   @children('routine_blocks') blocks!: any;
@@ -40,9 +42,24 @@ export class Program extends Model {
   static table = 'programs';
   static associations = {
     routines: { type: 'has_many' as const, foreignKey: 'program_id' },
+    mesocycles: { type: 'has_many' as const, foreignKey: 'program_id' },
   };
 
   @text('name') name!: string;
+  @field('created_at') createdAt!: number;
+  @field('updated_at') updatedAt!: number;
+}
+
+/** Phase 4B: ordered training phase inside a program (e.g. "Weeks 1-4"). */
+export class Mesocycle extends Model {
+  static table = 'mesocycles';
+  static associations = {
+    routines: { type: 'has_many' as const, foreignKey: 'mesocycle_id' },
+  };
+
+  @text('name') name!: string;
+  @text('program_id') programId!: string;
+  @field('sort_order') sortOrder!: number;
   @field('created_at') createdAt!: number;
   @field('updated_at') updatedAt!: number;
 }
@@ -196,6 +213,7 @@ export const modelClasses = [
   Exercise,
   Routine,
   Program,
+  Mesocycle,
   RoutineBlock,
   RoutineBlockStep,
   Prescription,

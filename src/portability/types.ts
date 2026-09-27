@@ -113,12 +113,22 @@ export interface PortableProgram {
   name: string;
 }
 
+/** A mesocycle phase (Phase 4B): ordered inside a program via programIndex. */
+export interface BackupMesocycle {
+  name: string;
+  /** Index into backup.data.programs. */
+  programIndex: number;
+  sortOrder: number;
+}
+
 /** Backup row shapes (logical, not Watermelon dumps). */
 export interface BackupRoutine extends PortableRoutine {
   /** Index into backup.data.programs, or null/absent when unassigned (Phase 4A). */
   programIndex?: number | null;
   /** Order within the program; null/absent when unassigned or legacy. */
   programOrder?: number | null;
+  /** Index into backup.data.mesocycles, or null/absent when not staged (Phase 4B). */
+  mesocycleIndex?: number | null;
 }
 
 export interface BackupSession {
@@ -196,6 +206,8 @@ export interface BackupData {
   equipmentItems?: BackupEquipmentItem[];
   /** Absent on backups created before schema v8 — restore treats as empty. */
   programs?: PortableProgram[];
+  /** Absent on backups created before schema v9 — restore treats as empty. */
+  mesocycles?: BackupMesocycle[];
 }
 
 export interface ApexBackup {
