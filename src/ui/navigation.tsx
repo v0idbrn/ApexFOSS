@@ -37,7 +37,8 @@ export type Route =
   | { name: 'records' }
   | { name: 'inventory' }
   | { name: 'readiness' }
-  | { name: 'trust' };
+  | { name: 'trust' }
+  | { name: 'report' };
 
 export type TabRootRoute = Extract<Route, { name: TabName }>;
 

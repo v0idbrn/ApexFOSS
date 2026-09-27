@@ -24,6 +24,7 @@ export function MoreScreen() {
     { title: strings.exercises.title, subtitle: strings.more.exerciseSub, route: 'exercises' as const, testID: 'more-exercises' },
     { title: strings.inventory.title, subtitle: strings.more.equipmentSub, route: 'inventory' as const, testID: 'more-inventory' },
     { title: strings.athleteTools.readiness, subtitle: strings.more.readinessSub, route: 'readiness' as const, testID: 'more-readiness' },
+    { title: strings.report.title, subtitle: strings.more.reportSub, route: 'report' as const, testID: 'more-report' },
   ];
 
   return (

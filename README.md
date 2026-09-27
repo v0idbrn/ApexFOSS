@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-673%20%2F%2049%20suites-4ade80" alt="673 tests in 49 suites" />
+  <img src="https://img.shields.io/badge/tests-1113%20%2F%2082%20suites-4ade80" alt="1113 tests in 82 suites" />
 </p>
 
 <p align="center">
@@ -75,6 +75,10 @@ Everything below is implemented in the current codebase.
 - **CSV export** of training history (spreadsheet-safe).
 - **Routine sharing** as portable JSON (`.apexroutine`), via share sheet or **QR code**, with deep links on the `apexfoss://` scheme.
 - **Full offline backup** (`.apexbackup`, versioned schema) with validation and **atomic restore with rollback** — a failed restore leaves your data intact.
+- **Local file import** of `.apexroutine` and `.apexbackup` files via system file picker (Phase 5A).
+- **Enhanced import review** showing matched/unmatched exercises, checksum validation, and schema/version conflicts before confirmation (Phase 5B).
+- **Inbound share intents** — open `.apexroutine` or `.apexbackup` from any file manager or share sheet directly into the import/restore flow (Phase 5C).
+- **Training reports** with period selector (7d/28d/all), volume, PRs/e1RM, adherence, body metrics, goals, and trends, exportable as CSV (Phase 5D).
 - In-app **Trust, Safety & Legal** center: privacy summary, terms, health boundary, local data counts, and a complete local wipe.
 
 ## Privacy by design

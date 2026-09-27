@@ -75,6 +75,10 @@ Todo lo siguiente está implementado en el código actual.
 - **Exportación CSV** del historial de entrenamiento (segura para hojas de cálculo).
 - **Compartición de rutinas** como JSON portable (`.apexroutine`), por hoja de compartición o **código QR**, con enlaces profundos bajo el esquema `apexfoss://`.
 - **Copia de seguridad sin conexión** (`.apexbackup`, esquema versionado) con validación y **restauración atómica con reversión** — una restauración fallida deja tus datos intactos.
+- **Importación local de archivos** `.apexroutine` y `.apexbackup` mediante selector de archivos del sistema (Fase 5A).
+- **Revisión de importación mejorada** que muestra ejercicios coincidentes/no coincidentes, validación de checksum y conflictos de esquema/versión antes de confirmar (Fase 5B).
+- **Intents de compartir entrantes** — abre `.apexroutine` o `.apexbackup` desde cualquier gestor de archivos o hoja de compartir directamente en el flujo de importación/restauración (Fase 5C).
+- **Informes de entrenamiento** con selector de período (7d/28d/todo), volumen, marcas/e1RM, adherencia, métricas corporales, objetivos y tendencias, exportables como CSV (Fase 5D).
 - Centro **Confianza, Seguridad y Legal** dentro de la app: resumen de privacidad, términos, límite de salud, conteo de datos locales y borrado completo local.
 
 ## Privacidad por diseño
