@@ -235,6 +235,18 @@ export const es: Strings = {
     delete: 'Eliminar meta',
     deleteConfirm: '¿Eliminar esta meta?',
   },
+  body: {
+    title: 'Cuerpo',
+    add: 'Registrar medida',
+    weight: 'Peso (kg)',
+    waist: 'Cintura (cm)',
+    atLeastOne: 'Ingresa un peso o una medida de cintura.',
+    empty: 'Sin medidas todavía.',
+    emptyBody: 'Registra tu peso y cintura para ver cómo cambian con el tiempo.',
+    latest: 'Último',
+    delete: 'Eliminar medida',
+    deleteConfirm: '¿Eliminar esta medida?',
+  },
   workout: {
     start: 'Iniciar entrenamiento',
     completeSet: 'COMPLETAR',

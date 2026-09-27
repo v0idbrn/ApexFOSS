@@ -15,17 +15,18 @@ import { migrations } from './migrations';
  */
 
 describe('migration / data version sanity', () => {
-  it('schemaVersion is 10 (Phase 4D goals)', () => {
-    expect(schemaVersion).toBe(10);
-    expect(schema.version).toBe(10);
+  it('schemaVersion is 11 (Phase 4E body metrics)', () => {
+    expect(schemaVersion).toBe(11);
+    expect(schema.version).toBe(11);
   });
 
-  it('all fifteen release tables are present with expected names', () => {
+  it('all sixteen release tables are present with expected names', () => {
     const names = Object.keys(schema.tables).sort();
     expect(names).toEqual(
       [
         'app_settings',
         'block_transitions',
+        'body_metrics',
         'equipment_items',
         'exercises',
         'goals',
@@ -41,15 +42,15 @@ describe('migration / data version sanity', () => {
         'workout_sessions',
       ].sort(),
     );
-    expect(names).toHaveLength(15);
+    expect(names).toHaveLength(16);
   });
 
-  it('migrations infrastructure is validated; v1→v2 through v9→v10 steps', () => {
+  it('migrations infrastructure is validated; v1→v2 through v10→v11 steps', () => {
     expect(migrations.validated).toBe(true);
     expect(migrations.minVersion).toBe(1);
-    expect(migrations.maxVersion).toBe(10);
-    expect(migrations.sortedMigrations).toHaveLength(9);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(migrations.maxVersion).toBe(11);
+    expect(migrations.sortedMigrations).toHaveLength(10);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
   it('programs table exists with name + timestamps (schema v8)', () => {

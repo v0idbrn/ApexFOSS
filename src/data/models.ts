@@ -209,6 +209,17 @@ export class Goal extends Model {
   @field('updated_at') updatedAt!: number;
 }
 
+/** Phase 4E: body measurement at an absolute timestamp (weight and/or waist). */
+export class BodyMetric extends Model {
+  static table = 'body_metrics';
+
+  @field('measured_at') measuredAt!: number;
+  @field('weight_grams') weightGrams!: number | null;
+  @field('waist_mm') waistMm!: number | null;
+  @field('created_at') createdAt!: number;
+  @field('updated_at') updatedAt!: number;
+}
+
 /** Device preference row (schema v6) — e.g. `{ key: 'locale', value: 'es' }`. */
 export class AppSetting extends Model {
   static table = 'app_settings';
@@ -234,5 +245,6 @@ export const modelClasses = [
   ReadinessTest,
   EquipmentItem,
   Goal,
+  BodyMetric,
   AppSetting,
 ];

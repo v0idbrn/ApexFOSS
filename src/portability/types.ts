@@ -127,6 +127,13 @@ export interface BackupGoal {
   targetWeightGrams: number;
 }
 
+/** Phase 4E: body measurement — at least one of weight/waist present. */
+export interface BackupBodyMetric {
+  measuredAt: number;
+  weightGrams: number | null;
+  waistMm: number | null;
+}
+
 /** Backup row shapes (logical, not Watermelon dumps). */
 export interface BackupRoutine extends PortableRoutine {
   /** Index into backup.data.programs, or null/absent when unassigned (Phase 4A). */
@@ -216,6 +223,8 @@ export interface BackupData {
   mesocycles?: BackupMesocycle[];
   /** Absent on backups created before schema v10 — restore treats as empty. */
   goals?: BackupGoal[];
+  /** Absent on backups created before schema v11 — restore treats as empty. */
+  bodyMetrics?: BackupBodyMetric[];
 }
 
 export interface ApexBackup {

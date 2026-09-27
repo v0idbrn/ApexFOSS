@@ -1,6 +1,7 @@
 import { Database, Q } from '@nozbe/watermelondb';
 import type {
   ApexBackup,
+  BackupBodyMetric,
   BackupData,
   BackupEquipmentItem,
   BackupGoal,
@@ -45,6 +46,10 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
   const programRows = await db.get<any>('programs').query(Q.sortBy('created_at', 'asc')).fetch();
   const mesoRows = await db.get<any>('mesocycles').query().fetch();
   const goalRows = await db.get<any>('goals').query(Q.sortBy('created_at', 'asc')).fetch();
+  const bodyRows = await db
+    .get<any>('body_metrics')
+    .query(Q.sortBy('measured_at', 'asc'), Q.sortBy('created_at', 'asc'))
+    .fetch();
 
   // Programs (schema v8): name-only containers; membership lives on routines.
   const programs: PortableProgram[] = programRows.map((p) => ({ name: p.name }));
@@ -265,6 +270,12 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     targetWeightGrams: g.targetWeightGrams,
   }));
 
+  const bodyMetrics: BackupBodyMetric[] = bodyRows.map((m: any) => ({
+    measuredAt: m.measuredAt,
+    weightGrams: m.weightGrams ?? null,
+    waistMm: m.waistMm ?? null,
+  }));
+
   const data: BackupData = {
     exercises,
     routines,
@@ -276,6 +287,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     programs,
     mesocycles,
     goals,
+    bodyMetrics,
   };
   return {
     format: BACKUP_FORMAT,
@@ -411,6 +423,29 @@ export function validateBackup(raw: unknown): ApexBackup {
       gg.targetWeightGrams <= 0
     ) {
       throw new PortabilityError('invalid_integer', `goals[${i}].targetWeightGrams`);
+    }
+  }
+
+  const bodyMetricsRaw = d.bodyMetrics;
+  if (bodyMetricsRaw !== undefined && !Array.isArray(bodyMetricsRaw)) {
+    throw new PortabilityError('missing_field', 'data.bodyMetrics');
+  }
+  const bodyList: unknown[] = Array.isArray(bodyMetricsRaw) ? bodyMetricsRaw : [];
+  const validBodyValue = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v > 0;
+  for (const [i, m] of bodyList.entries()) {
+    if (typeof m !== 'object' || m === null) throw new PortabilityError('missing_field', `bodyMetrics[${i}]`);
+    const mm = m as Record<string, unknown>;
+    if (typeof mm.measuredAt !== 'number' || !Number.isInteger(mm.measuredAt) || mm.measuredAt <= 0) {
+      throw new PortabilityError('invalid_integer', `bodyMetrics[${i}].measuredAt`);
+    }
+    if (mm.weightGrams != null && !validBodyValue(mm.weightGrams)) {
+      throw new PortabilityError('invalid_integer', `bodyMetrics[${i}].weightGrams`);
+    }
+    if (mm.waistMm != null && !validBodyValue(mm.waistMm)) {
+      throw new PortabilityError('invalid_integer', `bodyMetrics[${i}].waistMm`);
+    }
+    if (mm.weightGrams == null && mm.waistMm == null) {
+      throw new PortabilityError('missing_field', `bodyMetrics[${i}]`);
     }
   }
 
@@ -587,6 +622,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
     programs: ((await db.get('programs').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     mesocycles: ((await db.get('mesocycles').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
     goals: ((await db.get('goals').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
+    bodyMetrics: ((await db.get('body_metrics').query().fetch()) as unknown as any[]).map((r) => ({ ...r._raw ?? r })),
   };
 
   try {
@@ -627,6 +663,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
       for (const m of oldMesos) await m.markAsDeleted();
       const oldGoals = await db.get('goals').query().fetch();
       for (const g of oldGoals) await g.markAsDeleted();
+      const oldBody = await db.get('body_metrics').query().fetch();
+      for (const m of oldBody) await m.markAsDeleted();
 
       // Insert backup content. Map package keys → new local exercise ids.
       const keyToId = new Map<string, string>();
@@ -659,6 +697,20 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         });
         goalN += 1;
         hooks.onRowCreated?.('goals', goalN);
+      }
+
+      // Body metrics: no references — plain value rows.
+      let bodyN = 0;
+      for (const m of backup.data.bodyMetrics ?? []) {
+        await db.get<any>('body_metrics').create((rec: any) => {
+          rec.measuredAt = m.measuredAt;
+          rec.weightGrams = m.weightGrams;
+          rec.waistMm = m.waistMm;
+          rec.createdAt = Date.now();
+          rec.updatedAt = Date.now();
+        });
+        bodyN += 1;
+        hooks.onRowCreated?.('body_metrics', bodyN);
       }
 
       // Programs first so routine membership can reference them by index.
@@ -877,6 +929,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         for (const p of await db.get('programs').query().fetch()) await p.markAsDeleted();
         for (const m of await db.get('mesocycles').query().fetch()) await m.markAsDeleted();
         for (const g of await db.get('goals').query().fetch()) await g.markAsDeleted();
+        for (const m of await db.get('body_metrics').query().fetch()) await m.markAsDeleted();
 
         // Re-insert snapshot rows (raw create with original ids where possible).
         const idMap = new Map<string, string>();
@@ -896,6 +949,15 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           await db.get('goals').create((rec: any) => {
             rec.exerciseId = idMap.get(raw.exercise_id) ?? raw.exercise_id;
             rec.targetWeightGrams = raw.target_weight_grams;
+            rec.createdAt = raw.created_at ?? Date.now();
+            rec.updatedAt = raw.updated_at ?? Date.now();
+          });
+        }
+        for (const raw of snap.bodyMetrics ?? []) {
+          await db.get('body_metrics').create((rec: any) => {
+            rec.measuredAt = raw.measured_at;
+            rec.weightGrams = raw.weight_grams ?? null;
+            rec.waistMm = raw.waist_mm ?? null;
             rec.createdAt = raw.created_at ?? Date.now();
             rec.updatedAt = raw.updated_at ?? Date.now();
           });
@@ -1079,6 +1141,7 @@ export function backupSummary(backup: ApexBackup): {
   programs: number;
   mesocycles: number;
   goals: number;
+  bodyMetrics: number;
 } {
   return {
     exercises: backup.data.exercises.length,
@@ -1090,5 +1153,6 @@ export function backupSummary(backup: ApexBackup): {
     programs: backup.data.programs?.length ?? 0,
     mesocycles: backup.data.mesocycles?.length ?? 0,
     goals: backup.data.goals?.length ?? 0,
+    bodyMetrics: backup.data.bodyMetrics?.length ?? 0,
   };
 }

@@ -162,5 +162,21 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      // v11 (Phase 4E): body_metrics table (weight and/or waist per entry).
+      toVersion: 11,
+      steps: [
+        createTable({
+          name: 'body_metrics',
+          columns: [
+            { name: 'measured_at', type: 'number', isIndexed: true },
+            { name: 'weight_grams', type: 'number', isOptional: true },
+            { name: 'waist_mm', type: 'number', isOptional: true },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
   ],
 });

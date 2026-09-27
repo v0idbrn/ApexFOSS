@@ -9,6 +9,7 @@ import {
   Program,
   Mesocycle,
   Goal,
+  BodyMetric,
   RoutineBlock,
   RoutineBlockStep,
   Prescription,
@@ -133,6 +134,11 @@ export interface DbActions {
   createGoal(exerciseId: string, targetWeightGrams: number): Promise<string>;
   deleteGoal(id: string): Promise<void>;
   listGoals(): Promise<Array<{ id: string; exerciseId: string; targetWeightGrams: number; createdAt: number }>>;
+
+  /** Logs a body measurement; at least one of weight/waist must be a positive integer. */
+  logBodyMetrics(input: { measuredAt: number; weightGrams?: number | null; waistMm?: number | null }): Promise<string>;
+  deleteBodyMetric(id: string): Promise<void>;
+  listBodyMetrics(): Promise<Array<{ id: string; measuredAt: number; weightGrams: number | null; waistMm: number | null }>>;
 
   loadRoutineDraft(routineId: string): Promise<RoutineDraft>;
   saveRoutineDraft(draft: RoutineDraft): Promise<string>;
@@ -545,6 +551,50 @@ export function makeDbActions(db: Database): DbActions {
         exerciseId: g.exerciseId,
         targetWeightGrams: g.targetWeightGrams,
         createdAt: g.createdAt,
+      }));
+    },
+
+    async logBodyMetrics(input) {
+      return db.write(async () => {
+        const weight = input.weightGrams ?? null;
+        const waist = input.waistMm ?? null;
+        const positive = (v: number | null) => v != null && Number.isInteger(v) && v > 0;
+        if (weight != null && !positive(weight)) throw new Error('weight must be a positive integer of grams');
+        if (waist != null && !positive(waist)) throw new Error('waist must be a positive integer of millimeters');
+        if (weight == null && waist == null) {
+          throw new Error('body metric needs a positive integer weight or waist');
+        }
+        if (!Number.isFinite(input.measuredAt) || input.measuredAt <= 0) {
+          throw new Error('measuredAt must be a positive timestamp');
+        }
+        const row = await db.get<BodyMetric>('body_metrics').create((rec) => {
+          rec.measuredAt = input.measuredAt;
+          rec.weightGrams = positive(weight) ? weight : null;
+          rec.waistMm = positive(waist) ? waist : null;
+          rec.createdAt = now();
+          rec.updatedAt = now();
+        });
+        return row.id;
+      });
+    },
+
+    async deleteBodyMetric(id) {
+      await db.write(async () => {
+        const row = await db.get<BodyMetric>('body_metrics').find(id);
+        await row.markAsDeleted();
+      });
+    },
+
+    async listBodyMetrics() {
+      const rows = await db
+        .get<BodyMetric>('body_metrics')
+        .query(Q.sortBy('measured_at', 'desc'))
+        .fetch();
+      return rows.map((m) => ({
+        id: m.id,
+        measuredAt: m.measuredAt,
+        weightGrams: m.weightGrams,
+        waistMm: m.waistMm,
       }));
     },
 

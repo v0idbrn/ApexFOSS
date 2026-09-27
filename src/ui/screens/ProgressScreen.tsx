@@ -18,6 +18,7 @@ import { Enter } from '../motion';
 import { ProgressionOverviewSection } from '../ProgressionOverview';
 import { TrendSignalsSection } from '../TrendSignals';
 import { GoalSection } from '../GoalSection';
+import { BodySection } from '../BodySection';
 
 /**
  * Progress hub (Phase 2L tab 4): one destination for the whole analytical
@@ -111,6 +112,10 @@ export function ProgressScreen() {
 
           <Enter delayMs={112}>
             <GoalSection />
+          </Enter>
+
+          <Enter delayMs={128}>
+            <BodySection />
           </Enter>
 
           <Enter delayMs={80}>

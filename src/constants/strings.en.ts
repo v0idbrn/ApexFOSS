@@ -233,6 +233,18 @@ export const en = {
     delete: 'Delete goal',
     deleteConfirm: 'Delete this goal?',
   },
+  body: {
+    title: 'Body',
+    add: 'Log measurement',
+    weight: 'Weight (kg)',
+    waist: 'Waist (cm)',
+    atLeastOne: 'Enter a weight or a waist measurement.',
+    empty: 'No measurements yet.',
+    emptyBody: 'Log your weight and waist to see how they change over time.',
+    latest: 'Latest',
+    delete: 'Delete measurement',
+    deleteConfirm: 'Delete this measurement?',
+  },
   workout: {
     start: 'Start workout',
     completeSet: 'COMPLETE',

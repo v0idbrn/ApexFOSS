@@ -446,6 +446,7 @@ describe('backup create / restore', () => {
       programs: 0,
       mesocycles: 0,
       goals: 0,
+      bodyMetrics: 0,
     });
   });
 
@@ -1049,6 +1050,74 @@ describe('goal portability (schema v10)', () => {
 
     const notArray = JSON.parse(serializeBackup(b)) as any;
     notArray.data.goals = {};
+    notArray.checksum = semanticChecksum(notArray.data);
+    expect(() => parseBackup(JSON.stringify(notArray))).toThrow(
+      expect.objectContaining({ code: 'missing_field' }),
+    );
+  });
+});
+
+describe('body metric portability (schema v11)', () => {
+  async function dbWithBody(): Promise<Database> {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    await actions.logBodyMetrics({ measuredAt: 1_700_000_000_000, weightGrams: 80_000, waistMm: 840 });
+    await actions.logBodyMetrics({ measuredAt: 1_700_086_400_000, weightGrams: 79_500 });
+    return db;
+  }
+
+  it('body metrics round-trip through create → validate → restore', async () => {
+    const db = await dbWithBody();
+    const backup = await createBackup(db);
+    expect(backup.data.bodyMetrics).toEqual([
+      { measuredAt: 1_700_000_000_000, weightGrams: 80_000, waistMm: 840 },
+      { measuredAt: 1_700_086_400_000, weightGrams: 79_500, waistMm: null },
+    ]);
+    expect(backupSummary(backup).bodyMetrics).toBe(2);
+
+    const db2 = makeDb();
+    await restoreBackup(db2, serializeBackup(backup));
+    const rows = await makeDbActions(db2).listBodyMetrics();
+    expect(rows.map((r) => [r.measuredAt, r.weightGrams, r.waistMm])).toEqual([
+      [1_700_086_400_000, 79_500, null],
+      [1_700_000_000_000, 80_000, 840],
+    ]);
+  });
+
+  it('pre-v11 backups without body metrics validate and restore as empty', async () => {
+    const db = await dbWithBody();
+    const backup = await createBackup(db);
+    const raw = JSON.parse(serializeBackup(backup)) as any;
+    delete raw.data.bodyMetrics;
+    raw.checksum = semanticChecksum(raw.data);
+    expect(parseBackup(JSON.stringify(raw)).data.bodyMetrics).toBeUndefined();
+
+    const db2 = makeDb();
+    await restoreBackup(db2, JSON.stringify(raw));
+    expect(await makeDbActions(db2).listBodyMetrics()).toEqual([]);
+  });
+
+  it('rejects invalid body metric data before the checksum', async () => {
+    const db = await dbWithBody();
+    const b = await createBackup(db);
+
+    const badTime = JSON.parse(serializeBackup(b)) as any;
+    badTime.data.bodyMetrics[0].measuredAt = 0;
+    badTime.checksum = semanticChecksum(badTime.data);
+    expect(() => parseBackup(JSON.stringify(badTime))).toThrow(
+      expect.objectContaining({ code: 'invalid_integer' }),
+    );
+
+    const emptyRow = JSON.parse(serializeBackup(b)) as any;
+    emptyRow.data.bodyMetrics[0].weightGrams = null;
+    emptyRow.data.bodyMetrics[0].waistMm = null;
+    emptyRow.checksum = semanticChecksum(emptyRow.data);
+    expect(() => parseBackup(JSON.stringify(emptyRow))).toThrow(
+      expect.objectContaining({ code: 'missing_field' }),
+    );
+
+    const notArray = JSON.parse(serializeBackup(b)) as any;
+    notArray.data.bodyMetrics = {};
     notArray.checksum = semanticChecksum(notArray.data);
     expect(() => parseBackup(JSON.stringify(notArray))).toThrow(
       expect.objectContaining({ code: 'missing_field' }),

@@ -7,13 +7,21 @@ export const secondsToMs = (s: number): number => Math.round(s * 1000);
 export const msToSeconds = (ms: number | null): number | null => (ms === null ? null : Math.round(ms / 1000));
 
 export const mToMm = (m: number): number => Math.round(m * 1000);
-export const mmToM = (mm: number | null): number | null => (mm === null ? null : mm / 1000);
+export const mmToM = (m: number | null): number | null => (m === null ? null : m / 1000);
+
+export const cmToMm = (cm: number): number => Math.round(cm * 10);
 
 /** Format kg for display: strips trailing zeros (100000 → "100", 102500 → "102.5"). */
 export const formatKg = (grams: number | null): string => {
   if (grams === null) return '—';
   const kg = grams / 1000;
   return String(Number(kg.toFixed(3)));
+};
+
+/** Format millimeters as cm for display: strips trailing zeros (820 → "82"). */
+export const formatCm = (mm: number | null): string => {
+  if (mm === null) return '—';
+  return String(Number((mm / 10).toFixed(1)));
 };
 
 /** Format an integer for display with en-US grouping (deterministic across devices). */
