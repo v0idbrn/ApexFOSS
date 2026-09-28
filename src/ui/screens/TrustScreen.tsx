@@ -82,8 +82,13 @@ export function TrustScreen() {
           <View testID="trust-counts" className="mb-3 border-b border-line pb-2">
             <CountRow label={strings.trust.countExercises} value={counts?.exercises ?? 0} />
             <CountRow label={strings.trust.countRoutines} value={counts?.routines ?? 0} />
+            <CountRow label={strings.programs.title} value={counts?.programs ?? 0} />
+            <CountRow label={strings.programs.mesocycles} value={counts?.mesocycles ?? 0} />
             <CountRow label={strings.trust.countSessions} value={counts?.sessions ?? 0} />
             <CountRow label={strings.trust.countReadiness} value={counts?.readinessTests ?? 0} />
+            <CountRow label={strings.inventory.title} value={counts?.equipmentItems ?? 0} />
+            <CountRow label={strings.goals.title} value={counts?.goals ?? 0} />
+            <CountRow label={strings.body.title} value={counts?.bodyMetrics ?? 0} />
           </View>
           <Text className="mb-2 text-sm text-dim">{strings.trust.deleteAllBody}</Text>
           <Button

@@ -75,6 +75,17 @@ describe('Persistence — exercises CRUD + seed', () => {
     const n2 = await actions.seedExercisesIfEmpty();
     expect(n2).toBe(0);
   });
+
+  it('counts routine references before deleting an exercise', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const id = await actions.createExercise({ name: 'Reference Squat', category: 'legs', equipment: 'barbell', metricFlags: 3 });
+    const routineId = await actions.createRoutine('Reference Day');
+    const blockId = await actions.createBlock(routineId, { name: 'Main', kind: 'normal', rounds: 1 });
+    await actions.createStep(blockId, id, 'Reference Squat');
+    expect(await actions.countExerciseReferences(id)).toBe(1);
+    expect(await actions.countExerciseReferences('missing-exercise')).toBe(0);
+  });
 });
 
 describe('Persistence — session lifecycle & snapshot immutability (§11)', () => {

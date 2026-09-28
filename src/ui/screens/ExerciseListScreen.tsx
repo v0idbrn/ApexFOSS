@@ -59,8 +59,15 @@ export function ExerciseListScreen() {
     return rows.filter((r) => r.name.toLowerCase().includes(q));
   }, [rows, query]);
 
-  const remove = (row: ExerciseMeta) => {
-    confirmDestructive(`${strings.exercises.deleteConfirm}\n\n${row.name}`, async () => {
+  const remove = async (row: ExerciseMeta) => {
+    let message = `${strings.exercises.deleteConfirm}\n\n${row.name}`;
+    try {
+      const references = await makeDbActions(database).countExerciseReferences(row.id);
+      if (references > 0) message = `${strings.exercises.deleteInUse}\n\n${row.name}`;
+    } catch {
+      // Fall back to the generic confirmation rather than blocking deletion.
+    }
+    confirmDestructive(message, async () => {
       try {
         await makeDbActions(database).deleteExercise(row.id);
         await reload();

@@ -140,9 +140,16 @@ export function ExerciseEditorScreen({ exerciseId }: { exerciseId: string | null
   const toggleMetric = (flag: number) =>
     setForm((f) => ({ ...f, metricFlags: f.metricFlags ^ flag }));
 
-  const remove = () => {
+  const remove = async () => {
     if (!exerciseId) return;
-    confirmDestructive(`${strings.exercises.deleteConfirm}\n\n${form.name}`, async () => {
+    let message = `${strings.exercises.deleteConfirm}\n\n${form.name}`;
+    try {
+      const references = await makeDbActions(database).countExerciseReferences(exerciseId);
+      if (references > 0) message = `${strings.exercises.deleteInUse}\n\n${form.name}`;
+    } catch {
+      // Fall back to the generic confirmation rather than blocking deletion.
+    }
+    confirmDestructive(message, async () => {
       try {
         await makeDbActions(database).deleteExercise(exerciseId);
         pop();

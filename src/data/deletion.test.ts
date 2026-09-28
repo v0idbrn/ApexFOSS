@@ -5,6 +5,8 @@ import { migrations } from '../data/migrations';
 import { modelClasses } from '../data/models';
 import { makeDbActions } from '../data/actions';
 import { countLocalData, wipeAllLocalData, deleteAllLocalData } from './deletion';
+import { replaceEquipmentItems } from './equipment';
+import { getSetting, setSetting } from './settings';
 import { useTimerStore } from '../state/timerStore';
 import { useActiveSessionStore } from '../state/activeSessionStore';
 
@@ -29,6 +31,11 @@ const ALL_TABLES = [
   'session_exercises',
   'set_logs',
   'readiness_tests',
+  'equipment_items',
+  'programs',
+  'mesocycles',
+  'goals',
+  'body_metrics',
 ] as const;
 
 function makeDb(): Database {
@@ -80,6 +87,14 @@ async function seedSomeData(db: Database): Promise<void> {
     }
   });
   await actions.createReadinessTest({ testedAt: now, durationMs: 5_000, tapCount: 42 });
+  await replaceEquipmentItems(db, [
+    { name: '20kg', weightGrams: 20_000, quantity: 2, perSide: true },
+  ]);
+  const programId = await actions.createProgram('Security Program');
+  await actions.createMesocycle(programId, 'Security Phase');
+  const goalExerciseId = await actions.createExercise({ name: 'Security Deadlift', category: 'pull', equipment: 'barbell', metricFlags: 3 });
+  await actions.createGoal(goalExerciseId, 200_000);
+  await actions.logBodyMetrics({ measuredAt: now, measurementType: 'body_weight', value: 80_000, unit: 'g' });
 }
 
 describe('local data counts (spec section 19)', () => {
@@ -88,9 +103,14 @@ describe('local data counts (spec section 19)', () => {
     expect(await countLocalData(db)).toEqual({
       exercises: 0,
       routines: 0,
+      programs: 0,
+      mesocycles: 0,
       sessions: 0,
       setLogs: 0,
       readinessTests: 0,
+      equipmentItems: 0,
+      goals: 0,
+      bodyMetrics: 0,
     });
   });
 
@@ -98,17 +118,22 @@ describe('local data counts (spec section 19)', () => {
     const db = makeDb();
     await seedSomeData(db);
     expect(await countLocalData(db)).toEqual({
-      exercises: 2,
+      exercises: 3,
       routines: 1,
+      programs: 1,
+      mesocycles: 1,
       sessions: 2,
       setLogs: 2,
       readinessTests: 1,
+      equipmentItems: 1,
+      goals: 1,
+      bodyMetrics: 1,
     });
   });
 });
 
 describe('explicit local wipe (D-037, spec section 14)', () => {
-  it('destroys every row in every table', async () => {
+  it('destroys every row in every training table', async () => {
     const db = makeDb();
     await seedSomeData(db);
     await wipeAllLocalData(db);
@@ -123,11 +148,16 @@ describe('explicit local wipe (D-037, spec section 14)', () => {
     await seedSomeData(db);
     const deleted = await wipeAllLocalData(db);
     expect(deleted).toEqual({
-      exercises: 2,
+      exercises: 3,
       routines: 1,
+      programs: 1,
+      mesocycles: 1,
       sessions: 2,
       setLogs: 2,
       readinessTests: 1,
+      equipmentItems: 1,
+      goals: 1,
+      bodyMetrics: 1,
     });
   });
 
@@ -136,6 +166,15 @@ describe('explicit local wipe (D-037, spec section 14)', () => {
     const deleted = await wipeAllLocalData(db);
     expect(deleted.exercises).toBe(0);
     expect(deleted.sessions).toBe(0);
+  });
+
+  it('preserves the device locale preference while wiping training data', async () => {
+    const db = makeDb();
+    await setSetting(db, 'locale', 'es');
+    await seedSomeData(db);
+    await wipeAllLocalData(db);
+    expect(await getSetting(db, 'locale')).toBe('es');
+    expect(await db.get('body_metrics').query().fetchCount()).toBe(0);
   });
 
   it('deleteAllLocalData clears timer + active-session runtime mirrors', async () => {

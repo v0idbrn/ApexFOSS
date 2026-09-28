@@ -189,7 +189,15 @@ describe('TrustScreen accessibility (Phase 2L STAGE H)', () => {
 
   it('publishes every local-data count as a label-value pair', async () => {
     const renderer = await renderTrust();
-    for (const label of [strings.trust.countExercises, strings.trust.countSessions]) {
+    for (const label of [
+      strings.trust.countExercises,
+      strings.trust.countSessions,
+      strings.programs.title,
+      strings.programs.mesocycles,
+      strings.goals.title,
+      strings.inventory.title,
+      strings.body.title,
+    ]) {
       const value = renderer.root.findByProps({ testID: `count-${label}` });
       expect(flatten(value.props.children)).toBe('0');
       expect(value.parent?.props.accessible).toBe(true);
