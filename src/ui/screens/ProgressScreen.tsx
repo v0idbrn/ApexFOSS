@@ -61,6 +61,7 @@ export function ProgressScreen() {
     { title: strings.records.title, subtitle: strings.progress.recordsSub, route: 'records' as const, testID: 'progress-records' },
     { title: strings.athleteTools.load, subtitle: strings.progress.loadSub, route: 'load' as const, testID: 'progress-load' },
     { title: strings.athleteTools.muscles, subtitle: strings.progress.musclesSub, route: 'muscles' as const, testID: 'progress-muscles' },
+    { title: strings.report.title, subtitle: strings.progress.reportSub, route: 'report' as const, testID: 'progress-report' },
   ];
 
   return (

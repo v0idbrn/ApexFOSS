@@ -1,16 +1,11 @@
 import type { AnalyticsSnapshot } from '../data/analytics';
-import type { DatedSession, SetLoadInput, SessionLoadInput } from '../analytics/load';
-import { calculateSessionLoad } from '../analytics/load';
+import type { DatedSession } from '../analytics/load';
 import { exercisePrs, prEvents, type PrEvent } from '../analytics/records';
 import { summarizeAdherence, type AdherenceSummary, type AdherenceRow } from '../analytics/adherence';
-import { summarizeBody, type BodySummary } from '../analytics/body';
-import { dateRange, type DateRange } from '../analytics/load';
-import { describeE1rmTrend, type TrendEvidence } from '../analytics/plateau';
-import { evaluateGoal } from '../data/goals';
-import { loadGoals } from '../data/goals';
-import { makeDbActions } from '../data/actions';
-import type { BodyMetric } from '../data/models';
-import { loadAnalyticsSnapshot } from '../data/analytics';
+import { summarizeBody, type BodySummary, type RawBodyRow } from '../analytics/body';
+import { dateRange } from '../analytics/load';
+import { describeE1rmTrend, e1rmSeries, type TrendEvidence } from '../analytics/plateau';
+import type { GoalWithProgress } from '../data/goals';
 
 export type ReportPeriod = '7d' | '28d' | 'all';
 
@@ -43,7 +38,7 @@ export interface ReportData {
     progress: number | null;
     achieved: boolean;
   }>;
-  e1rmTrends: TrendEvidence[];
+  e1rmTrends: Array<{ exerciseName: string; evidence: TrendEvidence }>;
 }
 
 function toDatedSession(snap: AnalyticsSnapshot): DatedSession[] {
@@ -61,7 +56,8 @@ function toDatedSession(snap: AnalyticsSnapshot): DatedSession[] {
         reps: set.reps,
         durationMs: set.durationMs,
         distanceMm: set.distanceMm,
-        isCompleted: set.isCompleted ?? 1,
+        isCompleted: set.isCompleted,
+        executionType: set.executionType ?? null,
       })),
     })),
   }));
@@ -75,11 +71,8 @@ function buildAdherenceInput(sessions: DatedSession[]): { planned: number; perfo
     for (const ex of session.exercises) {
       for (const set of ex.sets) {
         planned += 1;
-        if (set.isCompleted) {
-          performed.push({ isCompleted: true, executionType: 'normal' });
-        } else {
-          performed.push({ isCompleted: false, executionType: 'normal' });
-        }
+        performed.push({ isCompleted: set.isCompleted, executionType: set.executionType ?? 'normal' });
+        if (set.executionType === 'skipped') skipped += 1;
       }
     }
   }
@@ -88,25 +81,21 @@ function buildAdherenceInput(sessions: DatedSession[]): { planned: number; perfo
 
 function filterSessionsByPeriod(sessions: DatedSession[], period: ReportPeriod, now: number): DatedSession[] {
   if (period === 'all') return sessions;
-  const range: DateRange = dateRange(period === '7d' ? '7d' : '28d', now);
+  const range = dateRange(period === '7d' ? '7d' : '28d', now);
   return sessions.filter((s) => s.timestampMs >= range.startMs && s.timestampMs <= range.endMs);
 }
 
-function extractBodyMetricsFromDb(db: import('@nozbe/watermelondb').Database): Promise<BodySummary | null> {
-  return makeDbActions(db).listBodyMetrics().then((rows) => {
-    if (rows.length === 0) return null;
-    return summarizeBody(rows.map((r) => ({
-      timestampMs: r.measuredAt,
-      weightGrams: r.weightGrams,
-      waistMm: r.waistMm,
-    })));
-  });
+export interface ReportInput {
+  snapshot: AnalyticsSnapshot;
+  goals: GoalWithProgress[];
+  bodyRows: RawBodyRow[];
+  period: ReportPeriod;
+  now?: number;
 }
 
-function computePerExerciseVolume(sessions: DatedSession[], range: DateRange): Array<{ exerciseName: string; gramReps: number; setCount: number }> {
+function computePerExerciseVolume(sessions: DatedSession[]): Array<{ exerciseName: string; gramReps: number; setCount: number }> {
   const byExercise = new Map<string, { gramReps: number; setCount: number }>();
   for (const s of sessions) {
-    if (s.timestampMs < range.startMs || s.timestampMs >= range.endMs) continue;
     for (const ex of s.exercises) {
       const agg = { gramReps: 0, setCount: 0 };
       for (const set of ex.sets) {
@@ -134,56 +123,43 @@ function computePerExerciseVolume(sessions: DatedSession[], range: DateRange): A
   })).sort((a, b) => b.gramReps - a.gramReps);
 }
 
-export async function generateReport(db: import('@nozbe/watermelondb').Database, period: ReportPeriod, now = Date.now()): Promise<ReportData> {
-  const snap = await loadAnalyticsSnapshot(db);
-  const dated = toDatedSession(snap);
+export function buildReport({ snapshot, goals, bodyRows, period, now = Date.now() }: ReportInput): ReportData {
+  const dated = toDatedSession(snapshot);
   const filtered = filterSessionsByPeriod(dated, period, now);
 
-  const range: DateRange = period === 'all' ? dateRange('28d', now) : dateRange(period === '7d' ? '7d' : '28d', now);
-
-  const perExerciseVolume = computePerExerciseVolume(filtered, range);
+  const perExerciseVolume = computePerExerciseVolume(filtered);
   const totalVolumeGramReps = perExerciseVolume.reduce((sum, e) => sum + e.gramReps, 0);
-  const totalSets = perExerciseVolume.reduce((sum, e) => sum + e.setCount, 0);
-  const totalDurationMs = filtered.reduce((sum, s) => {
-    const ended = s.exercises.flatMap((e) => e.sets.map((set) => set.durationMs ?? 0)).reduce((a, b) => a + b, 0);
-    return sum + ended;
-  }, 0);
+  let completedSets = 0;
+  let totalDurationMs = 0;
+  for (const s of filtered) {
+    if (s.endedAt != null && s.endedAt >= s.startedAt) totalDurationMs += s.endedAt - s.startedAt;
+    for (const ex of s.exercises) {
+      for (const set of ex.sets) {
+        if (set.isCompleted) completedSets += 1;
+      }
+    }
+  }
 
   const allPrs = exercisePrs(filtered);
   const allPrEvents = prEvents(filtered);
 
   const adherence = summarizeAdherence(buildAdherenceInput(filtered));
 
-  const goalsData = await loadGoals(db);
-  const goalsReport = goalsData.map((g) => {
-    const pr = allPrs.find((p) => p.exerciseName === g.exerciseName);
-    const currentBest = pr?.estimated1rmGrams ?? pr?.bestWeightGrams ?? null;
-    const evalResult = evaluateGoal(g.targetGrams, currentBest);
-    return {
-      exerciseName: g.exerciseName,
-      targetGrams: g.targetGrams,
-      currentBestGrams: currentBest,
-      progress: evalResult.progress,
-      achieved: evalResult.achieved,
-    };
-  });
+  const goalsReport = goals.map((g) => ({
+    exerciseName: g.exerciseName,
+    targetGrams: g.targetGrams,
+    currentBestGrams: g.currentGrams,
+    progress: g.progress,
+    achieved: g.achieved,
+  }));
 
-  const bodySummary = await extractBodyMetricsFromDb(db);
+  const bodySummary = bodyRows.length === 0 ? null : summarizeBody(bodyRows);
 
-  const e1rmTrends: TrendEvidence[] = [];
+  const e1rmTrends: Array<{ exerciseName: string; evidence: TrendEvidence }> = [];
   for (const pr of allPrs) {
-    if (pr.estimated1rmGrams === null || pr.estimated1rmAtMs === null) continue;
-    const points: { timestampMs: number; estimated1rmGrams: number; exerciseName: string; sessionId: string }[] = [
-      { timestampMs: pr.estimated1rmAtMs, estimated1rmGrams: pr.estimated1rmGrams, exerciseName: pr.exerciseName, sessionId: '' },
-    ];
-    if (pr.bestWeightGrams !== null && pr.bestWeightAtMs !== null) {
-      points.push({ timestampMs: pr.bestWeightAtMs, estimated1rmGrams: pr.bestWeightGrams, exerciseName: pr.exerciseName, sessionId: '' });
-    }
-    if (points.length >= 2) {
-      const trend = describeE1rmTrend(points);
-      if (trend.status !== 'insufficient_data') {
-        e1rmTrends.push(trend);
-      }
+    const evidence = describeE1rmTrend(e1rmSeries(filtered, null, pr.exerciseName));
+    if (evidence.status !== 'insufficient_data') {
+      e1rmTrends.push({ exerciseName: pr.exerciseName, evidence });
     }
   }
 
@@ -196,7 +172,7 @@ export async function generateReport(db: import('@nozbe/watermelondb').Database,
       completed: filtered.length,
       totalVolumeKgReps: Math.round(totalVolumeGramReps / 1000),
       totalDurationMs,
-      averageSetsPerSession: filtered.length > 0 ? Math.round(totalSets / filtered.length) : 0,
+      averageSetsPerSession: filtered.length > 0 ? Math.round(completedSets / filtered.length) : 0,
     },
     volume: {
       totalGramReps: totalVolumeGramReps,

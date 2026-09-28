@@ -4,11 +4,14 @@ import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, Screen, SectionHeader } from '../components';
-import { generateReport, type ReportData, type ReportPeriod } from '../../analytics/report';
+import { formatBodyDelta, formatBodyEntry } from '../../analytics/body';
+import { generateReport, type ReportData, type ReportPeriod } from '../../data/report';
 import { sessionsToCsv } from '../../export/export';
-import { collectCompletedDetails } from '../../export/share';
+import { collectCompletedDetailsInRange } from '../../export/share';
 import { Share } from 'react-native';
-import { formatKg } from '../../utils/units';
+import { dateRange } from '../../analytics/load';
+import { formatCount, formatKg } from '../../utils/units';
+import { signalReasonLabel, signalStateLabel } from '../TrendSignals';
 
 export function ReportScreen() {
   const { pop } = useNav();
@@ -35,7 +38,14 @@ export function ReportScreen() {
   const onExport = useCallback(async () => {
     setBusy(true);
     try {
-      const details = await collectCompletedDetails(database);
+      const details =
+        !report || period === 'all'
+          ? await collectCompletedDetailsInRange(database, 0, report?.generatedAt ?? Date.now())
+          : await collectCompletedDetailsInRange(
+              database,
+              dateRange(period, report.generatedAt).startMs,
+              dateRange(period, report.generatedAt).endMs,
+            );
       const csv = sessionsToCsv(details);
       await Share.share({ message: csv, title: `ApexFOSS report-${period}.csv` });
     } catch (e) {
@@ -43,16 +53,13 @@ export function ReportScreen() {
     } finally {
       setBusy(false);
     }
-  }, [period]);
+  }, [period, report]);
 
   const periodLabel = (p: ReportPeriod) =>
     p === '7d' ? strings.report.period7d : p === '28d' ? strings.report.period28d : strings.report.periodAll;
 
   const statusLabel = (status: 'complete' | 'partial' | 'none') =>
     strings.report[`adherence_${status}` as keyof typeof strings.report] as string;
-
-  const trendLabel = (status: string) =>
-    strings.report[status as keyof typeof strings.report] as string;
 
   if (!report) {
     return (
@@ -64,6 +71,10 @@ export function ReportScreen() {
       </Screen>
     );
   }
+  const weightEntry = report.body?.latestByIdentity['body_weight'];
+  const waistEntry = report.body?.latestByIdentity['waist'];
+  const weightDelta = report.body?.deltas['body_weight'];
+  const waistDelta = report.body?.deltas['waist'];
 
   return (
     <Screen>
@@ -86,7 +97,7 @@ export function ReportScreen() {
         <SectionHeader title={strings.report.sessions} />
         <Card>
           <Text>{strings.report.sessionsTotal}: {report.sessions.total}</Text>
-          <Text>{strings.report.totalVolume}: {formatKg(report.sessions.totalVolumeKgReps)} kg·reps</Text>
+          <Text>{strings.report.totalVolume}: {formatCount(report.sessions.totalVolumeKgReps)} kg·reps</Text>
           <Text>{strings.report.avgSetsPerSession}: {report.sessions.averageSetsPerSession}</Text>
         </Card>
 
@@ -97,7 +108,7 @@ export function ReportScreen() {
           ) : (
             report.volume.byExercise.slice(0, 10).map((v, i) => (
               <Text key={i} className="py-1">
-                {v.exerciseName}: {formatKg(Math.round(v.gramReps / 1000))} kg·reps · {v.setCount} {strings.report.sets}
+                {v.exerciseName}: {formatKg(v.gramReps)} kg·reps · {v.setCount} {strings.report.sets}
               </Text>
             ))
           )}
@@ -112,11 +123,9 @@ export function ReportScreen() {
             report.prs.byExercise.slice(0, 10).map((pr, i) => (
               <Text key={i} className="py-1">
                 {pr.exerciseName}:
-                {pr.estimated1rmGrams !== null
-                  ? ` e1RM ~${formatKg(Math.round(pr.estimated1rmGrams / 1000))}kg`
-                  : ''}
-                {pr.bestWeightGrams !== null ? ` · best ${formatKg(Math.round(pr.bestWeightGrams / 1000))}kg` : ''}
-                {pr.bestReps !== null ? ` · {pr.bestReps} reps` : ''}
+                {pr.estimated1rmGrams !== null ? ` e1RM ~${formatKg(pr.estimated1rmGrams)}kg` : ''}
+                {pr.bestWeightGrams !== null ? ` · best ${formatKg(pr.bestWeightGrams)}kg` : ''}
+                {pr.bestReps !== null ? ` · ${pr.bestReps} ${strings.workout.reps}` : ''}
               </Text>
             ))
           )}
@@ -135,26 +144,26 @@ export function ReportScreen() {
           </Text>
         </Card>
 
-        {report.body && (
+        {report.body ? (
           <>
             <SectionHeader title={strings.report.bodyMetrics} />
             <Card>
               <Text>
-                {strings.report.latestWeight}: {report.body.latest && report.body.latest.weightGrams !== null ? formatKg(report.body.latest.weightGrams / 1000) : strings.report.na}
+                {strings.report.latestWeight}: {weightEntry ? formatBodyEntry(weightEntry) : strings.report.na}
               </Text>
               <Text>
-                {strings.report.latestWaist}: {report.body.latest && report.body.latest.waistMm !== null ? (report.body.latest.waistMm / 10).toFixed(1) + 'cm' : strings.report.na}
+                {strings.report.latestWaist}: {waistEntry ? formatBodyEntry(waistEntry) : strings.report.na}
               </Text>
               <Text>
-                {strings.report.weightDelta}: {report.body.weightDeltaGrams !== null ? (report.body.weightDeltaGrams >= 0 ? '+' : '') + formatKg(Math.round(report.body.weightDeltaGrams / 1000)) + 'kg' : strings.report.na}
+                {strings.report.weightDelta}: {weightDelta ? formatBodyDelta(weightDelta) ?? strings.report.na : strings.report.na}
               </Text>
               <Text>
-                {strings.report.waistDelta}: {report.body.waistDeltaMm !== null ? (report.body.waistDeltaMm >= 0 ? '+' : '') + (report.body.waistDeltaMm / 10).toFixed(1) + 'cm' : strings.report.na}
+                {strings.report.waistDelta}: {waistDelta ? formatBodyDelta(waistDelta) ?? strings.report.na : strings.report.na}
               </Text>
               <Text>{strings.report.entries}: {report.body.entryCount}</Text>
             </Card>
           </>
-        )}
+        ) : null}
 
         {report.goals.length > 0 && (
           <>
@@ -162,11 +171,11 @@ export function ReportScreen() {
             <Card>
               {report.goals.map((g, i) => (
                 <Text key={i} className="py-1">
-                  {g.exerciseName}: target {formatKg(g.targetGrams / 1000)}kg ·
+                  {g.exerciseName}: target {formatKg(g.targetGrams)}kg ·
                   {g.currentBestGrams !== null
-                    ? `current ${formatKg(g.currentBestGrams / 1000)}kg ({(g.progress! * 100).toFixed(0)}%)`
+                    ? `current ${formatKg(g.currentBestGrams)}kg (${Math.round((g.progress ?? 0) * 100)}%)`
                     : strings.report.noData}
-                  {g.achieved ? ` · {strings.report.achieved}` : ''}
+                  {g.achieved ? ` · ${strings.report.achieved}` : ''}
                 </Text>
               ))}
             </Card>
@@ -179,7 +188,7 @@ export function ReportScreen() {
             <Card>
               {report.e1rmTrends.slice(0, 10).map((t, i) => (
                 <Text key={i} className="py-1">
-                  {trendLabel(t.status)} ({t.reason})
+                  {t.exerciseName}: {signalStateLabel(t.evidence.status)} ({signalReasonLabel(t.evidence.reason)})
                 </Text>
               ))}
             </Card>

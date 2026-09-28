@@ -164,7 +164,14 @@ describe('loadAnalyticsSnapshot', () => {
     expect(stepEx.exerciseName).toBe('Bench Press');
     expect(stepEx.contributions).toEqual([['chest', 6000], ['triceps', 2500], ['front_delts', 1500]]);
     expect(stepEx.sets).toEqual([
-      { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, isCompleted: true },
+      {
+        weightGrams: 60_000,
+        reps: 5,
+        durationMs: null,
+        distanceMm: null,
+        isCompleted: true,
+        executionType: null,
+      },
     ]);
     expect(stepEx.exerciseId).toBe('seed_bench_press');
     expect(snapshot.exercises.map((e) => e.id)).toContain('seed_bench_press');
@@ -273,9 +280,30 @@ describe('loadAnalyticsSnapshot', () => {
     const snapshot = await loadAnalyticsSnapshot(db);
     const sets = snapshot.sessions[0].exercises[0].sets;
     expect(sets).toEqual([
-      { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, isCompleted: true },
-      { weightGrams: 60_000, reps: 5, durationMs: null, distanceMm: null, isCompleted: false },
-      { weightGrams: null, reps: null, durationMs: 45_000, distanceMm: null, isCompleted: true },
+      {
+        weightGrams: 60_000,
+        reps: 5,
+        durationMs: null,
+        distanceMm: null,
+        isCompleted: true,
+        executionType: null,
+      },
+      {
+        weightGrams: 60_000,
+        reps: 5,
+        durationMs: null,
+        distanceMm: null,
+        isCompleted: false,
+        executionType: null,
+      },
+      {
+        weightGrams: null,
+        reps: null,
+        durationMs: 45_000,
+        distanceMm: null,
+        isCompleted: true,
+        executionType: null,
+      },
     ]);
   });
 

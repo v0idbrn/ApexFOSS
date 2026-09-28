@@ -60,12 +60,21 @@ export function resetMuscleCatalogForTests(): void {
 }
 
 function toSetLoadInput(log: SetLog): SetLoadInput {
+  const executionType = log.executionType;
   return {
     weightGrams: log.weightGrams,
     reps: log.reps,
     durationMs: log.durationMs,
     distanceMm: log.distanceMm,
     isCompleted: log.isCompleted === 1,
+    executionType:
+      executionType === 'normal' ||
+      executionType === 'modified' ||
+      executionType === 'extra' ||
+      executionType === 'drop' ||
+      executionType === 'skipped'
+        ? executionType
+        : null,
   };
 }
 

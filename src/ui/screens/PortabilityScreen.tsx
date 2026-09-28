@@ -3,7 +3,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
-import { AppHeader, Button, Card, Screen, SectionHeader, TextField } from '../components';
+import { AppHeader, Button, Card, Chip, Screen, SectionHeader, TextField } from '../components';
 import { shareRoutinePackage, shareBackup, reportPortabilityError, portabilityErrorMessage } from '../../portability/share';
 import {
   parseRoutinePackage,
@@ -28,6 +28,7 @@ export function PortabilityScreen() {
   const { pop } = useNav();
   const [routineId, setRoutineId] = useState<string | null>(null);
   const [routineName, setRoutineName] = useState('');
+  const [routines, setRoutines] = useState<Array<{ id: string; name: string }>>([]);
   const [importText, setImportText] = useState('');
   const [backupText, setBackupText] = useState('');
   const [qrMatrix, setQrMatrix] = useState<ReturnType<typeof encodeQr> | null>(null);
@@ -35,14 +36,19 @@ export function PortabilityScreen() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
+  const selectRoutine = useCallback((id: string, name: string) => {
+    setRoutineId(id);
+    setRoutineName(name);
+    setQrMatrix(null);
+    setQrError(null);
+  }, []);
+
   useEffect(() => {
     makeDbActions(database)
       .listRoutinesWithCounts()
       .then((rows) => {
-        if (rows.length > 0) {
-          setRoutineId(rows[0].id);
-          setRoutineName(rows[0].name);
-        }
+        setRoutines(rows.map((row) => ({ id: row.id, name: row.name })));
+        if (rows.length > 0) selectRoutine(rows[0].id, rows[0].name);
       })
       .catch(() => {});
     const pending = takePendingDeepLink();
@@ -272,6 +278,18 @@ export function PortabilityScreen() {
         <SectionHeader title={strings.portability.exportRoutine} />
         <Card>
           <Text className="mb-2 text-sm text-dim">{routineName || strings.routines.empty}</Text>
+          {routines.length > 1 ? (
+            <View className="mb-2 flex-row flex-wrap gap-2">
+              {routines.map((routine) => (
+                <Chip
+                  key={routine.id}
+                  label={routine.name}
+                  active={routine.id === routineId}
+                  onPress={() => selectRoutine(routine.id, routine.name)}
+                />
+              ))}
+            </View>
+          ) : null}
           <View className="flex-row gap-2">
             <Button
               label={strings.portability.exportRoutine}

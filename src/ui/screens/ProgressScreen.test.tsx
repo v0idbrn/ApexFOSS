@@ -198,7 +198,7 @@ describe('Progress tab regressions (Phase 2L)', () => {
   it('keeps week metrics and the analytics destination rows intact', async () => {
     mockedSummarize.mockReturnValue(overviewFixture());
     const renderer = await renderProgress();
-    for (const testID of ['progress-week-sessions', 'progress-week-volume', 'progress-history', 'progress-records', 'progress-load', 'progress-muscles']) {
+    for (const testID of ['progress-week-sessions', 'progress-week-volume', 'progress-history', 'progress-records', 'progress-load', 'progress-muscles', 'progress-report']) {
       expect({ testID, found: renderer.root.findAllByProps({ testID }).length > 0 }).toEqual({ testID, found: true });
     }
   });

@@ -20,6 +20,22 @@ export async function collectCompletedDetails(db: Database): Promise<HistoryDeta
   return details;
 }
 
+export async function collectCompletedDetailsInRange(
+  db: Database,
+  startMs: number,
+  endMs: number,
+): Promise<HistoryDetail[]> {
+  const list = await listCompletedSessions(db);
+  const details: HistoryDetail[] = [];
+  for (const item of list) {
+    const timestampMs = item.endedAt ?? item.startedAt;
+    if (timestampMs < startMs || timestampMs > endMs) continue;
+    const d = await loadSessionDetail(db, item.id);
+    if (d) details.push(d);
+  }
+  return details;
+}
+
 export async function shareCsvExport(db: Database): Promise<boolean> {
   const details = await collectCompletedDetails(db);
   const csv = sessionsToCsv(details);

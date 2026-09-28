@@ -4,6 +4,7 @@
  * Never fabricate tonnage for interval/timed sets — keep categories separate.
  * No React, no DB, no IO.
  */
+import type { ExecutionType } from '../types/engine';
 
 export interface SetLoadInput {
   weightGrams: number | null;
@@ -12,6 +13,8 @@ export interface SetLoadInput {
   /** Optional distance (mm) — carried for records; not part of load math. */
   distanceMm?: number | null;
   isCompleted: boolean;
+  /** Execution marking carried for adherence; never part of load math. */
+  executionType?: ExecutionType | null;
 }
 
 export interface SetLoad {
