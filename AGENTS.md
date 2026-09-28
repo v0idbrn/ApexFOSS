@@ -84,7 +84,7 @@ Muse Spark → Caveman reduces noisy context/output → Muse reasons → Ponytai
 ## Integration Verification
 
 After any configuration change, run:
-- `npx jest --silent` (expect 825+ tests / 58+ suites green)
+- `npx jest --silent` (expect 1131+ tests / 85+ suites green)
 - `npm run typecheck` (expect exit 0)
 
 ---

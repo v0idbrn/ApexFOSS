@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-673%20%2F%2049%20suites-4ade80" alt="673 pruebas en 49 suites" />
+  <img src="https://img.shields.io/badge/tests-1131%20%2F%2085%20suites-4ade80" alt="1131 pruebas en 85 suites" />
 </p>
 
 <p align="center">
@@ -159,7 +159,7 @@ El repositorio no contiene secretos. La firma de la versión final se inyecta en
 ## Pruebas
 
 ```bash
-npm test                # 673 pruebas en 49 suites — motor, persistencia,
+npm test                # 1131 pruebas en 85 suites — motor, persistencia,
                         # temporizadores, migraciones, analítica, portabilidad,
                         # exportación, seguridad, interfaz
 npm run typecheck       # TypeScript pasa sin errores
@@ -171,8 +171,8 @@ npm run typecheck       # TypeScript pasa sin errores
 
 ## Estado del proyecto
 
-- **Versión:** 0.1.0 (pre-lanzamiento), solo Android, esquema de base de datos local en la versión 5.
-- **Controles de calidad:** 673 pruebas Jest en 49 suites en verde; verificación de tipos TypeScript en verde; APKs debug y de versión final compilan localmente; firma de versión final verificada; el APK de versión final instalado y validado en un dispositivo físico (Fase 2K).
+- **Versión:** 1.0.0 (sin publicar), solo Android, esquema de base de datos local en la versión 12.
+- **Controles de calidad:** 1131 pruebas Jest en 85 suites en verde; verificación de tipos TypeScript en verde; APKs debug y de versión final compilan localmente; firma de versión final verificada; el APK de versión final instalado y validado en un dispositivo físico (Fase 2K).
 - **Distribución:** no se han enviado a ninguna tienda ni canal.
 - **Legal:** existen documentos de privacidad, límite de salud y términos en [docs/](docs/) — los términos son un **borrador pendiente de revisión legal**.
 - **Licencia:** aún no declarada (ver abajo).

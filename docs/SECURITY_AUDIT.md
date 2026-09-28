@@ -163,10 +163,10 @@ Every external input in this app follows: **EXTERNAL INPUT → VALIDATE → PREV
 
 ## 8. Build, signing and release hygiene
 
-### Verified on the actual Phase 2G release APK
+### Verified on the actual release APK (Phase 2G; re-verified on the 1.0.0 build, 2026-09-27)
 | Check | Result |
 |---|---|
-| Package / version | `com.apexfoss.app`, versionCode 1, versionName 0.1.0 |
+| Package / version | `com.apexfoss.app`, versionCode 2, versionName 1.0.0 |
 | SDKs | minSdk 24, targetSdk/compileSdk 36 |
 | ABIs | `arm64-v8a`, `armeabi-v7a` only (per `gradle.properties` `reactNativeArchitectures`) |
 | Debuggable | release **not** debuggable (debug APK is, as expected) |

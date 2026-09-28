@@ -2,6 +2,30 @@
 
 Notable changes to ApexFOSS. Versions follow a simple pre-1.0 convention; a date appears only when a version is actually tagged and released. The project follows nothing beyond this file — planned work lives in `docs/DECISIONS.md` and `docs/DISTRIBUTION.md`, not here.
 
+## 1.0.0 — unreleased
+
+Product-completion and release-hardening pass on top of the 0.1.0 snapshot: training intelligence, program planning, portability, reports, and the final hardening fixes. No store, channel, or GitHub Release submission has been made; this entry describes what the codebase contains, not a published artifact.
+
+### Training intelligence (Phase 3)
+- **Deterministic progression engine** (Phase 3A): comparable-session evidence, upper-bound classification, and opportunity signals with no invented increments — suggested next loads come only from real data (equipment inventory solver) or are withheld with `weightIncrementSource: 'none'`.
+- **Adaptive execution** (Phase 3C), **session adherence analytics**, and **performance trend / plateau signals** (Phase 3D).
+
+### Program planning (Phase 4)
+- **Program structure** (4A), **mesocycle phases** (4B), **flexible next-up scheduling** (4C), and **strength goals with derived progress** (4D).
+- **Body weight and waist logging** (4E), extended in 1.0.0 to a **general body-metrics model (schema v12)**: `measurement_type` / `side` / `value` / `unit` with legacy `weight_grams`/`waist_mm` preserved, bilateral measurements (left/right), per-identity latest values and deltas, i18n labels (EN/ES), and backup/export compatibility both ways (v11 backups restore, v12 backups normalize on export).
+- **Routine templates** (4F): structure-only skeletons (exercise slots, no invented prescriptions) resolved against the local library.
+
+### Portability and reports (Phase 5)
+- **Local file import** (5A), **improved import review** (5B), **inbound portability files** (5C): checksum/version/conflict review before confirm, with per-routine export selection when multiple routines exist.
+- **Training reports** (5D): period-scoped report (volume, adherence, e1RM trends, PRs, goals) with CSV export bounded to the same period; the analytics layer is a pure `buildReport` function and DB loading lives in the data layer.
+
+### Hardening fixes (1.0.0)
+- **Full local wipe now covers every training table**: programs, mesocycles, routine content, goals, body metrics, and equipment inventory are deleted alongside sessions and analytics (app settings locale preserved by design).
+- **Exercise deletion guard**: exercises referenced by routine steps can no longer be deleted silently — the previously unreachable "in use" confirmation is wired up.
+- **Report correctness**: wall-clock duration from session timestamps, real planned/performed/skipped/modified adherence (no fabricated execution type), per-exercise volume no longer double-filtered, average set counts over completed sets.
+- Version references aligned to **1.0.0** (`versionCode` 2, database **schema v12**, backup `appVersion`, Trust Center about strings).
+- Test suite: **1131 Jest tests across 85 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
+
 ## 0.1.0 — unreleased
 
 First audited snapshot of ApexFOSS: an **Android-only, local-first workout application**. No store, channel, or GitHub Release submission has been made; this entry describes what the codebase contains, not a published artifact.

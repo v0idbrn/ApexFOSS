@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1113%20%2F%2082%20suites-4ade80" alt="1113 tests in 82 suites" />
+  <img src="https://img.shields.io/badge/tests-1131%20%2F%2085%20suites-4ade80" alt="1131 tests in 85 suites" />
 </p>
 
 <p align="center">
@@ -159,7 +159,7 @@ The repository contains no secrets. Release signing is injected at prebuild time
 ## Testing
 
 ```bash
-npm test                # 673 tests across 49 suites — engine, persistence, timers,
+npm test                # 1131 tests across 85 suites — engine, persistence, timers,
                         # migrations, analytics, portability, export, security, UI
 npm run typecheck       # TypeScript passes with no errors
 ```
@@ -170,8 +170,8 @@ npm run typecheck       # TypeScript passes with no errors
 
 ## Project status
 
-- **Version:** 0.1.0 (pre-release), Android only, local database schema version 5.
-- **Quality gates:** 673 Jest tests / 49 suites pass; TypeScript type-check passes; debug and release APKs build locally; release signing verified; final release APK installed and smoke-validated on one physical device (Phase 2K).
+- **Version:** 1.0.0 (unreleased), Android only, local database schema version 12.
+- **Quality gates:** 1131 Jest tests / 85 suites pass; TypeScript type-check passes; debug and release APKs build locally; release signing verified; final release APK installed and smoke-validated on one physical device (Phase 2K).
 - **Distribution:** no store or channel submissions have been made.
 - **Legal:** privacy, health-boundary, and terms documents exist in [docs/](docs/) — terms are a **draft pending legal review**.
 - **License:** not yet declared (see below).
