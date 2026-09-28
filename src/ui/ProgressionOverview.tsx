@@ -48,7 +48,7 @@ export function ProgressionOverviewSection({
       />
       {groups.map((group, gi) =>
         group.entries.length === 0 ? null : (
-          <View key={gi} className="mb-2 overflow-hidden rounded-xl border border-line">
+          <View key={gi} className="mb-2 overflow-hidden rounded-xl border border-line bg-surface">
             {group.entries.map(({ exercise, evidence }) => (
               <ListRow
                 key={exercise.id}

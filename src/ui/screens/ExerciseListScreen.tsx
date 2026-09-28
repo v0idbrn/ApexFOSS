@@ -118,7 +118,7 @@ export function ExerciseListScreen() {
           }
           renderItem={({ item }) => (
             <View className="flex-row items-stretch">
-              <View className="flex-1">
+              <View className="flex-1 bg-surface">
                 <ListRow
                   title={item.name}
                   subtitle={[item.category, item.equipment, metricSummary(item.metricFlags)]

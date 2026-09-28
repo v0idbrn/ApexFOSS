@@ -233,7 +233,7 @@ export function TrainScreen() {
               }
             />
             {routines.length > 0 ? (
-              <View className="overflow-hidden rounded-xl border border-line">
+              <View className="overflow-hidden rounded-xl border border-line bg-surface">
                 {routines.map((r) => (
                   <ListRow
                     key={r.id}

@@ -121,7 +121,7 @@ export function ProgressScreen() {
 
           <Enter delayMs={80}>
             <SectionHeader title={strings.progress.analytics} />
-            <View className="overflow-hidden rounded-xl border border-line">
+            <View className="overflow-hidden rounded-xl border border-line bg-surface">
               {analysisRows.map((row) => (
                 <ListRow
                   key={row.route}
@@ -151,7 +151,7 @@ export function ProgressScreen() {
               }
             />
             {recent.length > 0 ? (
-              <View className="overflow-hidden rounded-xl border border-line">
+              <View className="overflow-hidden rounded-xl border border-line bg-surface">
                 {recent.slice(0, 4).map((s) => (
                   <ListRow
                     key={s.id}

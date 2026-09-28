@@ -40,7 +40,7 @@ export function TrendSignalsSection({
         title={strings.signals.section}
         right={<Text className="text-xs text-dim">{strings.signals.sub}</Text>}
       />
-      <View className="overflow-hidden rounded-xl border border-line">
+      <View className="overflow-hidden rounded-xl border border-line bg-surface">
         {overview.signals.map(({ exercise, evidence }) => (
           <ListRow
             key={exercise.id}

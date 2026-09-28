@@ -106,12 +106,14 @@ export function ExercisePickerScreen({
               <EmptyState message={strings.common.noMatches} />
             }
             renderItem={({ item }) => (
-              <ListRow
-                title={item.name}
-                subtitle={item.category}
-                onPress={() => onPick(item.id, item.name)}
-                right={<Text className="text-base text-accent-ink">{strings.common.add}</Text>}
-              />
+              <View className="bg-surface">
+                <ListRow
+                  title={item.name}
+                  subtitle={item.category}
+                  onPress={() => onPick(item.id, item.name)}
+                  right={<Text className="text-base text-accent-ink">{strings.common.add}</Text>}
+                />
+              </View>
             )}
           />
         )}

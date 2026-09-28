@@ -145,7 +145,7 @@ export function GoalSection() {
       {goals.length === 0 ? (
         <EmptyState message={strings.goals.emptyBody} />
       ) : (
-        <View className="overflow-hidden rounded-xl border border-line">
+        <View className="overflow-hidden rounded-xl border border-line bg-surface">
           {goals.map((goal) => (
             <ListRow
               key={goal.id}

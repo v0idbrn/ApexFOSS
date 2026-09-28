@@ -100,11 +100,13 @@ export function HistoryListScreen() {
           contentContainerStyle={{ paddingBottom: 32 }}
           renderItem={({ item, index }) => (
             <Enter delayMs={Math.min(index, 6) * 40}>
-              <ListRow
-                title={item.name}
-                subtitle={`${formatWhen(item.startedAt)} · ${strings.history.duration} ${formatDuration(item.durationMs)} · ${item.setCount} ${(item.setCount === 1 ? strings.workout.set : strings.history.sets).toLowerCase()}`}
-                onPress={() => push({ name: 'historyDetail', sessionId: item.id })}
-              />
+              <View className="bg-surface">
+                <ListRow
+                  title={item.name}
+                  subtitle={`${formatWhen(item.startedAt)} · ${strings.history.duration} ${formatDuration(item.durationMs)} · ${item.setCount} ${(item.setCount === 1 ? strings.workout.set : strings.history.sets).toLowerCase()}`}
+                  onPress={() => push({ name: 'historyDetail', sessionId: item.id })}
+                />
+              </View>
             </Enter>
           )}
         />
