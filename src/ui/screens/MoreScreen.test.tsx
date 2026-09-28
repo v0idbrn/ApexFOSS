@@ -1,0 +1,117 @@
+import fs from 'fs';
+import path from 'path';
+import React from 'react';
+import { Linking, Text } from 'react-native';
+import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { Navigator, useNav } from '../navigation';
+import { MoreScreen } from './MoreScreen';
+import { strings } from '../../constants/strings';
+import { GITHUB_SPONSORS_URL, PAYPAL_URL } from '../../constants/support';
+
+/**
+ * More screen: support entry (spec sections 30-32). Voluntary links open
+ * only on explicit tap, point at the owner-provided public identities, and
+ * the app ships no payment SDK.
+ */
+
+function flatten(node: unknown): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
+  if (Array.isArray(node)) return node.map(flatten).join('');
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  return '';
+}
+
+function textContents(renderer: ReactTestRenderer): string[] {
+  return renderer.root
+    .findAllByType(Text)
+    .map((t) => flatten(t.props.children))
+    .filter((s) => s.length > 0);
+}
+
+function pressableByTestID(renderer: ReactTestRenderer, testID: string) {
+  return renderer.root
+    .findAll((node) => node.props?.testID === testID && typeof node.props?.onPress === 'function')
+    .find((node) => node.props?.accessibilityRole === 'button');
+}
+
+function GoToMore() {
+  const { selectTab } = useNav();
+  React.useEffect(() => {
+    selectTab('more');
+  }, [selectTab]);
+  return null;
+}
+
+async function renderMore(): Promise<ReactTestRenderer> {
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(
+      <Navigator>{(route) => (route.name === 'more' ? <MoreScreen /> : <GoToMore />)}</Navigator>,
+    );
+  });
+  await act(async () => {});
+  return renderer;
+}
+
+describe('MoreScreen support section', () => {
+  let openURL: jest.SpyInstance;
+
+  beforeEach(() => {
+    openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  });
+
+  afterEach(() => {
+    openURL.mockRestore();
+  });
+
+  it('renders localized support copy with no raw translation keys', async () => {
+    const renderer = await renderMore();
+    const texts = textContents(renderer);
+    expect(texts).toContain(strings.more.supportTitle);
+    expect(texts).toContain(strings.more.supportBody);
+    expect(texts).toContain(strings.more.supportSponsors);
+    expect(texts).toContain(strings.more.supportPayPal);
+    expect(texts).not.toContain('more.supportTitle');
+    expect(texts).not.toContain('more.supportBody');
+  });
+
+  it('opens nothing on render; each link opens only after an explicit tap', async () => {
+    const renderer = await renderMore();
+    expect(openURL).not.toHaveBeenCalled();
+
+    const sponsors = pressableByTestID(renderer, 'more-support-sponsors');
+    expect(sponsors).toBeDefined();
+    await act(async () => {
+      sponsors!.props.onPress();
+    });
+    expect(openURL).toHaveBeenCalledTimes(1);
+    expect(openURL).toHaveBeenCalledWith(GITHUB_SPONSORS_URL);
+
+    const paypal = pressableByTestID(renderer, 'more-support-paypal');
+    expect(paypal).toBeDefined();
+    await act(async () => {
+      paypal!.props.onPress();
+    });
+    expect(openURL).toHaveBeenCalledTimes(2);
+    expect(openURL).toHaveBeenLastCalledWith(PAYPAL_URL);
+  });
+
+  it('uses exactly the owner-provided public identities', () => {
+    expect(GITHUB_SPONSORS_URL).toBe('https://github.com/sponsors/v0idbrn');
+    expect(PAYPAL_URL).toBe('https://paypal.me/amelie615');
+  });
+
+  it('ships no payment or donation SDK', () => {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '..', '..', '..', 'package.json'), 'utf8'),
+    ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+    const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+    expect(deps.filter((d) => /(stripe|paypal|braintree|razorpay|donation)/i.test(d))).toEqual([]);
+  });
+
+  it('keeps the existing About & legal rows reachable', async () => {
+    const renderer = await renderMore();
+    expect(pressableByTestID(renderer, 'more-trust')).toBeDefined();
+    expect(pressableByTestID(renderer, 'more-portability')).toBeDefined();
+  });
+});

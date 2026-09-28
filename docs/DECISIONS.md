@@ -1253,3 +1253,30 @@ code changed.
 
 - Type and behavior regressions are caught before merge at a cost of a few minutes and zero secrets.
 - CI does not replace device validation — that gap stays explicitly documented (KNOWN_LIMITATIONS #21).
+
+## D-050 - License resolved: GPL-3.0-or-later (v1.0.0 closure, 2026-09-28)
+
+**Status:** Accepted (closes D-038)
+
+**Context.** D-038 left the license as an owner decision: no `LICENSE` file existed while the project presented itself as FOSS. A recognized FOSS license is a hard prerequisite for public distribution (F-Droid requires it; GitHub "open source" claims require it), so v1.0.0 could not close with the ambiguity open.
+
+**Decision.** Adopt **GPL-3.0-or-later**: full `LICENSE` text added at the repository root, `package.json` `license` field set, READMEs/TERMS_OF_USE/THIRD_PARTY_LICENSES/DISTRIBUTION/KNOWN_LIMITATIONS/SECURITY_AUDIT aligned to it. Rationale: anti-enclosure copyleft matches the project's privacy/FOSS stance, GPL is an accepted FOSS license everywhere it intends to publish, it is Android-ecosystem-normal, and it is compatible with the MIT/Apache dependencies actually used (the dependency policy gate in THIRD_PARTY_LICENSES now flags `GPL-2.0-only`, the one incompatible SPDX id).
+
+**Consequences.**
+
+- Derivative works must stay GPL-3.0-or-later; no re-licensing by downstream users.
+- No `AGPL`/`SSPL` obligations: no network component exists.
+- D-038's "Open" status is superseded by this entry (append-only log; the old entry is kept as history).
+
+## D-051 - Voluntary support links: GitHub Sponsors + PayPal only (v1.0.0 closure, 2026-09-28)
+
+**Status:** Accepted
+
+**Context.** The closure pass requires a public Support surface, but the product contract forbids paywalls, subscriptions, ads, and telemetry, and no payment SDK may enter the app.
+
+**Decision.** Two static, maintainer-owned links — GitHub Sponsors `v0idbrn` and PayPal.Me `amelie615` — surfaced in three places only: README (EN/ES) Support sections, `.github/FUNDING.yml`, and the More screen's About section (rows opening the OS browser via `Linking.openURL`, unit-tested to fire only on explicit tap). Constants live in `src/constants/support.ts`; `package.json` gains the matching `funding` field. No payment SDK, no in-app purchase, no tracking; opening a link is a user-initiated OS action, not an app network request (release build still has no INTERNET permission).
+
+**Consequences.**
+
+- Support never gates functionality: the app remains fully usable offline for free.
+- URL changes are single-constant edits covered by the More screen test.

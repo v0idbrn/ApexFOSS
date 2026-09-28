@@ -81,6 +81,11 @@ more: {
     reportSub: 'Informe de entrenamiento con volumen, marcas, adherencia',
     trustSub: 'Privacidad, términos, limitaciones, licencias',
     storageNote: 'Todos los datos permanecen en este dispositivo.',
+    supportTitle: 'Apoya a ApexFOSS',
+    supportBody:
+      'ApexFOSS es libre, de código abierto y privacidad primero. Si te resulta útil, puedes apoyar su desarrollo.',
+    supportSponsors: 'Apoyar con GitHub Sponsors',
+    supportPayPal: 'Apoyar con PayPal',
   },
   home: {
     title: 'ApexFOSS',

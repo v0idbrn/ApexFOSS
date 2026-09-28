@@ -2,6 +2,11 @@
   "name": "apexfoss",
   "version": "1.0.0",
   "private": true,
+  "license": "GPL-3.0-or-later",
+  "funding": [
+    "https://github.com/sponsors/v0idbrn",
+    "https://paypal.me/amelie615"
+  ],
   "main": "index.ts",
   "scripts": {
     "start": "expo start --dev-client",

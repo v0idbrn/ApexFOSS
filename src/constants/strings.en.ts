@@ -79,6 +79,11 @@ more: {
     reportSub: 'Training report with volume, PRs, adherence',
     trustSub: 'Privacy, terms, limitations, licenses',
     storageNote: 'All data stays on this device.',
+    supportTitle: 'Support ApexFOSS',
+    supportBody:
+      'ApexFOSS is free, open-source and privacy-first. If it is useful to you, you can support its development.',
+    supportSponsors: 'Support via GitHub Sponsors',
+    supportPayPal: 'Support via PayPal',
   },
   home: {
     title: 'ApexFOSS',

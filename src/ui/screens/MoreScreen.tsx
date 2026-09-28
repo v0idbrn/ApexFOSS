@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { strings, type Locale } from '../../constants/strings';
+import { GITHUB_SPONSORS_URL, PAYPAL_URL } from '../../constants/support';
 import { useLocale, useLocaleStore } from '../../state/localeStore';
 import { useNav } from '../navigation';
 import { ListRow, Screen, SectionHeader } from '../components';
@@ -19,6 +20,12 @@ export function MoreScreen() {
   const onLanguage = useCallback((l: Locale) => {
     void setLocale(l);
   }, [setLocale]);
+
+  const openSupport = useCallback((url: string) => {
+    // Explicit user tap only; the platform opens the URL. Offline devices
+    // simply do nothing (rejection is swallowed).
+    void Linking.openURL(url).catch(() => {});
+  }, []);
 
   const toolRows = [
     { title: strings.exercises.title, subtitle: strings.more.exerciseSub, route: 'exercises' as const, testID: 'more-exercises' },
@@ -108,6 +115,21 @@ export function MoreScreen() {
               />
             </View>
             <Text className="mt-3 text-caption text-muted">{strings.more.storageNote}</Text>
+
+            <Text className="mt-6 text-base font-medium text-fg">{strings.more.supportTitle}</Text>
+            <Text className="mt-1 text-sm text-dim">{strings.more.supportBody}</Text>
+            <View className="mt-3 overflow-hidden rounded-xl border border-line">
+              <ListRow
+                title={strings.more.supportSponsors}
+                testID="more-support-sponsors"
+                onPress={() => openSupport(GITHUB_SPONSORS_URL)}
+              />
+              <ListRow
+                title={strings.more.supportPayPal}
+                testID="more-support-paypal"
+                onPress={() => openSupport(PAYPAL_URL)}
+              />
+            </View>
           </Enter>
         </View>
       </ScrollView>
