@@ -1079,12 +1079,12 @@ describe('goal portability (schema v10)', () => {
   });
 });
 
-describe('body metric portability (schema v11)', () => {
+describe('body metric portability (schema v12)', () => {
   async function dbWithBody(): Promise<Database> {
     const db = makeDb();
     const actions = makeDbActions(db);
-    await actions.logBodyMetrics({ measuredAt: 1_700_000_000_000, weightGrams: 80_000, waistMm: 840 });
-    await actions.logBodyMetrics({ measuredAt: 1_700_086_400_000, weightGrams: 79_500 });
+    await actions.logBodyMetrics({ measuredAt: 1_700_000_000_000, measurementType: 'body_weight', value: 80000, unit: 'g' });
+    await actions.logBodyMetrics({ measuredAt: 1_700_086_400_000, measurementType: 'waist', value: 840, unit: 'mm' });
     return db;
   }
 
@@ -1092,21 +1092,42 @@ describe('body metric portability (schema v11)', () => {
     const db = await dbWithBody();
     const backup = await createBackup(db);
     expect(backup.data.bodyMetrics).toEqual([
-      { measuredAt: 1_700_000_000_000, weightGrams: 80_000, waistMm: 840 },
-      { measuredAt: 1_700_086_400_000, weightGrams: 79_500, waistMm: null },
+      { measuredAt: 1_700_000_000_000, measurementType: 'body_weight', side: null, value: 80000, unit: 'g', weightGrams: 80000, waistMm: null },
+      { measuredAt: 1_700_086_400_000, measurementType: 'waist', side: null, value: 840, unit: 'mm', weightGrams: null, waistMm: 840 },
     ]);
     expect(backupSummary(backup).bodyMetrics).toBe(2);
 
     const db2 = makeDb();
     await restoreBackup(db2, serializeBackup(backup));
     const rows = await makeDbActions(db2).listBodyMetrics();
-    expect(rows.map((r) => [r.measuredAt, r.weightGrams, r.waistMm])).toEqual([
-      [1_700_086_400_000, 79_500, null],
-      [1_700_000_000_000, 80_000, 840],
+    expect(rows.map((r) => [r.measuredAt, r.measurementType, r.value, r.unit])).toEqual([
+      [1_700_086_400_000, 'waist', 840, 'mm'],
+      [1_700_000_000_000, 'body_weight', 80000, 'g'],
     ]);
   });
 
-  it('pre-v11 backups without body metrics validate and restore as empty', async () => {
+  it('restores legacy v11 weight/waist rows by expanding them to canonical entries', async () => {
+    const db = makeDb();
+    const backup = await createBackup(db);
+    const raw = JSON.parse(serializeBackup(backup)) as any;
+    raw.data.bodyMetrics = [
+      { measuredAt: 1_700_000_000_000, weightGrams: 80_000, waistMm: 840 },
+      { measuredAt: 1_700_086_400_000, weightGrams: 79_500, waistMm: null },
+    ];
+    raw.checksum = semanticChecksum(raw.data);
+    expect(parseBackup(JSON.stringify(raw)).data.bodyMetrics).toHaveLength(2);
+
+    const db2 = makeDb();
+    await restoreBackup(db2, JSON.stringify(raw));
+    expect(await makeDbActions(db2).listBodyMetrics()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ measurementType: 'body_weight', value: 80_000, unit: 'g' }),
+        expect.objectContaining({ measurementType: 'waist', value: 840, unit: 'mm' }),
+      ]),
+    );
+  });
+
+  it('pre-v12 backups without new fields validate and restore as empty', async () => {
     const db = await dbWithBody();
     const backup = await createBackup(db);
     const raw = JSON.parse(serializeBackup(backup)) as any;
@@ -1133,9 +1154,10 @@ describe('body metric portability (schema v11)', () => {
     const emptyRow = JSON.parse(serializeBackup(b)) as any;
     emptyRow.data.bodyMetrics[0].weightGrams = null;
     emptyRow.data.bodyMetrics[0].waistMm = null;
+    emptyRow.data.bodyMetrics[0].value = null;
     emptyRow.checksum = semanticChecksum(emptyRow.data);
     expect(() => parseBackup(JSON.stringify(emptyRow))).toThrow(
-      expect.objectContaining({ code: 'missing_field' }),
+      expect.objectContaining({ code: 'invalid_integer' }),
     );
 
     const notArray = JSON.parse(serializeBackup(b)) as any;

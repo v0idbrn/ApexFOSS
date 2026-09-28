@@ -15,8 +15,46 @@ const T = 1_700_000_000_000;
 const DAY = 86_400_000;
 
 const ROWS = [
-  { id: 'b1', measuredAt: T + DAY, weightGrams: 79_500, waistMm: 835 },
-  { id: 'b2', measuredAt: T, weightGrams: 80_000, waistMm: 840 },
+  {
+    id: 'b4',
+    measuredAt: T + 3 * DAY,
+    measurementType: 'upper_arm',
+    side: 'right',
+    value: 300,
+    unit: 'mm',
+    weightGrams: null,
+    waistMm: null,
+  },
+  {
+    id: 'b1',
+    measuredAt: T + 2 * DAY,
+    measurementType: 'body_weight',
+    side: null,
+    value: 79_500,
+    unit: 'g',
+    weightGrams: 79_500,
+    waistMm: null,
+  },
+  {
+    id: 'b2',
+    measuredAt: T + DAY,
+    measurementType: 'waist',
+    side: null,
+    value: 835,
+    unit: 'mm',
+    weightGrams: null,
+    waistMm: 835,
+  },
+  {
+    id: 'b3',
+    measuredAt: T,
+    measurementType: 'body_weight',
+    side: null,
+    value: 80_000,
+    unit: 'g',
+    weightGrams: 80_000,
+    waistMm: null,
+  },
 ];
 
 let alertSpy: jest.SpyInstance;
@@ -78,18 +116,26 @@ afterEach(() => {
   alertSpy.mockRestore();
 });
 
-describe('BodySection (Phase 4E)', () => {
+describe('BodySection (extensible measurements)', () => {
   it('shows latest values with deltas and the entry list', async () => {
     setup(ROWS);
     const renderer = await renderSection();
     const texts = textsOf(renderer);
     expect(texts).toContain(strings.body.title);
     expect(texts).toContain(strings.body.latest);
-    expect(texts).toContain('79.5 kg · 83.5 cm');
-    expect(texts).toContain('-0.5 kg · -0.5 cm');
-    expect(texts).toContain('80 kg · 84 cm');
+    expect(texts).toContain(strings.body.bodyWeight);
+    expect(texts).toContain('79.5 kg');
+    expect(texts).toContain(strings.body.waistLabel);
+    expect(texts).toContain('83.5 cm');
+    expect(texts).toContain('-0.5 kg');
+    expect(texts).toContain('Upper arm (Right)');
+    expect(texts).toContain('30 cm');
+    expect(texts).toContain('Body Weight: 79.5 kg');
+    expect(texts).toContain('Waist: 83.5 cm');
+    expect(texts).toContain('Upper arm (Right): 30 cm');
     expect(nodeByTestId(renderer, 'body-row-b1').type).toBeDefined();
     expect(nodeByTestId(renderer, 'body-row-b2').type).toBeDefined();
+    expect(nodeByTestId(renderer, 'body-row-b4').type).toBeDefined();
   });
 
   it('shows the empty state when nothing is logged', async () => {
@@ -99,7 +145,7 @@ describe('BodySection (Phase 4E)', () => {
     expect(renderer.root.findAll((n) => n.props?.testID?.startsWith?.('body-row-'))).toHaveLength(0);
   });
 
-  it('logs a weight-only measurement', async () => {
+  it('logs a body-weight measurement entered in kilograms', async () => {
     const logBodyMetrics = jest.fn().mockResolvedValue('b1');
     setup([], { logBodyMetrics });
     const renderer = await renderSection();
@@ -114,11 +160,11 @@ describe('BodySection (Phase 4E)', () => {
       buttonByLabel(renderer, strings.body.add).props.onPress();
     });
     expect(logBodyMetrics).toHaveBeenCalledWith(
-      expect.objectContaining({ weightGrams: 78_500, waistMm: null }),
+      expect.objectContaining({ measurementType: 'body_weight', side: null, value: 78_500, unit: 'g' }),
     );
   });
 
-  it('logs waist in centimeters converted to millimeters', async () => {
+  it('logs a waist measurement entered in centimeters', async () => {
     const logBodyMetrics = jest.fn().mockResolvedValue('b1');
     setup([], { logBodyMetrics });
     const renderer = await renderSection();
@@ -126,17 +172,44 @@ describe('BodySection (Phase 4E)', () => {
       nodeByTestId(renderer, 'body-add').props.onPress();
     });
     await act(async () => {
-      renderer.root.findAllByType(TextInput)[1].props.onChangeText('82');
+      nodeByTestId(renderer, 'body-type-waist').props.onPress();
+    });
+    await act(async () => {
+      renderer.root.findAllByType(TextInput)[0].props.onChangeText('82');
     });
     await act(async () => {
       buttonByLabel(renderer, strings.body.add).props.onPress();
     });
     expect(logBodyMetrics).toHaveBeenCalledWith(
-      expect.objectContaining({ weightGrams: null, waistMm: 820 }),
+      expect.objectContaining({ measurementType: 'waist', side: null, value: 820, unit: 'mm' }),
     );
   });
 
-  it('requires at least one value before saving', async () => {
+  it('logs a bilateral measurement with its selected side', async () => {
+    const logBodyMetrics = jest.fn().mockResolvedValue('b1');
+    setup([], { logBodyMetrics });
+    const renderer = await renderSection();
+    await act(async () => {
+      nodeByTestId(renderer, 'body-add').props.onPress();
+    });
+    await act(async () => {
+      nodeByTestId(renderer, 'body-type-upper_arm').props.onPress();
+    });
+    await act(async () => {
+      nodeByTestId(renderer, 'body-side-right').props.onPress();
+    });
+    await act(async () => {
+      renderer.root.findAllByType(TextInput)[0].props.onChangeText('30');
+    });
+    await act(async () => {
+      buttonByLabel(renderer, strings.body.add).props.onPress();
+    });
+    expect(logBodyMetrics).toHaveBeenCalledWith(
+      expect.objectContaining({ measurementType: 'upper_arm', side: 'right', value: 300, unit: 'mm' }),
+    );
+  });
+
+  it('requires a value before saving', async () => {
     const logBodyMetrics = jest.fn();
     setup([], { logBodyMetrics });
     const renderer = await renderSection();

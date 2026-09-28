@@ -15,12 +15,12 @@ import type {
   PortableProgram,
   PortableRoutine,
 } from './types';
-import { BACKUP_FORMAT, MAX_BACKUP_JSON_BYTES, BACKUP_FORMAT_VERSION, PortabilityError } from './types';
+import { APP_VERSION, BACKUP_FORMAT, MAX_BACKUP_JSON_BYTES, BACKUP_FORMAT_VERSION, PortabilityError } from './types';
 import { canonicalJson, semanticChecksum, utf8ByteLength } from './canonical';
+import { BODY_MEASUREMENT_TYPES, BODY_STORAGE_UNITS } from '../types/body';
+import { normalizeBodyEntries } from '../analytics/body';
 import { schemaVersion } from '../data/schema';
 import { NOTE_MAX_LENGTH } from '../data/notes';
-
-const APP_VERSION = '0.1.0';
 
 export interface RestoreHooks {
   onRowCreated?: (table: string, count: number) => void;
@@ -270,10 +270,24 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     targetWeightGrams: g.targetWeightGrams,
   }));
 
-  const bodyMetrics: BackupBodyMetric[] = bodyRows.map((m: any) => ({
-    measuredAt: m.measuredAt,
-    weightGrams: m.weightGrams ?? null,
-    waistMm: m.waistMm ?? null,
+  const bodyMetrics: BackupBodyMetric[] = normalizeBodyEntries(
+    bodyRows.map((m: any) => ({
+      timestampMs: m.measuredAt,
+      measurementType: m.measurementType,
+      side: m.side,
+      value: m.value,
+      unit: m.unit,
+      weightGrams: m.weightGrams,
+      waistMm: m.waistMm,
+    })),
+  ).map((entry) => ({
+    measuredAt: entry.timestampMs,
+    measurementType: entry.measurementType,
+    side: entry.side,
+    value: entry.value,
+    unit: entry.unit,
+    weightGrams: entry.weightGrams,
+    waistMm: entry.waistMm,
   }));
 
   const data: BackupData = {
@@ -438,14 +452,31 @@ export function validateBackup(raw: unknown): ApexBackup {
     if (typeof mm.measuredAt !== 'number' || !Number.isInteger(mm.measuredAt) || mm.measuredAt <= 0) {
       throw new PortabilityError('invalid_integer', `bodyMetrics[${i}].measuredAt`);
     }
+    const hasCanonicalFields =
+      mm.measurementType != null || mm.value != null || mm.unit != null || mm.side != null;
+    if (!hasCanonicalFields) {
+      if (!validBodyValue(mm.weightGrams) && !validBodyValue(mm.waistMm)) {
+        throw new PortabilityError('missing_field', `bodyMetrics[${i}]`);
+      }
+    } else {
+      if (typeof mm.measurementType !== 'string' || !BODY_MEASUREMENT_TYPES.includes(mm.measurementType as (typeof BODY_MEASUREMENT_TYPES)[number])) {
+        throw new PortabilityError('invalid_string', `bodyMetrics[${i}].measurementType`);
+      }
+      if (typeof mm.value !== 'number' || !Number.isInteger(mm.value) || mm.value <= 0) {
+        throw new PortabilityError('invalid_integer', `bodyMetrics[${i}].value`);
+      }
+      if (mm.unit !== BODY_STORAGE_UNITS[mm.measurementType as keyof typeof BODY_STORAGE_UNITS]) {
+        throw new PortabilityError('invalid_units', `bodyMetrics[${i}].unit`);
+      }
+      if (mm.side != null && mm.side !== 'left' && mm.side !== 'right') {
+        throw new PortabilityError('invalid_string', `bodyMetrics[${i}].side`);
+      }
+    }
     if (mm.weightGrams != null && !validBodyValue(mm.weightGrams)) {
       throw new PortabilityError('invalid_integer', `bodyMetrics[${i}].weightGrams`);
     }
     if (mm.waistMm != null && !validBodyValue(mm.waistMm)) {
       throw new PortabilityError('invalid_integer', `bodyMetrics[${i}].waistMm`);
-    }
-    if (mm.weightGrams == null && mm.waistMm == null) {
-      throw new PortabilityError('missing_field', `bodyMetrics[${i}]`);
     }
   }
 
@@ -699,18 +730,48 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         hooks.onRowCreated?.('goals', goalN);
       }
 
-      // Body metrics: no references — plain value rows.
+      // Body metrics: no references — plain value rows. Legacy weight/waist rows
+      // expand to canonical body_weight/waist entries; canonical rows are used as written.
       let bodyN = 0;
       for (const m of backup.data.bodyMetrics ?? []) {
-        await db.get<any>('body_metrics').create((rec: any) => {
-          rec.measuredAt = m.measuredAt;
-          rec.weightGrams = m.weightGrams;
-          rec.waistMm = m.waistMm;
-          rec.createdAt = Date.now();
-          rec.updatedAt = Date.now();
-        });
-        bodyN += 1;
-        hooks.onRowCreated?.('body_metrics', bodyN);
+        const canonical =
+          typeof m.measurementType === 'string' &&
+          BODY_MEASUREMENT_TYPES.includes(m.measurementType as (typeof BODY_MEASUREMENT_TYPES)[number]) &&
+          typeof m.value === 'number' &&
+          Number.isInteger(m.value) &&
+          m.value > 0 &&
+          m.unit === BODY_STORAGE_UNITS[m.measurementType as keyof typeof BODY_STORAGE_UNITS];
+        const entries: Array<{ measurementType: string; side: string | null; value: number; unit: string }> = [];
+        if (canonical) {
+          entries.push({
+            measurementType: m.measurementType as string,
+            side: typeof m.side === 'string' ? m.side : null,
+            value: m.value as number,
+            unit: m.unit as string,
+          });
+        } else {
+          if (typeof m.weightGrams === 'number' && Number.isInteger(m.weightGrams) && m.weightGrams > 0) {
+            entries.push({ measurementType: 'body_weight', side: null, value: m.weightGrams, unit: 'g' });
+          }
+          if (typeof m.waistMm === 'number' && Number.isInteger(m.waistMm) && m.waistMm > 0) {
+            entries.push({ measurementType: 'waist', side: null, value: m.waistMm, unit: 'mm' });
+          }
+        }
+        for (const entry of entries) {
+          await db.get<any>('body_metrics').create((rec: any) => {
+            rec.measuredAt = m.measuredAt;
+            rec.measurementType = entry.measurementType;
+            rec.side = entry.side;
+            rec.value = entry.value;
+            rec.unit = entry.unit;
+            rec.weightGrams = entry.measurementType === 'body_weight' ? entry.value : null;
+            rec.waistMm = entry.measurementType === 'waist' ? entry.value : null;
+            rec.createdAt = Date.now();
+            rec.updatedAt = Date.now();
+          });
+          bodyN += 1;
+          hooks.onRowCreated?.('body_metrics', bodyN);
+        }
       }
 
       // Programs first so routine membership can reference them by index.
@@ -956,6 +1017,10 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
         for (const raw of snap.bodyMetrics ?? []) {
           await db.get('body_metrics').create((rec: any) => {
             rec.measuredAt = raw.measured_at;
+            rec.measurementType = raw.measurement_type ?? null;
+            rec.side = raw.side ?? null;
+            rec.value = raw.value ?? null;
+            rec.unit = raw.unit ?? null;
             rec.weightGrams = raw.weight_grams ?? null;
             rec.waistMm = raw.waist_mm ?? null;
             rec.createdAt = raw.created_at ?? Date.now();

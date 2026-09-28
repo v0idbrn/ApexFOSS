@@ -216,10 +216,10 @@ describe('strings facade', () => {
   });
 });
 
-describe('schema v11 (Phase 4E body metrics)', () => {
-  it('schemaVersion is 11 with programs, mesocycles, goals, body metrics and routine linkage', () => {
-    expect(schemaVersion).toBe(11);
-    expect(schema.version).toBe(11);
+describe('schema v12 (Phase 5+ extensible body metrics)', () => {
+  it('schemaVersion is 12 with programs, mesocycles, goals, body metrics and routine linkage', () => {
+    expect(schemaVersion).toBe(12);
+    expect(schema.version).toBe(12);
     const settings = schema.tables['app_settings'];
     expect(settings).toBeDefined();
     expect(settings.columnArray.map((c) => c.name)).toEqual(['key', 'value', 'created_at', 'updated_at']);
@@ -234,7 +234,7 @@ describe('schema v11 (Phase 4E body metrics)', () => {
     expect(goals.columnArray.map((c) => c.name)).toEqual(['exercise_id', 'target_weight_grams', 'created_at', 'updated_at']);
     const bodyMetrics = schema.tables['body_metrics'];
     expect(bodyMetrics).toBeDefined();
-    expect(bodyMetrics.columnArray.map((c) => c.name)).toEqual(['measured_at', 'weight_grams', 'waist_mm', 'created_at', 'updated_at']);
+    expect(bodyMetrics.columnArray.map((c) => c.name)).toEqual(['measured_at', 'measurement_type', 'side', 'value', 'unit', 'weight_grams', 'waist_mm', 'created_at', 'updated_at']);
     const routines = schema.tables['routines'];
     const routineCols = routines.columnArray.map((c) => c.name);
     expect(routineCols).toContain('program_id');
@@ -247,8 +247,8 @@ describe('schema v11 (Phase 4E body metrics)', () => {
     expect(mesoCol?.isIndexed).toBe(true);
     expect(mesoCol?.isOptional).toBe(true);
     expect(migrations.validated).toBe(true);
-    expect(migrations.maxVersion).toBe(11);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(11);
+    expect(migrations.maxVersion).toBe(12);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(12);
   });
 });
 

@@ -178,5 +178,22 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      // v12: add optional canonical body-measurement columns. Optional columns
+      // preserve existing v11 weight/waist rows without a data rewrite; new
+      // entries populate measurement_type/side/value/unit.
+      toVersion: 12,
+      steps: [
+        addColumns({
+          table: 'body_metrics',
+          columns: [
+            { name: 'measurement_type', type: 'string', isIndexed: true, isOptional: true },
+            { name: 'side', type: 'string', isOptional: true },
+            { name: 'value', type: 'number', isOptional: true },
+            { name: 'unit', type: 'string', isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });

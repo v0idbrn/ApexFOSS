@@ -15,9 +15,9 @@ import { migrations } from './migrations';
  */
 
 describe('migration / data version sanity', () => {
-  it('schemaVersion is 11 (Phase 4E body metrics)', () => {
-    expect(schemaVersion).toBe(11);
-    expect(schema.version).toBe(11);
+  it('schemaVersion is 12 (Phase 5+ extensible body metrics)', () => {
+    expect(schemaVersion).toBe(12);
+    expect(schema.version).toBe(12);
   });
 
   it('all sixteen release tables are present with expected names', () => {
@@ -45,12 +45,12 @@ describe('migration / data version sanity', () => {
     expect(names).toHaveLength(16);
   });
 
-  it('migrations infrastructure is validated; v1→v2 through v10→v11 steps', () => {
+  it('migrations infrastructure is validated; v1→v2 through v11→v12 steps', () => {
     expect(migrations.validated).toBe(true);
     expect(migrations.minVersion).toBe(1);
-    expect(migrations.maxVersion).toBe(11);
-    expect(migrations.sortedMigrations).toHaveLength(10);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(migrations.maxVersion).toBe(12);
+    expect(migrations.sortedMigrations).toHaveLength(11);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   });
 
   it('programs table exists with name + timestamps (schema v8)', () => {
@@ -123,6 +123,18 @@ describe('migration / data version sanity', () => {
     expect(byName.get('per_side')?.type).toBe('number');
     expect(byName.get('created_at')?.type).toBe('number');
     expect(byName.get('updated_at')?.type).toBe('number');
+  });
+
+  it('body_metrics keeps optional canonical columns beside legacy weight/waist (schema v12)', () => {
+    const t = schema.tables['body_metrics'];
+    const byName = new Map(t.columnArray.map((c) => [c.name, c]));
+    expect(byName.get('measurement_type')?.isOptional).toBe(true);
+    expect(byName.get('measurement_type')?.isIndexed).toBe(true);
+    expect(byName.get('side')?.isOptional).toBe(true);
+    expect(byName.get('value')?.isOptional).toBe(true);
+    expect(byName.get('unit')?.isOptional).toBe(true);
+    expect(byName.get('weight_grams')?.isOptional).toBe(true);
+    expect(byName.get('waist_mm')?.isOptional).toBe(true);
   });
 
   it('critical columns exist on workout_sessions (cursor is authoritative)', () => {

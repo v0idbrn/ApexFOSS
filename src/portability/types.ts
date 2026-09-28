@@ -6,6 +6,7 @@ export const ROUTINE_FORMAT = 'apexfoss-routine' as const;
 export const BACKUP_FORMAT = 'apexfoss-backup' as const;
 export const ROUTINE_FORMAT_VERSION = 1 as const;
 export const BACKUP_FORMAT_VERSION = 1 as const;
+export const APP_VERSION = '1.0.0' as const;
 
 /** Package-local exercise identity (installation-independent). */
 export interface PortableExercise {
@@ -129,11 +130,17 @@ export interface BackupGoal {
   targetWeightGrams: number;
 }
 
-/** Phase 4E: body measurement — at least one of weight/waist present. */
+/** Body measurement: canonical extensible fields, with legacy weight/waist accepted for v11 backups. */
 export interface BackupBodyMetric {
   measuredAt: number;
-  weightGrams: number | null;
-  waistMm: number | null;
+  measurementType?: string;
+  side?: string | null;
+  value?: number;
+  unit?: string;
+  /** Legacy weight in grams (Phase 4E compat). */
+  weightGrams?: number | null;
+  /** Legacy waist in millimeters (Phase 4E compat). */
+  waistMm?: number | null;
 }
 
 /** Backup row shapes (logical, not Watermelon dumps). */

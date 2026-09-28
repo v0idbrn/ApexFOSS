@@ -7,12 +7,10 @@ import type {
   PortableRoutine,
   PortableStep,
 } from './types';
-import { MAX_ROUTINE_JSON_BYTES, ROUTINE_FORMAT, ROUTINE_FORMAT_VERSION, PortabilityError } from './types';
+import { APP_VERSION, MAX_ROUTINE_JSON_BYTES, ROUTINE_FORMAT, ROUTINE_FORMAT_VERSION, PortabilityError } from './types';
 import { canonicalJson, semanticChecksum, utf8ByteLength } from './canonical';
 import { validateRoutinePackage } from './validate';
 import { makeDbActions } from '../data/actions';
-
-const APP_VERSION = '0.1.0';
 
 /**
  * Assign package-local exercise keys by first-use order across blocks/steps.

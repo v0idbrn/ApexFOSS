@@ -22,8 +22,11 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
  * v11 (Phase 4E): body_metrics table (body weight grams + waist mm at an
  * absolute timestamp; at least one value per row). Logging only - no
  * medical interpretation.
- */
-export const schemaVersion = 11;
+  * v12: optional canonical body-measurement columns alongside legacy
+  * weight_grams/waist_mm. New entries populate measurement_type/side/value/unit;
+  * legacy rows remain readable through analytics normalization.
+  */
+export const schemaVersion = 12;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -209,6 +212,10 @@ export const schema = appSchema({
       name: 'body_metrics',
       columns: [
         { name: 'measured_at', type: 'number', isIndexed: true },
+        { name: 'measurement_type', type: 'string', isIndexed: true, isOptional: true },
+        { name: 'side', type: 'string', isOptional: true },
+        { name: 'value', type: 'number', isOptional: true },
+        { name: 'unit', type: 'string', isOptional: true },
         { name: 'weight_grams', type: 'number', isOptional: true },
         { name: 'waist_mm', type: 'number', isOptional: true },
         { name: 'created_at', type: 'number' },

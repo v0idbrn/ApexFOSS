@@ -209,12 +209,18 @@ export class Goal extends Model {
   @field('updated_at') updatedAt!: number;
 }
 
-/** Phase 4E: body measurement at an absolute timestamp (weight and/or waist). */
+/** Body measurement at an absolute timestamp (extensible canonical fields plus legacy columns). */
 export class BodyMetric extends Model {
   static table = 'body_metrics';
 
   @field('measured_at') measuredAt!: number;
+  @text('measurement_type') measurementType!: string | null;
+  @text('side') side!: string | null;
+  @field('value') value!: number | null;
+  @text('unit') unit!: string | null;
+  /** Legacy weight in grams (Phase 4E compat). */
   @field('weight_grams') weightGrams!: number | null;
+  /** Legacy waist in millimeters (Phase 4E compat). */
   @field('waist_mm') waistMm!: number | null;
   @field('created_at') createdAt!: number;
   @field('updated_at') updatedAt!: number;

@@ -2,6 +2,7 @@ import { Database, Q } from '@nozbe/watermelondb';
 import { RoutineDefinition, ExecutionCursor, Effect, StepDef, BlockDef, TransitionType } from '../types/engine';
 import { classifySetExecution, normalizeOverrideReason } from '../workout/execution';
 import { RoutineDraft, emptyPrescription } from '../types/draft';
+import { BODY_MEASUREMENT_TYPES, BODY_STORAGE_UNITS, isBilateralMeasurement } from '../types/body';
 import { initialCursor } from '../engine/cursor';
 import {
   Exercise,
@@ -104,6 +105,8 @@ export interface DbActions {
     input: { name: string; category: string; equipment: string; metricFlags: number },
   ): Promise<void>;
   deleteExercise(id: string): Promise<void>;
+  /** Counts routine steps that reference an exercise (sessions use immutable snapshots). */
+  countExerciseReferences(id: string): Promise<number>;
   listExercises(): Promise<Exercise[]>;
 
   createRoutine(name: string): Promise<string>;
@@ -135,10 +138,25 @@ export interface DbActions {
   deleteGoal(id: string): Promise<void>;
   listGoals(): Promise<Array<{ id: string; exerciseId: string; targetWeightGrams: number; createdAt: number }>>;
 
-  /** Logs a body measurement; at least one of weight/waist must be a positive integer. */
-  logBodyMetrics(input: { measuredAt: number; weightGrams?: number | null; waistMm?: number | null }): Promise<string>;
+  /** Logs one canonical body measurement in integer storage units. */
+  logBodyMetrics(input: {
+    measuredAt: number;
+    measurementType: string;
+    side?: string | null;
+    value: number;
+    unit: string;
+  }): Promise<string>;
   deleteBodyMetric(id: string): Promise<void>;
-  listBodyMetrics(): Promise<Array<{ id: string; measuredAt: number; weightGrams: number | null; waistMm: number | null }>>;
+  listBodyMetrics(): Promise<Array<{
+    id: string;
+    measuredAt: number;
+    measurementType: string | null;
+    side: string | null;
+    value: number | null;
+    unit: string | null;
+    weightGrams: number | null;
+    waistMm: number | null;
+  }>>;
 
   loadRoutineDraft(routineId: string): Promise<RoutineDraft>;
   saveRoutineDraft(draft: RoutineDraft): Promise<string>;
@@ -226,6 +244,13 @@ export function makeDbActions(db: Database): DbActions {
         const ex = await exercisesCol().find(id);
         await ex.markAsDeleted();
       });
+    },
+
+    async countExerciseReferences(id) {
+      return db
+        .get<RoutineBlockStep>('routine_block_steps')
+        .query(Q.where('exercise_id', id))
+        .fetchCount();
     },
 
     async listExercises() {
@@ -556,21 +581,34 @@ export function makeDbActions(db: Database): DbActions {
 
     async logBodyMetrics(input) {
       return db.write(async () => {
-        const weight = input.weightGrams ?? null;
-        const waist = input.waistMm ?? null;
+        const { measuredAt, measurementType, side, value, unit } = input;
         const positive = (v: number | null) => v != null && Number.isInteger(v) && v > 0;
-        if (weight != null && !positive(weight)) throw new Error('weight must be a positive integer of grams');
-        if (waist != null && !positive(waist)) throw new Error('waist must be a positive integer of millimeters');
-        if (weight == null && waist == null) {
-          throw new Error('body metric needs a positive integer weight or waist');
+        if (!BODY_MEASUREMENT_TYPES.includes(measurementType as (typeof BODY_MEASUREMENT_TYPES)[number])) {
+          throw new Error('measurement type is not supported');
         }
-        if (!Number.isFinite(input.measuredAt) || input.measuredAt <= 0) {
+        if (!positive(value)) throw new Error('value must be a positive integer');
+        if (unit !== BODY_STORAGE_UNITS[measurementType as keyof typeof BODY_STORAGE_UNITS]) {
+          throw new Error('unit must match the measurement type');
+        }
+        if (!Number.isFinite(measuredAt) || measuredAt <= 0) {
           throw new Error('measuredAt must be a positive timestamp');
         }
+        if (isBilateralMeasurement(measurementType)) {
+          if (side !== 'left' && side !== 'right') {
+            throw new Error('side must be left or right for bilateral measurements');
+          }
+        } else if (side != null) {
+          throw new Error('side is only supported for bilateral measurements');
+        }
+
         const row = await db.get<BodyMetric>('body_metrics').create((rec) => {
-          rec.measuredAt = input.measuredAt;
-          rec.weightGrams = positive(weight) ? weight : null;
-          rec.waistMm = positive(waist) ? waist : null;
+          rec.measuredAt = measuredAt;
+          rec.measurementType = measurementType;
+          rec.side = side ?? null;
+          rec.value = value;
+          rec.unit = unit;
+          rec.weightGrams = measurementType === 'body_weight' ? value : null;
+          rec.waistMm = measurementType === 'waist' ? value : null;
           rec.createdAt = now();
           rec.updatedAt = now();
         });
@@ -593,6 +631,10 @@ export function makeDbActions(db: Database): DbActions {
       return rows.map((m) => ({
         id: m.id,
         measuredAt: m.measuredAt,
+        measurementType: m.measurementType,
+        side: m.side,
+        value: m.value,
+        unit: m.unit,
         weightGrams: m.weightGrams,
         waistMm: m.waistMm,
       }));
