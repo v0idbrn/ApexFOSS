@@ -154,10 +154,10 @@ export function LoadScreen() {
               testID={`load-range-${r}`}
               style={({ pressed }) => (pressed ? { opacity: 0.85 } : undefined)}
               className={`min-h-12 flex-1 items-center justify-center rounded-lg border px-3 ${
-                kind === r ? 'border-accent bg-accent/10' : 'border-line bg-surface'
+                kind === r ? 'border-accent bg-accent' : 'border-line bg-surface'
               }`}
             >
-              <Text className={`text-sm ${kind === r ? 'font-bold text-accent-ink' : 'font-semibold text-dim'}`}>
+              <Text className={`text-sm ${kind === r ? 'font-bold text-fg' : 'font-semibold text-dim'}`}>
                 {kind === r ? '✓ ' : ''}
                 {rangeLabel(r)}
               </Text>

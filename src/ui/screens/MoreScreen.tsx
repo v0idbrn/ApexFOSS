@@ -44,7 +44,7 @@ export function MoreScreen() {
 
           <Enter delayMs={40}>
             <SectionHeader title={strings.more.trainingTools} />
-            <View className="overflow-hidden rounded-xl border border-line">
+            <View className="overflow-hidden rounded-xl border border-line bg-surface">
               {toolRows.map((row) => (
                 <ListRow
                   key={row.route}
@@ -59,7 +59,7 @@ export function MoreScreen() {
 
           <Enter delayMs={80}>
             <SectionHeader title={strings.more.dataSection} />
-            <View className="overflow-hidden rounded-xl border border-line">
+            <View className="overflow-hidden rounded-xl border border-line bg-surface">
               <ListRow
                 title={strings.portability.title}
                 subtitle={strings.more.backupSub}
@@ -106,7 +106,7 @@ export function MoreScreen() {
 
           <Enter delayMs={160}>
             <SectionHeader title={strings.more.aboutSection} />
-            <View className="overflow-hidden rounded-xl border border-line">
+            <View className="overflow-hidden rounded-xl border border-line bg-surface">
               <ListRow
                 title={strings.trust.title}
                 subtitle={strings.more.trustSub}
@@ -118,7 +118,7 @@ export function MoreScreen() {
 
             <Text className="mt-6 text-base font-medium text-fg">{strings.more.supportTitle}</Text>
             <Text className="mt-1 text-sm text-dim">{strings.more.supportBody}</Text>
-            <View className="mt-3 overflow-hidden rounded-xl border border-line">
+            <View className="mt-3 overflow-hidden rounded-xl border border-line bg-surface">
               <ListRow
                 title={strings.more.supportSponsors}
                 testID="more-support-sponsors"

@@ -96,18 +96,18 @@ export function ReportScreen() {
 
         <SectionHeader title={strings.report.sessions} />
         <Card>
-          <Text>{strings.report.sessionsTotal}: {report.sessions.total}</Text>
-          <Text>{strings.report.totalVolume}: {formatCount(report.sessions.totalVolumeKgReps)} kg·reps</Text>
-          <Text>{strings.report.avgSetsPerSession}: {report.sessions.averageSetsPerSession}</Text>
+          <Text className="text-body text-fg">{strings.report.sessionsTotal}: {report.sessions.total}</Text>
+          <Text className="mt-1 text-body text-fg">{strings.report.totalVolume}: {formatCount(report.sessions.totalVolumeKgReps)} kg·reps</Text>
+          <Text className="mt-1 text-body text-fg">{strings.report.avgSetsPerSession}: {report.sessions.averageSetsPerSession}</Text>
         </Card>
 
         <SectionHeader title={strings.report.volumeByExercise} />
         <Card>
           {report.volume.byExercise.length === 0 ? (
-            <Text className="text-dim">{strings.report.noData}</Text>
+            <Text className="text-body text-dim">{strings.report.noData}</Text>
           ) : (
             report.volume.byExercise.slice(0, 10).map((v, i) => (
-              <Text key={i} className="py-1">
+              <Text key={i} className="py-1 text-body text-fg">
                 {v.exerciseName}: {formatKg(v.gramReps)} kg·reps · {v.setCount} {strings.report.sets}
               </Text>
             ))
@@ -116,12 +116,12 @@ export function ReportScreen() {
 
         <SectionHeader title={strings.report.personalRecords} />
         <Card>
-          <Text>{strings.report.prCount}: {report.prs.count}</Text>
+          <Text className="text-body text-fg">{strings.report.prCount}: {report.prs.count}</Text>
           {report.prs.byExercise.length === 0 ? (
-            <Text className="text-dim">{strings.report.noRecords}</Text>
+            <Text className="mt-1 text-body text-dim">{strings.report.noRecords}</Text>
           ) : (
             report.prs.byExercise.slice(0, 10).map((pr, i) => (
-              <Text key={i} className="py-1">
+              <Text key={i} className="py-1 text-body text-fg">
                 {pr.exerciseName}:
                 {pr.estimated1rmGrams !== null ? ` e1RM ~${formatKg(pr.estimated1rmGrams)}kg` : ''}
                 {pr.bestWeightGrams !== null ? ` · best ${formatKg(pr.bestWeightGrams)}kg` : ''}
@@ -133,12 +133,12 @@ export function ReportScreen() {
 
         <SectionHeader title={strings.report.adherence} />
         <Card>
-          <Text>{strings.report.adherenceStatus}: {statusLabel(report.adherence.status)}</Text>
-          <Text>
+          <Text className="text-body text-fg">{strings.report.adherenceStatus}: {statusLabel(report.adherence.status)}</Text>
+          <Text className="mt-1 text-body text-fg">
             {strings.report.planned}: {report.adherence.planned} · {strings.report.performed}:{' '}
             {report.adherence.performed}
           </Text>
-          <Text>
+          <Text className="mt-1 text-body text-fg">
             {strings.report.skipped}: {report.adherence.skipped} · {strings.report.modified}:{' '}
             {report.adherence.modified} · {strings.report.extra}: {report.adherence.extra}
           </Text>
@@ -148,19 +148,19 @@ export function ReportScreen() {
           <>
             <SectionHeader title={strings.report.bodyMetrics} />
             <Card>
-              <Text>
+              <Text className="text-body text-fg">
                 {strings.report.latestWeight}: {weightEntry ? formatBodyEntry(weightEntry) : strings.report.na}
               </Text>
-              <Text>
+              <Text className="mt-1 text-body text-fg">
                 {strings.report.latestWaist}: {waistEntry ? formatBodyEntry(waistEntry) : strings.report.na}
               </Text>
-              <Text>
+              <Text className="mt-1 text-body text-fg">
                 {strings.report.weightDelta}: {weightDelta ? formatBodyDelta(weightDelta) ?? strings.report.na : strings.report.na}
               </Text>
-              <Text>
+              <Text className="mt-1 text-body text-fg">
                 {strings.report.waistDelta}: {waistDelta ? formatBodyDelta(waistDelta) ?? strings.report.na : strings.report.na}
               </Text>
-              <Text>{strings.report.entries}: {report.body.entryCount}</Text>
+              <Text className="mt-1 text-body text-fg">{strings.report.entries}: {report.body.entryCount}</Text>
             </Card>
           </>
         ) : null}
@@ -170,7 +170,7 @@ export function ReportScreen() {
             <SectionHeader title={strings.report.goals} />
             <Card>
               {report.goals.map((g, i) => (
-                <Text key={i} className="py-1">
+                <Text key={i} className="py-1 text-body text-fg">
                   {g.exerciseName}: target {formatKg(g.targetGrams)}kg ·
                   {g.currentBestGrams !== null
                     ? `current ${formatKg(g.currentBestGrams)}kg (${Math.round((g.progress ?? 0) * 100)}%)`
@@ -187,7 +187,7 @@ export function ReportScreen() {
             <SectionHeader title={strings.report.trends} />
             <Card>
               {report.e1rmTrends.slice(0, 10).map((t, i) => (
-                <Text key={i} className="py-1">
+                <Text key={i} className="py-1 text-body text-fg">
                   {t.exerciseName}: {signalStateLabel(t.evidence.status)} ({signalReasonLabel(t.evidence.reason)})
                 </Text>
               ))}
