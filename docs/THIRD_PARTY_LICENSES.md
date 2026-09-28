@@ -3,7 +3,7 @@
 **Last updated: 2026-09-25 (Phase 2G).**
 **Scope:** components bundled into ApexFOSS builds (runtime) plus the primary build/test toolchain. SPDX identifiers are taken from each component's own `package.json` (`license` field) or Android metadata as installed in this repository.
 
-> **This file documents third-party licenses only. It does NOT declare or change the license of ApexFOSS itself** — the project currently has **no `LICENSE` file** (open owner decision, D-038; see `docs/KNOWN_LIMITATIONS.md`). No license was added as part of this audit.
+> **This file documents third-party licenses only. It does NOT declare or change the license of ApexFOSS itself** — ApexFOSS is licensed **GPL-3.0-or-later** (see `LICENSE`, D-038).
 
 ## How this list was produced
 
@@ -11,7 +11,7 @@ Licenses below were read from the installed `node_modules/*/package.json` on 202
 
 ```
 npx license-checker --production --summary
-npx license-checker --production --failOn "GPL-3.0;AGPL-*"   # example policy gate
+npx license-checker --production --failOn "GPL-2.0-only"   # example policy gate: GPL-2.0-only is the license incompatible with a GPL-3.0 app
 ```
 
 Any component whose license could not be read programmatically is marked **⚠ manual review**.

@@ -23,7 +23,7 @@
 11. **Full local wipe is not forensic erasure** (SECURITY_AUDIT F-11): rows are permanently destroyed, but flash pages may retain old data until the OS reuses them.
 12. **Auto Backup is enabled with OS-default scope** (`allowBackup=true`, no extraction rules; D-034/F-04). Exact scope depends on the Android version and the user's backup provider.
 13. **`SYSTEM_ALERT_WINDOW` permission is present** (inherited from the React Native toolchain) though never requested at runtime; removal is pending device verification (D-035).
-14. **No license file yet** — licensing status is undeclared until the owner decides (D-038/F-18); READMEs state "license: pending" accordingly.
+14. ~~No license file yet~~ **Resolved at v1.0.0:** the project is licensed **GPL-3.0-or-later** (`LICENSE`, decision D-038 closed); this entry is kept for numbering stability.
 15. **12 moderate npm advisories are outstanding** (all indirect; npm's suggested fixes would downgrade core dependencies; D-039/F-19). Revisit at the next dependency-maintenance window.
 16. **Deep-link flows and actual notification delivery are unit-tested but not device-tested** (no device in Phase 2G). Phase 2K observed the POST_NOTIFICATIONS permission prompt on hardware (prompt appearance + decline path), but a rest-timer notification actually being delivered, and `apexfoss://` deep links opening from another app, remain unvalidated.
 

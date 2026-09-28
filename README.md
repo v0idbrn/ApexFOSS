@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1131%20%2F%2085%20suites-4ade80" alt="1131 tests in 85 suites" />
+  <img src="https://img.shields.io/badge/tests-1139%20%2F%2087%20suites-4ade80" alt="1139 tests in 87 suites" />
 </p>
 
 <p align="center">
@@ -22,6 +22,7 @@
   <a href="#features">Features</a> ·
   <a href="#privacy-by-design">Privacy</a> ·
   <a href="#installation">Install</a> ·
+  <a href="#support-apexfoss">Support</a> ·
   <a href="#documentation">Docs</a>
 </p>
 
@@ -122,65 +123,44 @@ UI (React Native / NativeWind)
 
 ## Installation
 
-ApexFOSS is **not published on any app store** yet (no Play Store, no F-Droid, no pre-built release downloads). The way to install it is to build the APK yourself. Distribution considerations are tracked in [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
+ApexFOSS is **not yet published on any app store or channel** (no Play Store, no F-Droid, no GitHub Release yet). Publication is prepared, not completed — see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
 
-### Users (build your own APK)
-
-Requirements: Node.js with npm, a JDK (17 or newer), and an Android SDK.
-
-```bash
-git clone https://github.com/v0idbrn/ApexFOSS.git
-cd ApexFOSS
-npm install
-npm run prebuild        # regenerate android/ from app.json + plugins (CNG)
-npm run build:apk       # release APK → android/app/build/outputs/apk/release/
-adb install android/app/build/outputs/apk/release/app-release.apk
-```
-
-The release build is **one universal APK** for ARM devices: `arm64-v8a` + `armeabi-v7a`, requiring **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (emulator-oriented) are not part of the current compatibility target. Validated on a Samsung SM-A045M (Android 14) in Phase 2K — the exact validation scope and its gaps are in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21 and #26.
-
-### Developers
-
-```bash
-npm install
-npm run prebuild        # android/ is generated, not hand-maintained
-npm run start           # Metro dev server (dev client)
-npm run android         # build & run on a connected device or emulator
-npm test                # Jest test suite
-npm run typecheck       # tsc --noEmit
-```
-
-`npm run android` requires a connected device or emulator.
-
-### Release signing
-
-The repository contains no secrets. Release signing is injected at prebuild time by a config plugin (`plugins/withApexSigning.js`) that reads `~/.apexfoss/apexfoss-signing.properties` (keys: `storeFile`, `storePassword`, `keyAlias`, `keyPassword`) pointing to a keystore stored **outside the repository**. `npm run prebuild` fails fast when that file is missing, so create your own keystore and properties file first if you want to produce a release APK.
+- **Recommended:** install the signed `app-release.apk` for the current 1.0.0 build obtained from the project maintainer, by opening it on your Android device. One universal APK for ARM (`arm64-v8a` + `armeabi-v7a`), requiring **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (emulator-oriented) are not part of the current compatibility target.
+- **Building from source** is optional and documented for developers in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+- **Validation status:** the 1.0.0 build is release-built with automated tests passing; final physical-device validation and friend testing are still pending — see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. An earlier partial device pass (Phase 2K, Samsung SM-A045M, Android 14) is historical evidence, not final validation.
 
 ## Testing
 
 ```bash
-npm test                # 1131 tests across 85 suites — engine, persistence, timers,
+npm test                # 1139 tests across 87 suites — engine, persistence, timers,
                         # migrations, analytics, portability, export, security, UI
 npm run typecheck       # TypeScript passes with no errors
 ```
 
 - Debug and release APKs build locally (`npm run build:apk`), and the release APK's permission set has been audited (see [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
 - GitHub Actions CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs typecheck + tests on every push and pull request to `main`.
-- The suite runs on Jest with no device attached. **Phase 2K performed a first physical-device validation pass** (Samsung SM-A045M, Android 14, ARM64): install/launch, Home, routine authoring → preview/integrity, workout launch, session resume with timer catch-up, and cold-restart persistence were exercised on hardware. The rest of the matrix — full timer pause/resume, completed-session flows (summary, notes, History/analytics/PRs), Trust Center, EN/ES, and a post-fix smoke — is **not yet device-validated**; see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. Treat everything else as needing validation on your own hardware.
+- The suite runs on Jest with no device attached. **Physical validation is pending for 1.0.0**: the final build still needs an on-device smoke pass and real-world friend testing. A partial historical device pass (Phase 2K, Samsung SM-A045M, Android 14) covered install/launch, Home, routine authoring → preview/integrity, workout launch, session resume with timer catch-up, and cold-restart persistence; the rest of the matrix — full timer pause/resume, completed-session flows, Trust Center, EN/ES — was **not** exercised on hardware; see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21.
 
 ## Project status
 
+Current state, in precise terms:
+
+- **Implemented:** everything listed under [Features](#features).
+- **Tested:** 1139 Jest tests / 87 suites pass; TypeScript type-check passes; CI runs both on every push.
+- **Release-built:** debug and release APKs build locally; the signed 1.0.0 release APK is built and verified (package `com.apexfoss.app`, versionCode 2, no INTERNET permission, not debuggable).
+- **Physically validated:** partial historical pass only (Phase 2K); **final v1.0 device validation and friend testing pending**.
+- **Published:** no — no store, channel, or GitHub Release submission has been made.
+
 - **Version:** 1.0.0 (unreleased), Android only, local database schema version 12.
-- **Quality gates:** 1131 Jest tests / 85 suites pass; TypeScript type-check passes; debug and release APKs build locally; release signing verified; final release APK installed and smoke-validated on one physical device (Phase 2K).
-- **Distribution:** no store or channel submissions have been made.
+- **Distribution:** prepared, not submitted ([docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)).
 - **Legal:** privacy, health-boundary, and terms documents exist in [docs/](docs/) — terms are a **draft pending legal review**.
-- **License:** not yet declared (see below).
+- **License:** GPL-3.0-or-later (see below).
 
 ## Roadmap
 
 **Implemented** — everything listed under [Features](#features).
 
-**Needed before a public release** — resolve the license decision (D-038), complete legal review of the draft terms, finish physical-device validation (Phase 2K covered one Samsung device; the remaining matrix is listed in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21), store/channel preparation per [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md), and the outstanding items in [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+**Before public release** — final physical-device validation on the owner's device, several days of friend testing and fixes, legal review of the draft terms, then store/channel publication per [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). Remaining known gaps: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 **Not currently planned** — iOS, Health Connect, wearable integrations, cloud sync or accounts, AI features, social features, camera-based input, and in-app analytics.
 
@@ -199,6 +179,13 @@ npm run typecheck       # TypeScript passes with no errors
 | [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) | Distribution channels, blockers, and requirements |
 | [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md) | Third-party component licenses |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Architecture and product decision log |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Developer setup, builds, and release checklist |
+
+## Support ApexFOSS
+
+ApexFOSS is free and open-source. If you find it useful, you can support its continued development through [GitHub Sponsors](https://github.com/sponsors/v0idbrn) or [PayPal](https://paypal.me/amelie615).
+
+Support is entirely voluntary — the app has no paywall, no subscription, no ads, and works fully offline without ever contributing anything.
 
 ## Contributing
 
@@ -211,7 +198,7 @@ Issues and pull requests are welcome. Before submitting:
 
 ## License
 
-**The license is pending a project-owner decision (D-038).** No `LICENSE` file exists yet, so the source code is visible but not yet licensed for reuse — do not assume MIT, Apache-2.0, or any other terms. Third-party dependency licenses are listed in [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md); the decision log is in [docs/DECISIONS.md](docs/DECISIONS.md).
+ApexFOSS is licensed under the **GNU General Public License v3.0 or later** (GPL-3.0-or-later). The full text is in [LICENSE](LICENSE). In short: you may use, study, share, and modify this software, and derivative works must remain free software under the same license. Third-party dependency licenses are listed in [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md); the decision record is in [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Disclaimer
 

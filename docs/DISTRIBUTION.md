@@ -7,7 +7,7 @@ Channels under consideration: **GitHub Releases**, **F-Droid**, **Google Play**.
 
 ## Common prerequisites (all channels)
 
-- [ ] Resolve licensing: add a `LICENSE` file (D-038; the READMEs have described the license as pending since Phase 2H — no open-source claim remains in them; F-Droid *requires* a recognized FOSS license, Play does not).
+- [x] Resolve licensing: add a `LICENSE` file (D-038 — resolved at v1.0.0: **GPL-3.0-or-later**; F-Droid *requires* a recognized FOSS license, Play does not).
 - [ ] Legal review: `docs/TERMS_OF_USE.md` (fill identity/contact/governing law), `docs/PRIVACY.md` review, `docs/HEALTH_AND_FITNESS.md` consistency (D-042 scope).
 - [ ] Provision a real security contact (see `SECURITY.md`) and a privacy contact.
 - [ ] Device validation of Phase 2G surfaces (deep links, notification permission flow, Trust Center) — **skipped this phase: no device connected**.
@@ -48,7 +48,7 @@ Play's health/fitness and data-safety questionnaires will effectively ask:
 
 F-Droid accepts only FOSS apps meeting its inclusion policy (spec §23):
 
-1. **License:** must be an approved FOSS license — currently **missing entirely** (D-038) ⇒ **hard blocker**.
+1. **License:** must be an approved FOSS license — satisfied: **GPL-3.0-or-later** (`LICENSE`, D-038).
 2. **No anti-features:** the app has no ads/tracking/non-FOSS deps *in the source*, but F-Droid also checks the build recipe:
    - dependencies must be buildable from source or prebuilt blobs with source (Fastlane/F-Droid metadata will need all npm/Gradle deps covered by `tidelift`/`scancode` review);
    - `expo prebuild`-generated `android/` code and precompiled JS bundles must be handled by the metadata recipe (likely `srclib`/`excluded` approaches) — **this is the largest engineering item for F-Droid**.
@@ -58,7 +58,7 @@ F-Droid accepts only FOSS apps meeting its inclusion policy (spec §23):
 
 ## Sign-off checklist before ANY public distribution
 
-- [ ] LICENSE decided and added (D-038)
+- [x] LICENSE decided and added (D-038: GPL-3.0-or-later)
 - [ ] Legal docs reviewed (identity, contact, governing law filled)
 - [ ] Security contact provisioned (`SECURITY.md`)
 - [ ] Device validation pass (deep link, notifications, wipe, palette legibility on-screen)

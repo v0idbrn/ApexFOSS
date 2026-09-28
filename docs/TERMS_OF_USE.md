@@ -18,7 +18,7 @@
 
 ## 3. License
 
-The project's licensing status is **currently undeclared**: no `LICENSE` file exists at the time of this draft (tracked as an open item in `docs/KNOWN_LIMITATIONS.md`, decision D-038). **Until the owner declares a license, all rights are reserved by the copyright holder, and the READMEs state the license as pending (they make no open-source claim — Phase 2H).** The owner must resolve this before any public distribution claim.
+The project is licensed under the **GNU General Public License v3.0 or later** (GPL-3.0-or-later), see `LICENSE` in the repository (decision D-038, resolved at v1.0.0). The license governs your use, study, sharing and modification of the software; this document governs everything else.
 
 ## 4. Nature of the relationship
 
@@ -77,8 +77,8 @@ By installing or using the software you acknowledge that you have read this draf
 
 ### Review checklist (for the owner/counsel)
 
+- [x] License decided and added (D-038: GPL-3.0-or-later; §3 aligned).
 - [ ] Fill in operator identity, contact channel, repository URL, governing law.
-- [ ] Resolve the license question (D-038) and align §3 with the chosen license.
 - [ ] Verify limitation-of-liability and warranty language for each distribution jurisdiction (EU/UK consumer law, etc.).
 - [ ] Confirm health/fitness disclaimer wording (with `docs/HEALTH_AND_FITNESS.md`).
 - [ ] Remove the draft banner only after review is complete.

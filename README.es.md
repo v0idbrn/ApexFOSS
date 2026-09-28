@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1131%20%2F%2085%20suites-4ade80" alt="1131 pruebas en 85 suites" />
+  <img src="https://img.shields.io/badge/tests-1139%20%2F%2087%20suites-4ade80" alt="1139 pruebas en 87 suites" />
 </p>
 
 <p align="center">
@@ -22,6 +22,7 @@
   <a href="#características">Características</a> ·
   <a href="#privacidad-por-diseño">Privacidad</a> ·
   <a href="#instalación">Instalación</a> ·
+  <a href="#apoya-a-apexfoss">Apoyo</a> ·
   <a href="#documentación">Documentación</a>
 </p>
 
@@ -122,44 +123,16 @@ Interfaz (React Native / NativeWind)
 
 ## Instalación
 
-ApexFOSS **aún no está publicado en ninguna tienda de aplicaciones** (ni Play Store, ni F-Droid, ni descargas de compilaciones prearmadas). La forma de instalarlo es compilar el APK por ti mismo. Los requisitos de distribución se siguen en [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
+ApexFOSS **aún no está publicado en ninguna tienda ni canal** (ni Play Store, ni F-Droid, ni GitHub Release). La publicación está preparada, no completada — ver [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
 
-### Usuarios (compila tu propio APK)
-
-Requisitos: Node.js con npm, un JDK (17 o superior) y un Android SDK.
-
-```bash
-git clone https://github.com/v0idbrn/ApexFOSS.git
-cd ApexFOSS
-npm install
-npm run prebuild        # regenera android/ desde app.json + plugins (CNG)
-npm run build:apk       # APK de versión final → android/app/build/outputs/apk/release/
-adb install android/app/build/outputs/apk/release/app-release.apk
-```
-
-La compilación de versión final es **un APK universal** para dispositivos ARM: `arm64-v8a` + `armeabi-v7a`, que requiere **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (orientados a emuladores) no forman parte del objetivo actual de compatibilidad. Validado en un Samsung SM-A045M (Android 14) en la Fase 2K — el alcance exacto de la validación y sus vacíos están en [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21 y #26.
-
-### Desarrolladores
-
-```bash
-npm install
-npm run prebuild        # android/ se genera, no se mantiene a mano
-npm run start           # servidor Metro (dev client)
-npm run android         # compila y ejecuta en un dispositivo o emulador conectado
-npm test                # suite de pruebas Jest
-npm run typecheck       # tsc --noEmit
-```
-
-`npm run android` requiere un dispositivo o emulador conectado.
-
-### Firma de la versión final
-
-El repositorio no contiene secretos. La firma de la versión final se inyecta en tiempo de prebuild mediante un plugin de configuración (`plugins/withApexSigning.js`) que lee `~/.apexfoss/apexfoss-signing.properties` (claves: `storeFile`, `storePassword`, `keyAlias`, `keyPassword`) apuntando a un keystore guardado **fuera del repositorio**. `npm run prebuild` falla de inmediato si ese archivo no existe, así que crea tu propio keystore y archivo de propiedades antes si quieres producir un APK de versión final.
+- **Recomendado:** instala el `app-release.apk` firmado de la compilación 1.0.0 actual, obtenido del mantenedor del proyecto, abriéndolo en tu dispositivo Android. Un APK universal para ARM (`arm64-v8a` + `armeabi-v7a`), que requiere **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (orientados a emuladores) no forman parte del objetivo actual de compatibilidad.
+- **Compilar desde el código fuente** es opcional y está documentado para desarrolladores en [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+- **Estado de validación:** la compilación 1.0.0 está compilada para versión final con las pruebas automatizadas en verde; la validación final en dispositivo físico y las pruebas con amigos siguen pendientes — ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. Un pase previo parcial en dispositivo (Fase 2K, Samsung SM-A045M, Android 14) es evidencia histórica, no validación final.
 
 ## Pruebas
 
 ```bash
-npm test                # 1131 pruebas en 85 suites — motor, persistencia,
+npm test                # 1139 pruebas en 87 suites — motor, persistencia,
                         # temporizadores, migraciones, analítica, portabilidad,
                         # exportación, seguridad, interfaz
 npm run typecheck       # TypeScript pasa sin errores
@@ -167,21 +140,28 @@ npm run typecheck       # TypeScript pasa sin errores
 
 - Las compilaciones debug y de versión final se generan localmente (`npm run build:apk`), y el conjunto de permisos del APK de versión final ha sido auditado (ver [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
 - La CI de GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) ejecuta verificación de tipos y pruebas en cada push y pull request a `main`.
-- La suite corre en Jest sin dispositivo conectado. **La Fase 2K realizó una primera pasada de validación en dispositivo físico** (Samsung SM-A045M, Android 14, ARM64): instalación/inicio, Home, autorización de rutinas → previsualización/integridad, inicio de entrenamiento, reanudación de sesión con sincronización del temporizador y persistencia tras reinicio en frío se ejercitaron en hardware. El resto de la matriz — pausa/reanudación completa del temporizador, flujos de sesión completada (resumen, notas, historial/analítica/récords), Trust Center, EN/ES y una verificación posterior a las correcciones — **aún no está validado en dispositivo**; ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. Considera todo lo demás como pendiente de validación en tu propio hardware.
+- La suite corre en Jest sin dispositivo conectado. **La validación en dispositivo está pendiente para 1.0.0**: la compilación final aún necesita un pase de humo en dispositivo y pruebas reales con amigos. Un pase histórico parcial en dispositivo (Fase 2K, Samsung SM-A045M, Android 14) cubrió instalación/inicio, Home, autorización de rutinas → previsualización/integridad, inicio de entrenamiento, reanudación de sesión con sincronización del temporizador y persistencia tras reinicio en frío; el resto de la matriz — pausa/reanudación completa del temporizador, flujos de sesión completada, Trust Center, EN/ES — **no** se ejercitó en hardware; ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21.
 
 ## Estado del proyecto
 
+Estado actual, en términos precisos:
+
+- **Implementado:** todo lo listado en [Características](#características).
+- **Probado:** 1139 pruebas Jest en 87 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
+- **Compilado para versión final:** los APKs debug y de versión final se generan localmente; el APK de versión final firmado de 1.0.0 está compilado y verificado (paquete `com.apexfoss.app`, versionCode 2, sin permiso INTERNET, no depurable).
+- **Validado en dispositivo:** solo un pase histórico parcial (Fase 2K); **la validación final de v1.0 en dispositivo y las pruebas con amigos están pendientes**.
+- **Publicado:** no — no se ha enviado nada a ninguna tienda, canal ni GitHub Release.
+
 - **Versión:** 1.0.0 (sin publicar), solo Android, esquema de base de datos local en la versión 12.
-- **Controles de calidad:** 1131 pruebas Jest en 85 suites en verde; verificación de tipos TypeScript en verde; APKs debug y de versión final compilan localmente; firma de versión final verificada; el APK de versión final instalado y validado en un dispositivo físico (Fase 2K).
-- **Distribución:** no se han enviado a ninguna tienda ni canal.
+- **Distribución:** preparada, no enviada ([docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)).
 - **Legal:** existen documentos de privacidad, límite de salud y términos en [docs/](docs/) — los términos son un **borrador pendiente de revisión legal**.
-- **Licencia:** aún no declarada (ver abajo).
+- **Licencia:** GPL-3.0-or-later (ver abajo).
 
 ## Hoja de ruta
 
 **Implementado** — todo lo listado en [Características](#características).
 
-**Necesario antes de un lanzamiento público** — resolver la decisión de licencia (D-038), completar la revisión legal del borrador de términos, completar la validación en dispositivos físicos (la Fase 2K cubrió un solo dispositivo Samsung; la matriz restante está en [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21), preparación de tiendas/canales según [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) y los pendientes de [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
+**Antes del lanzamiento público** — validación final en dispositivo físico en el equipo del propietario, varios días de pruebas con amigos y correcciones, revisión legal del borrador de términos y, después, publicación en tiendas/canales según [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). Carencias conocidas restantes: [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md).
 
 **Actualmente no planeado** — iOS, Health Connect, integración con wearables, sincronización en la nube o cuentas, funciones de IA, funciones sociales, entrada por cámara y analítica dentro de la app.
 
@@ -200,6 +180,13 @@ npm run typecheck       # TypeScript pasa sin errores
 | [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) | Canales de distribución, bloqueos y requisitos |
 | [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md) | Licencias de componentes de terceros |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Registro de decisiones de arquitectura y producto |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Configuración de desarrollo, compilaciones y lista de verificación de versión final |
+
+## Apoya a ApexFOSS
+
+ApexFOSS es libre y de código abierto. Si te resulta útil, puedes apoyar su desarrollo continuo mediante [GitHub Sponsors](https://github.com/sponsors/v0idbrn) o [PayPal](https://paypal.me/amelie615).
+
+El apoyo es totalmente voluntario — la app no tiene muro de pago, ni suscripción, ni anuncios, y funciona sin conexión sin aportar nunca nada.
 
 ## Contribuir
 
@@ -212,7 +199,7 @@ Se reciben incidencias y pull requests. Antes de enviar:
 
 ## Licencia
 
-**La licencia está pendiente de una decisión del propietario del proyecto (D-038).** Todavía no existe un archivo `LICENSE`, así que el código fuente es visible pero aún no está licenciado para reutilización — no asumas MIT, Apache-2.0 ni ningún otro término. Las licencias de las dependencias de terceros están en [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md); el registro de decisiones está en [docs/DECISIONS.md](docs/DECISIONS.md).
+ApexFOSS se distribuye bajo la **GNU General Public License v3.0 o posterior** (GPL-3.0-or-later). El texto completo está en [LICENSE](LICENSE). En resumen: puedes usar, estudiar, compartir y modificar este software, y las obras derivadas deben permanecer como software libre bajo la misma licencia. Las licencias de las dependencias de terceros están en [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md); el registro de decisiones está en [docs/DECISIONS.md](docs/DECISIONS.md).
 
 ## Descargo de responsabilidad
 

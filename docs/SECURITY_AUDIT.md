@@ -183,6 +183,7 @@ Every external input in this app follows: **EXTERNAL INPUT → VALIDATE → PREV
 - **F-17 (INFORMATIONAL):** Positive controls confirmed (external keystore, no secrets in repo/APK, single-arch ABIs, non-debuggable release).
 - **F-18 (LOW, unresolved):** **No `LICENSE` file exists** while `README.md` describes the project as open source — a licensing inconsistency the codebase cannot resolve by itself (D-038, owner decision). Also tracked in `docs/KNOWN_LIMITATIONS.md`.
   - *Status update (Phase 2I, 2026-09-25):* the README wording cited above was corrected in Phase 2H (commit `b56b8b3`) — both READMEs now state "license: pending" and make no open-source claim. The core finding (no `LICENSE` file, owner decision D-038) **remains open**.
+  - *Status update (v1.0.0 closure):* **RESOLVED** — `LICENSE` added (GPL-3.0-or-later), D-038 closed, READMEs/TERMS/THIRD_PARTY/DISTRIBUTION aligned.
 
 ---
 
@@ -223,7 +224,7 @@ Items that **cannot be closed statically in Phase 2G** (no device connected; own
 2. **Runtime notification permission flow** (Android 13+ POST_NOTIFICATIONS dialog) — logic reviewed statically (lazy request), not observed on a device.
 3. **Deep-link receive on a real device** (another app → `apexfoss://import?d=…`) — parser path fully unit-tested, end-to-end intent delivery not observed.
 4. **Auto Backup actual scope per Android version/provider** (F-04) — depends on OS defaults since no extraction rules are configured; document-then-decide whether to add explicit `dataExtractionRules` in a future phase.
-5. **Licensing decision** (F-18 / D-038): add LICENSE or stop claiming "open source" — owner/legal decision; placeholders prepared in docs.
+5. **Licensing decision** (F-18 / D-038): ~~add LICENSE or stop claiming "open source"~~ — **Resolved (v1.0.0 closure):** `LICENSE` added, **GPL-3.0-or-later** (D-050); all docs aligned.
 6. **npm moderate advisories** (F-19 / D-039): re-evaluate on the next planned dependency maintenance window.
 7. **`TERMS_OF_USE.md` and privacy copy are drafts** requiring human/legal review before any public distribution; no regulatory classification or store-compliance claims are made anywhere in this repository.
 

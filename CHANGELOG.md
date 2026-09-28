@@ -24,7 +24,12 @@ Product-completion and release-hardening pass on top of the 0.1.0 snapshot: trai
 - **Exercise deletion guard**: exercises referenced by routine steps can no longer be deleted silently — the previously unreachable "in use" confirmation is wired up.
 - **Report correctness**: wall-clock duration from session timestamps, real planned/performed/skipped/modified adherence (no fabricated execution type), per-exercise volume no longer double-filtered, average set counts over completed sets.
 - Version references aligned to **1.0.0** (`versionCode` 2, database **schema v12**, backup `appVersion`, Trust Center about strings).
-- Test suite: **1131 Jest tests across 85 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
+- Test suite: **1139 Jest tests across 87 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
+
+### License, support, and guards (1.0.0)
+- **License resolved: GPL-3.0-or-later** (D-050): full `LICENSE` file added; READMEs, terms, third-party license notes, and distribution plan aligned; dependency policy gate corrected to flag `GPL-2.0-only`.
+- **Voluntary support links** (D-051): GitHub Sponsors + PayPal in the READMEs, `.github/FUNDING.yml`, and the More screen — no payment SDK, no paywall, app fully usable offline.
+- **Import-path guard test**: fails if executable/network primitives (`eval`, `new Function`, dynamic import execution, fetch/XHR, shell/fs) appear in the portability layer or if the deep-link intake ever auto-imports without preview.
 
 ## 0.1.0 — unreleased
 
@@ -79,7 +84,7 @@ First audited snapshot of ApexFOSS: an **Android-only, local-first workout appli
 - No accounts, no servers, no analytics, no telemetry, no ads, no subscriptions.
 - **Release build ships without the INTERNET permission** (manifest-merger removal, verified on the built APK); debug builds keep it for Metro.
 - Local-first storage in WatermelonDB over SQLite (app-private, not additionally encrypted beyond device encryption — documented limitation).
-- Published documentation: privacy notice, data map, health & fitness scope, draft terms of use, security policy, security audit, known limitations, distribution plan, third-party licenses, decision log. Legal documents are **drafts pending review**; the **license is undecided** (D-038).
+- Published documentation: privacy notice, data map, health & fitness scope, draft terms of use, security policy, security audit, known limitations, distribution plan, third-party licenses, decision log. Legal documents are **drafts pending review**; the **license was undecided at this snapshot** (D-038; resolved at 1.0.0 as GPL-3.0-or-later).
 
 ### Platform and build
 - Android only: `com.apexfoss.app`, minSdk 24, targetSdk 36, ABIs `arm64-v8a` + `armeabi-v7a`, versionCode 1.
