@@ -1,10 +1,20 @@
-import { useCallback } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { database } from '../../data';
 import { strings, type Locale } from '../../constants/strings';
 import { GITHUB_SPONSORS_URL, MERCADOPAGO_URL, PAYPAL_URL } from '../../constants/support';
+import { requestNotificationPermission } from '../../notifications';
+import {
+  DEFAULT_REMINDER_HOUR,
+  DEFAULT_REMINDER_MINUTE,
+  loadReminderPrefs,
+  reminderLabels,
+  saveReminderPrefs,
+  syncTrainingReminders,
+} from '../../notifications/reminders';
 import { useLocale, useLocaleStore } from '../../state/localeStore';
 import { useNav } from '../navigation';
-import { ListRow, Screen, SectionHeader } from '../components';
+import { ListRow, NumberField, Screen, SectionHeader } from '../components';
 import { Enter } from '../motion';
 
 /**
@@ -20,6 +30,66 @@ export function MoreScreen() {
   const onLanguage = useCallback((l: Locale) => {
     void setLocale(l);
   }, [setLocale]);
+
+  const [remindersOn, setRemindersOn] = useState(false);
+  const [reminderHour, setReminderHour] = useState(DEFAULT_REMINDER_HOUR);
+  const [reminderMinute, setReminderMinute] = useState(DEFAULT_REMINDER_MINUTE);
+  const [permissionBlocked, setPermissionBlocked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadReminderPrefs(database)
+      .then((p) => {
+        if (cancelled) return;
+        setRemindersOn(p.enabled);
+        setReminderHour(p.hour);
+        setReminderMinute(p.minute);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const persistAndSync = useCallback(async (enabled: boolean, hour: number, minute: number) => {
+    try {
+      await saveReminderPrefs(database, { enabled, hour, minute });
+    } catch {
+      return;
+    }
+    await syncTrainingReminders(database, reminderLabels());
+  }, []);
+
+  const onToggleReminders = useCallback(
+    async (value: boolean) => {
+      setPermissionBlocked(false);
+      if (!value) {
+        setRemindersOn(false);
+        await persistAndSync(false, reminderHour, reminderMinute);
+        return;
+      }
+      // Permission is requested only here, on explicit enable — never on open.
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        setPermissionBlocked(true);
+        return;
+      }
+      setRemindersOn(true);
+      await persistAndSync(true, reminderHour, reminderMinute);
+    },
+    [persistAndSync, reminderHour, reminderMinute],
+  );
+
+  const onReminderTime = useCallback(
+    (hour: number | null, minute: number | null) => {
+      const h = hour ?? reminderHour;
+      const m = minute ?? reminderMinute;
+      setReminderHour(h);
+      setReminderMinute(m);
+      void persistAndSync(remindersOn, h, m);
+    },
+    [persistAndSync, remindersOn, reminderHour, reminderMinute],
+  );
 
   const openSupport = useCallback((url: string) => {
     // Explicit user tap only; the platform opens the URL. Offline devices
@@ -102,6 +172,40 @@ export function MoreScreen() {
                 })}
               </View>
             </View>
+            <Text className="mt-3 text-caption text-muted">{strings.reminders.hint}</Text>
+            <View
+              className="min-h-14 flex-row items-center justify-between border-b border-line px-4 py-3"
+              testID="more-reminders"
+            >
+              <View className="flex-1 pr-3">
+                <Text className="text-base font-medium text-fg">{strings.reminders.enableLabel}</Text>
+              </View>
+              <Switch
+                accessibilityRole="switch"
+                accessibilityLabel={strings.reminders.enableLabel}
+                accessibilityState={{ checked: remindersOn }}
+                testID="more-reminders-toggle"
+                value={remindersOn}
+                onValueChange={(v) => void onToggleReminders(v)}
+              />
+            </View>
+            {remindersOn ? (
+              <View className="flex-row gap-3 px-4 py-3">
+                <NumberField
+                  label={strings.reminders.hourLabel}
+                  value={reminderHour}
+                  onChange={(v) => onReminderTime(v, null)}
+                />
+                <NumberField
+                  label={strings.reminders.minuteLabel}
+                  value={reminderMinute}
+                  onChange={(v) => onReminderTime(null, v)}
+                />
+              </View>
+            ) : null}
+            {permissionBlocked ? (
+              <Text className="px-4 pt-1 text-sm text-warning">{strings.reminders.permissionDenied}</Text>
+            ) : null}
           </Enter>
 
           <Enter delayMs={160}>

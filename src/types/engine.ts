@@ -1,6 +1,32 @@
 /** Canonical engine + definition types. Pure TypeScript, no runtime deps (frozen architecture). */
 
 export type BlockKind = 'normal' | 'superset' | 'contrast' | 'circuit' | 'interval';
+
+/**
+ * Programming role of a block (1.1.0): pure metadata, never changes engine
+ * semantics. Null/legacy rows read as 'main'.
+ */
+export type BlockRole = 'main' | 'warmup' | 'cooldown';
+
+export const BLOCK_ROLES: readonly BlockRole[] = ['main', 'warmup', 'cooldown'];
+
+/** Closed-vocabulary guard for persisted block roles (unknown → null = main). */
+export function normalizeBlockRole(value: unknown): BlockRole | null {
+  return (BLOCK_ROLES as readonly unknown[]).includes(value) ? (value as BlockRole) : null;
+}
+
+/**
+ * Programming intent of a mesocycle (1.1.0): pure metadata, never prescribes
+ * anything automatically. Null/legacy rows read as 'normal'.
+ */
+export type MesocycleStage = 'normal' | 'deload';
+
+export const MESOCYCLE_STAGES: readonly MesocycleStage[] = ['normal', 'deload'];
+
+/** Closed-vocabulary guard for persisted mesocycle stages (unknown → null = normal). */
+export function normalizeMesocycleStage(value: unknown): MesocycleStage | null {
+  return (MESOCYCLE_STAGES as readonly unknown[]).includes(value) ? (value as MesocycleStage) : null;
+}
 export type TransitionType = 'immediate' | 'rest' | 'auto_advance';
 export type StepRole = 'work' | 'rest';
 
@@ -56,6 +82,11 @@ export interface BlockDef {
   transitions: TransitionDef[];
   /** Present iff kind === 'interval'. Serialized into definition_json. */
   interval?: IntervalSpec | null;
+  /**
+   * Programming role metadata (1.1.0). Informational only — the engine never
+   * branches on it. Absent/null = main.
+   */
+  role?: BlockRole | null;
 }
 
 export interface RoutineDefinition {
@@ -120,7 +151,12 @@ export interface PersistedInterval {
 }
 
 export interface ExecutionCursor extends CursorPosition {
-  status: 'active' | 'completed';
+  status: 'active' | 'completed' | 'incomplete';
+  /**
+   * Athlete-stated reason for stopping early (1.1.0). Present only when
+   * status is 'incomplete'; absent/null otherwise. The engine never infers it.
+   */
+  incompleteReason?: SessionEndReason | null;
   timer: TimerState | null;
   lastReversible: ReversibleSet | null;
   startedAt: number;
@@ -159,6 +195,40 @@ export type OverrideReason =
   | 'time_constraint'
   | 'other';
 
+/**
+ * Athlete-stated reason for ending a session without completing the planned
+ * work (1.1.0). Optional and explicit only — the engine never infers a cause
+ * from missing sets. Persisted in cursor_json; mirrored nowhere else.
+ */
+export type SessionEndReason =
+  | 'user_stopped'
+  | 'time_constraint'
+  | 'fatigue'
+  | 'pain'
+  | 'equipment_unavailable'
+  | 'interruption'
+  | 'technical_issue'
+  | 'other';
+
+/** Closed-vocabulary list for pickers (matches OverrideReason pattern). */
+export const SESSION_END_REASONS: readonly SessionEndReason[] = [
+  'user_stopped',
+  'time_constraint',
+  'fatigue',
+  'pain',
+  'equipment_unavailable',
+  'interruption',
+  'technical_issue',
+  'other',
+];
+
+/** Closed-vocabulary guard for persisted session-end reasons (unknown → null, never crash). */
+export function normalizeSessionEndReason(value: unknown): SessionEndReason | null {
+  return (SESSION_END_REASONS as readonly unknown[]).includes(value)
+    ? (value as SessionEndReason)
+    : null;
+}
+
 export interface SetPayload {
   weightGrams: number | null;
   reps: number | null;
@@ -176,7 +246,7 @@ export type EngineEvent =
   | { type: 'SKIP_TIMER'; now: number }
   | { type: 'TIMER_EXPIRE'; now: number }
   | { type: 'UNDO_LAST'; now: number }
-  | { type: 'COMPLETE_SESSION'; now: number }
+  | { type: 'COMPLETE_SESSION'; now: number; incompleteReason?: SessionEndReason | null }
   | { type: 'LOG_EXTRA_SET'; now: number; set: SetPayload; executionType: 'extra' | 'drop' };
 
 export type Effect =

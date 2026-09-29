@@ -62,6 +62,7 @@ const detail: HistoryDetail = {
   endedAt: 1_700_000_600_000,
   durationMs: 600_000,
   status: 'completed',
+  incompleteReason: null,
   note: 'Solid bench PR',
   definition: { id: 'r1', name: 'Push Day', blocks: [] },
   blocks: [],
@@ -153,8 +154,9 @@ const detailWithBlock: HistoryDetail = {
       {
         id: 'b0',
         name: 'Main',
-        kind: 'superset',
-        rounds: 2,
+      kind: 'superset',
+      role: null,
+      rounds: 2,
         steps: [
           {
             id: 's0',
@@ -181,6 +183,7 @@ const detailWithBlock: HistoryDetail = {
       blockIndex: 0,
       name: 'Main',
       kind: 'superset',
+      role: null,
       rounds: 2,
       steps: [
         {
@@ -205,6 +208,8 @@ const detailWithBlock: HistoryDetail = {
             },
           ],
           skipped: [],
+              exerciseNote: null,
+              substitution: null,
         },
       ],
     },
@@ -483,6 +488,8 @@ describe('HistoryDetailScreen session adherence (Phase 3D)', () => {
                 overrideReason: null,
               })),
               skipped: [],
+              exerciseNote: null,
+              substitution: null,
             },
           ],
         },

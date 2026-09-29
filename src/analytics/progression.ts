@@ -276,8 +276,8 @@ function extractPerformances(
           sessionId: session.sessionId,
           weightGrams,
           reps,
-          actualRir: null, // Not available in SetLoadInput currently
-          actualTempo: null, // Not available in SetLoadInput currently
+          actualRir: set.actualRir ?? null, // null = not recorded, never 0 by default
+          actualTempo: null, // Not measurable with current hardware/UI (1.1.0 scope cut)
           equipmentClass,
           isSubstitution,
           prescription,

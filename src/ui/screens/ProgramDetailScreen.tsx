@@ -8,6 +8,7 @@ import {
   AppHeader,
   Button,
   Card,
+  Chip,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -35,6 +36,7 @@ interface MesocycleRow {
   name: string;
   sortOrder: number;
   routineCount: number;
+  stage: string | null;
 }
 
 /**
@@ -143,6 +145,12 @@ export function ProgramDetailScreen({ programId }: { programId: string }) {
     });
   };
 
+  const setMesoStage = (mesoId: string, stage: 'normal' | 'deload' | null) => {
+    void run(async () => {
+      await makeDbActions(database).setMesocycleStage(mesoId, stage === 'normal' ? null : stage);
+    });
+  };
+
   const deleteMesocycle = (meso: MesocycleRow) => {
     confirmDestructive(strings.programs.deleteMesocycleConfirm, () => {
       void run(async () => {
@@ -240,6 +248,19 @@ export function ProgramDetailScreen({ programId }: { programId: string }) {
                       onChangeText={(t) => setMesoDrafts((prev) => ({ ...prev, [m.id]: t }))}
                       testID={`meso-rename-input-${m.id}`}
                     />
+                    <Text className="mb-2 mt-3 text-sm text-dim">{strings.programs.mesocycleStage}</Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      <Chip
+                        label={strings.programs.stageNormal}
+                        active={(m.stage ?? 'normal') === 'normal'}
+                        onPress={() => void setMesoStage(m.id, null)}
+                      />
+                      <Chip
+                        label={strings.programs.stageDeload}
+                        active={m.stage === 'deload'}
+                        onPress={() => void setMesoStage(m.id, 'deload')}
+                      />
+                    </View>
                     <View className="mt-2 flex-row gap-2">
                       <View className="flex-1">
                         <Button

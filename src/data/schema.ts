@@ -25,8 +25,12 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
   * v12: optional canonical body-measurement columns alongside legacy
   * weight_grams/waist_mm. New entries populate measurement_type/side/value/unit;
   * legacy rows remain readable through analytics normalization.
+  * v13 (1.1.0): optional execution-fidelity columns (session_exercises note +
+  * explicit substitution actuals), optional routine_blocks.block_role
+  * (main/warmup/cooldown metadata) and mesocycles.stage (normal/deload
+  * metadata). All nullable; legacy rows read null = defaults.
   */
-export const schemaVersion = 12;
+export const schemaVersion = 13;
 
 export const schema = appSchema({
   version: schemaVersion,
@@ -67,6 +71,7 @@ export const schema = appSchema({
         { name: 'name', type: 'string' },
         { name: 'program_id', type: 'string', isIndexed: true },
         { name: 'sort_order', type: 'number' },
+        { name: 'stage', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],
@@ -77,6 +82,7 @@ export const schema = appSchema({
         { name: 'routine_id', type: 'string', isIndexed: true },
         { name: 'name', type: 'string' },
         { name: 'block_kind', type: 'string' },
+        { name: 'block_role', type: 'string', isOptional: true },
         { name: 'sort_order', type: 'number' },
         { name: 'rounds', type: 'number' },
         { name: 'interval_json', type: 'string', isOptional: true },
@@ -153,6 +159,10 @@ export const schema = appSchema({
         { name: 'exercise_name', type: 'string' },
         { name: 'block_index', type: 'number' },
         { name: 'order_index', type: 'number' },
+        { name: 'exercise_note', type: 'string', isOptional: true },
+        { name: 'actual_exercise_id', type: 'string', isOptional: true },
+        { name: 'actual_exercise_name', type: 'string', isOptional: true },
+        { name: 'substitution_reason', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

@@ -39,12 +39,14 @@ export function Button({
   variant = 'primary',
   disabled,
   className = '',
+  testID,
 }: {
   label: string;
   onPress: () => void;
   variant?: Variant;
   disabled?: boolean;
   className?: string;
+  testID?: string;
 }) {
   return (
     <Pressable
@@ -52,6 +54,7 @@ export function Button({
       accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
+      testID={testID}
       style={({ pressed }) => (pressed ? { opacity: 0.85, transform: [{ scale: 0.99 }] } : undefined)}
       className={`h-12 min-h-12 flex-row items-center justify-center rounded-lg px-4 ${
         disabled ? 'opacity-50' : ''

@@ -59,6 +59,7 @@ const IDENTICAL_ALLOWLIST = new Set([
   'Tempo',
   'TEMPO',
   'NORMAL',
+  'Normal',
   'AUTO',
   'RIR',
   'RPE',
@@ -216,10 +217,10 @@ describe('strings facade', () => {
   });
 });
 
-describe('schema v12 (Phase 5+ extensible body metrics)', () => {
-  it('schemaVersion is 12 with programs, mesocycles, goals, body metrics and routine linkage', () => {
-    expect(schemaVersion).toBe(12);
-    expect(schema.version).toBe(12);
+describe('schema v13 (1.1.0 execution fidelity + programming metadata)', () => {
+  it('schemaVersion is 13 with programs, mesocycles, goals, body metrics and routine linkage', () => {
+    expect(schemaVersion).toBe(13);
+    expect(schema.version).toBe(13);
     const settings = schema.tables['app_settings'];
     expect(settings).toBeDefined();
     expect(settings.columnArray.map((c) => c.name)).toEqual(['key', 'value', 'created_at', 'updated_at']);
@@ -228,7 +229,8 @@ describe('schema v12 (Phase 5+ extensible body metrics)', () => {
     expect(programs.columnArray.map((c) => c.name)).toEqual(['name', 'created_at', 'updated_at']);
     const mesocycles = schema.tables['mesocycles'];
     expect(mesocycles).toBeDefined();
-    expect(mesocycles.columnArray.map((c) => c.name)).toEqual(['name', 'program_id', 'sort_order', 'created_at', 'updated_at']);
+    expect(mesocycles.columnArray.map((c) => c.name)).toEqual(['name', 'program_id',
+      'sort_order', 'stage', 'created_at', 'updated_at']);
     const goals = schema.tables['goals'];
     expect(goals).toBeDefined();
     expect(goals.columnArray.map((c) => c.name)).toEqual(['exercise_id', 'target_weight_grams', 'created_at', 'updated_at']);
@@ -247,8 +249,8 @@ describe('schema v12 (Phase 5+ extensible body metrics)', () => {
     expect(mesoCol?.isIndexed).toBe(true);
     expect(mesoCol?.isOptional).toBe(true);
     expect(migrations.validated).toBe(true);
-    expect(migrations.maxVersion).toBe(12);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(12);
+    expect(migrations.maxVersion).toBe(13);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toContain(13);
   });
 });
 

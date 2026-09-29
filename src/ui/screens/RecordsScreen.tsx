@@ -3,8 +3,8 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { loadAnalyticsSnapshot, type AnalyticsSession } from '../../data/analytics';
 import { strings } from '../../constants/strings';
-import { mmToM } from '../../utils/units';
-import { exercisePrs, prHistory, type ExercisePr, type PrEvent, type PrMetric } from '../../analytics/records';
+import { formatKg, mmToM } from '../../utils/units';
+import { exercisePrs, prHistory, recentPerformances, type ExercisePr, type PrEvent, type PrMetric } from '../../analytics/records';
 import { useNav } from '../navigation';
 import { AppHeader, Badge, Card, EmptyState, ErrorState, LoadingState, Screen, SectionHeader } from '../components';
 import { Enter } from '../motion';
@@ -68,12 +68,15 @@ function PrCard({
   expanded,
   onToggle,
   history,
+  sessions,
 }: {
   pr: ExercisePr;
   expanded: boolean;
   onToggle: () => void;
   history: PrEvent[];
+  sessions: AnalyticsSession[];
 }) {
+  const recent = expanded ? recentPerformances(sessions, pr.exerciseName) : [];
   return (
     <Card>
       <Pressable
@@ -120,6 +123,25 @@ function PrCard({
             ))
           )}
         </View>
+      ) : null}
+      {expanded && recent.length > 0 ? (
+        <View className="mt-3 border-t border-line pt-3">
+          <Text className="text-overline uppercase text-dim">{strings.records.recentPerformances}</Text>
+          {recent.map((p) => (
+            <View key={`${p.sessionId}-${p.timestampMs}`} className="mt-2">
+              <Text className="text-sm text-fg">
+                {fmtDate(p.timestampMs)} · {p.completedSets}/{p.totalSets} {strings.records.setsUnit}
+                {p.bestWeightGrams !== null && p.bestReps !== null
+                  ? ` · ${formatKg(p.bestWeightGrams)}kg × ${p.bestReps}`
+                  : ''}
+                {p.bestRir !== null ? ` · RIR ${p.bestRir}` : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {expanded && pr.estimated1rmGrams !== null ? (
+        <Text className="mt-3 text-caption text-dim">{strings.records.estimateHint}</Text>
       ) : null}
       {expanded && pr.estimated1rmGrams !== null ? (
         <Text className="mt-3 text-caption text-dim">{strings.records.estimateHint}</Text>
@@ -200,6 +222,7 @@ export function RecordsScreen() {
                   expanded={expanded === pr.exerciseName}
                   onToggle={() => setExpanded((cur) => (cur === pr.exerciseName ? null : pr.exerciseName))}
                   history={history}
+                  sessions={sessions}
                 />
               </Enter>
             ))}

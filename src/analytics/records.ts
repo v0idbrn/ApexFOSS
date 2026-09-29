@@ -114,8 +114,7 @@ export function prEvents(sessions: DatedSession[]): PrEvent[] {
   return events;
 }
 
-/** Final bests per exercise, alphabetical by exercise name. */
-export function exercisePrs(sessions: DatedSession[]): ExercisePr[] {
+/** Final bests per exercise, alphabetical by exercise name. */export function exercisePrs(sessions: DatedSession[]): ExercisePr[] {
   const byExercise = new Map<string, ExercisePr>();
   for (const event of prEvents(sessions)) {
     let pr = byExercise.get(event.exerciseName);
@@ -167,4 +166,65 @@ export function prHistory(sessions: DatedSession[], exerciseName: string, metric
   return prEvents(sessions).filter(
     (e) => e.exerciseName === exerciseName && (metric === undefined || e.metric === metric),
   );
+}
+
+export interface RecentPerformance {
+  sessionId: string;
+  timestampMs: number;
+  completedSets: number;
+  totalSets: number;
+  /** Best completed set by load (null when no completed resistance set). */
+  bestWeightGrams: number | null;
+  bestReps: number | null;
+  /** Lowest actual RIR among completed sets; null when none recorded. */
+  bestRir: number | null;
+}
+
+/**
+ * Newest-first per-exercise session summaries (1.1.0, dense history list).
+ * Pure read of the loaded snapshot — no queries. Only completed sets count;
+ * actual RIR surfaces when at least one set recorded it (never 0 by default).
+ */
+export function recentPerformances(
+  sessions: DatedSession[],
+  exerciseName: string,
+  limit = 5,
+): RecentPerformance[] {
+  const out: RecentPerformance[] = [];
+  const ordered = sessions.slice().sort((a, b) => b.timestampMs - a.timestampMs);
+  for (const session of ordered) {
+    for (const exercise of session.exercises) {
+      if (exercise.exerciseName !== exerciseName) continue;
+      let completedSets = 0;
+      let totalSets = 0;
+      let bestWeightGrams: number | null = null;
+      let bestReps: number | null = null;
+      let bestRir: number | null = null;
+      for (const set of exercise.sets) {
+        totalSets += 1;
+        if (!set.isCompleted) continue;
+        completedSets += 1;
+        const load = (set.weightGrams ?? 0) > 0 && (set.reps ?? 0) > 0 ? set.weightGrams! * set.reps! : 0;
+        const bestLoad = (bestWeightGrams ?? 0) * (bestReps ?? 0);
+        if (load > bestLoad && set.weightGrams != null) {
+          bestWeightGrams = set.weightGrams;
+          bestReps = set.reps;
+        }
+        if (set.actualRir != null && (bestRir == null || set.actualRir < bestRir)) {
+          bestRir = set.actualRir;
+        }
+      }
+      out.push({
+        sessionId: session.sessionId,
+        timestampMs: session.timestampMs,
+        completedSets,
+        totalSets,
+        bestWeightGrams,
+        bestReps,
+        bestRir,
+      });
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
 }

@@ -201,6 +201,7 @@ export async function importRoutinePackage(
           rec.routineId = r.id;
           rec.name = b.name.trim() || `Block ${bi + 1}`;
           rec.blockKind = b.kind;
+          rec.blockRole = (b as { role?: unknown }).role ?? null;
           rec.sortOrder = bi;
           rec.rounds = b.kind === 'interval' ? 1 : Math.max(1, Math.round(b.rounds || 1));
           rec.intervalJson = b.kind === 'interval' && b.interval ? JSON.stringify(b.interval) : null;

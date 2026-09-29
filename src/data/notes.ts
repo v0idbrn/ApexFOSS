@@ -10,11 +10,21 @@ import { WorkoutSession } from './models';
 /** Hard cap on stored note length (characters). Longer input is truncated. */
 export const NOTE_MAX_LENGTH = 2000;
 
+/** Hard cap on a per-exercise note (shorter: one line of context, not a journal). */
+export const EXERCISE_NOTE_MAX_LENGTH = 500;
+
 /** Trim + clamp a note. Empty / whitespace-only input becomes null. */
 export function normalizeNote(note: string): string | null {
   const trimmed = note.trim();
   if (!trimmed) return null;
   return trimmed.slice(0, NOTE_MAX_LENGTH);
+}
+
+/** Trim + clamp a per-exercise note. Empty input becomes null. */
+export function normalizeExerciseNote(note: string): string | null {
+  const trimmed = note.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, EXERCISE_NOTE_MAX_LENGTH);
 }
 
 /** Read a session's note. Missing / unreadable session → null. */

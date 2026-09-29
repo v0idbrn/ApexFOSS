@@ -15,9 +15,9 @@ import { migrations } from './migrations';
  */
 
 describe('migration / data version sanity', () => {
-  it('schemaVersion is 12 (Phase 5+ extensible body metrics)', () => {
-    expect(schemaVersion).toBe(12);
-    expect(schema.version).toBe(12);
+  it('schemaVersion is 13 (1.1.0 execution fidelity + programming metadata)', () => {
+    expect(schemaVersion).toBe(13);
+    expect(schema.version).toBe(13);
   });
 
   it('all sixteen release tables are present with expected names', () => {
@@ -45,12 +45,12 @@ describe('migration / data version sanity', () => {
     expect(names).toHaveLength(16);
   });
 
-  it('migrations infrastructure is validated; v1→v2 through v11→v12 steps', () => {
+  it('migrations infrastructure is validated; v1→v2 through v12→v13 steps', () => {
     expect(migrations.validated).toBe(true);
     expect(migrations.minVersion).toBe(1);
-    expect(migrations.maxVersion).toBe(12);
-    expect(migrations.sortedMigrations).toHaveLength(11);
-    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(migrations.maxVersion).toBe(13);
+    expect(migrations.sortedMigrations).toHaveLength(12);
+    expect(migrations.sortedMigrations.map((m) => m.toVersion)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
   });
 
   it('programs table exists with name + timestamps (schema v8)', () => {
@@ -158,6 +158,21 @@ describe('migration / data version sanity', () => {
     const byName = new Map(t.columnArray.map((c) => [c.name, c]));
     expect(byName.get('note')?.isOptional).toBe(true);
     expect(byName.get('note')?.type).toBe('string');
+  });
+
+  it('schema v13 adds optional execution-fidelity and programming-metadata columns', () => {
+    const se = schema.tables['session_exercises'];
+    const seByName = new Map(se.columnArray.map((c) => [c.name, c]));
+    for (const col of ['exercise_note', 'actual_exercise_id', 'actual_exercise_name', 'substitution_reason']) {
+      expect(seByName.get(col)?.isOptional).toBe(true);
+      expect(seByName.get(col)?.type).toBe('string');
+    }
+    const blocks = schema.tables['routine_blocks'];
+    const bByName = new Map(blocks.columnArray.map((c) => [c.name, c]));
+    expect(bByName.get('block_role')?.isOptional).toBe(true);
+    const meso = schema.tables['mesocycles'];
+    const mByName = new Map(meso.columnArray.map((c) => [c.name, c]));
+    expect(mByName.get('stage')?.isOptional).toBe(true);
   });
 
   it('set_logs retains nullable optional measurement columns', () => {

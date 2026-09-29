@@ -1,4 +1,4 @@
-import type { BlockKind, IntervalSpec, TempoSpec, TransitionType } from '../types/engine';
+import type { BlockKind, BlockRole, IntervalSpec, MesocycleStage, TempoSpec, TransitionType } from '../types/engine';
 
 /** Portable interchange types. Integer units only. No Watermelon IDs required. */
 
@@ -6,7 +6,7 @@ export const ROUTINE_FORMAT = 'apexfoss-routine' as const;
 export const BACKUP_FORMAT = 'apexfoss-backup' as const;
 export const ROUTINE_FORMAT_VERSION = 1 as const;
 export const BACKUP_FORMAT_VERSION = 1 as const;
-export const APP_VERSION = '1.0.0' as const;
+export const APP_VERSION = '1.1.0' as const;
 
 /** Package-local exercise identity (installation-independent). */
 export interface PortableExercise {
@@ -39,6 +39,11 @@ export interface PortableStep {
 export interface PortableBlock {
   name: string;
   kind: BlockKind;
+  /**
+   * Programming role (1.1.0: main/warmup/cooldown metadata). Absent on older
+   * packages → main. Never affects engine semantics.
+   */
+  role?: BlockRole | null;
   rounds: number;
   steps: PortableStep[];
   interval?: IntervalSpec | null;
@@ -122,6 +127,11 @@ export interface BackupMesocycle {
   /** Index into backup.data.programs. */
   programIndex: number;
   sortOrder: number;
+  /**
+   * Programming intent (1.1.0: normal/deload metadata). Absent on older
+   * backups → normal. Never prescribes anything.
+   */
+  stage?: MesocycleStage | null;
 }
 
 /** Phase 4D: strength goal referencing an exercise by package key. */
@@ -180,6 +190,17 @@ export interface BackupSessionExercise {
   exerciseName: string;
   blockIndex: number;
   orderIndex: number;
+  /**
+   * Per-exercise note (1.1.0). Absent on older backups → null.
+   */
+  exerciseNote?: string | null;
+  /**
+   * Explicit substitution actuals (1.1.0). Absent on older backups → as
+   * programmed. actualExerciseKey resolves through the package exercise table.
+   */
+  actualExerciseKey?: string | null;
+  actualExerciseName?: string | null;
+  substitutionReason?: string | null;
 }
 
 export interface BackupSetLog {

@@ -114,7 +114,8 @@ export async function applyWorkoutEvent(
   }
 
   // Belt-and-suspenders: completion always cancels any leftover rest alert.
-  if (cursor.status === 'completed') {
+  // Both terminal states ('completed' and 'incomplete') persist + clear.
+  if (cursor.status !== 'active') {
     await clearSessionNotification(rt.sessionId);
     await actions.completeSession(rt.session, cursor);
   } else {

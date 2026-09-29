@@ -60,6 +60,8 @@ export class Mesocycle extends Model {
   @text('name') name!: string;
   @text('program_id') programId!: string;
   @field('sort_order') sortOrder!: number;
+  /** 1.1.0 programming intent: 'normal' | 'deload'; null = normal (legacy). */
+  @text('stage') stage!: string | null;
   @field('created_at') createdAt!: number;
   @field('updated_at') updatedAt!: number;
 }
@@ -74,6 +76,8 @@ export class RoutineBlock extends Model {
   @text('routine_id') routineId!: string;
   @text('name') name!: string;
   @text('block_kind') blockKind!: string;
+  /** 1.1.0 programming role: 'main' | 'warmup' | 'cooldown'; null = main. */
+  @text('block_role') blockRole!: string | null;
   @field('sort_order') sortOrder!: number;
   @field('rounds') rounds!: number;
   /** JSON IntervalSpec when block_kind === 'interval'; null otherwise. */
@@ -160,6 +164,13 @@ export class SessionExercise extends Model {
   @text('exercise_name') exerciseName!: string;
   @field('block_index') blockIndex!: number;
   @field('order_index') orderIndex!: number;
+  /** 1.1.0 optional per-exercise note; null = none. */
+  @text('exercise_note') exerciseNote!: string | null;
+  /** 1.1.0 explicit substitution: performed exercise; null = as programmed. */
+  @text('actual_exercise_id') actualExerciseId!: string | null;
+  @text('actual_exercise_name') actualExerciseName!: string | null;
+  /** 1.1.0 athlete-stated substitution reason (closed enum); null = none. */
+  @text('substitution_reason') substitutionReason!: string | null;
   @field('created_at') createdAt!: number;
   @field('updated_at') updatedAt!: number;
 }

@@ -1,10 +1,12 @@
 import { Database, Q } from '@nozbe/watermelondb';
 import { WorkoutSession, SetLog } from './models';
 import { definitionOf } from './serialize';
+import { normalizeSessionEndReason, type SessionEndReason } from '../types/engine';
 import type { RoutineDefinition, BlockDef, StepDef } from '../types/engine';
 
 /**
- * History queries — narrow, completed-only, newest first.
+ * History queries — terminal sessions (completed + incomplete), newest first.
+ * Active sessions never appear here; discarded sessions are soft-deleted.
  * Historical structure always comes from the session's immutable definition_json snapshot.
  */
 
@@ -15,6 +17,10 @@ export interface HistoryListItem {
   endedAt: number | null;
   durationMs: number | null;
   setCount: number;
+  /** Terminal state: 'completed' | 'incomplete' (legacy rows read 'completed'). */
+  status: string;
+  /** Athlete-stated stop-early reason; null unless status is 'incomplete'. */
+  incompleteReason: SessionEndReason | null;
 }
 
 export interface HistorySetLog {
@@ -55,10 +61,18 @@ export interface HistorySkippedRow {
   setIndex: number;
 }
 
+/** Explicit substitution recorded on a step (1.1.0); null = as programmed. */
+export interface HistorySubstitution {
+  actualExerciseName: string;
+  reason: string | null;
+}
+
 export interface HistoryBlockView {
   blockIndex: number;
   name: string;
   kind: string;
+  /** Programming role metadata (1.1.0); null = main. */
+  role: string | null;
   rounds: number;
   steps: Array<{
     stepIndex: number;
@@ -72,6 +86,10 @@ export interface HistoryBlockView {
     logs: HistoryStepRow[];
     /** Skipped prescribed positions (never performed, never voided). */
     skipped: HistorySkippedRow[];
+    /** Per-exercise note (1.1.0); null = none. */
+    exerciseNote: string | null;
+    /** Explicit substitution (1.1.0); null = as programmed. */
+    substitution: HistorySubstitution | null;
   }>;
 }
 
@@ -82,6 +100,8 @@ export interface HistoryDetail {
   endedAt: number | null;
   durationMs: number | null;
   status: string;
+  /** Athlete-stated stop-early reason; null unless status is 'incomplete'. */
+  incompleteReason: SessionEndReason | null;
   /** Post-workout session note (schema v5); null when absent. */
   note: string | null;
   definition: RoutineDefinition;
@@ -89,16 +109,26 @@ export interface HistoryDetail {
   totalCompletedSets: number;
 }
 
+/** Read the stop-early reason from canonical cursor_json (never inferred). */
+function reasonOf(session: WorkoutSession): SessionEndReason | null {
+  try {
+    const cursor = JSON.parse(session.cursorJson) as { incompleteReason?: unknown };
+    return normalizeSessionEndReason(cursor?.incompleteReason);
+  } catch {
+    return null;
+  }
+}
+
 function durationOf(startedAt: number, endedAt: number | null): number | null {
   if (endedAt === null || endedAt < startedAt) return null;
   return endedAt - startedAt;
 }
 
-/** Completed sessions only, newest first. Does not load set_logs (N+1 avoided via one grouped query). */
+/** Terminal sessions (completed + incomplete), newest first. Does not load set_logs (N+1 avoided via one grouped query). */
 export async function listCompletedSessions(db: Database): Promise<HistoryListItem[]> {
   const sessions = await db
     .get<WorkoutSession>('workout_sessions')
-    .query(Q.where('session_status', 'completed'), Q.sortBy('ended_at', 'desc'))
+    .query(Q.where('session_status', Q.oneOf(['completed', 'incomplete'])), Q.sortBy('ended_at', 'desc'))
     .fetch();
 
   if (sessions.length === 0) return [];
@@ -130,6 +160,8 @@ export async function listCompletedSessions(db: Database): Promise<HistoryListIt
     endedAt: s.endedAt,
     durationMs: durationOf(s.startedAt, s.endedAt),
     setCount: countBySession.get(s.id) ?? 0,
+    status: s.sessionStatus,
+    incompleteReason: reasonOf(s),
   }));
 }
 
@@ -142,13 +174,13 @@ async function sessionExerciseIds(db: Database, sessionIds: string[]): Promise<s
 }
 
 /**
- * Load one completed session's detail from its snapshot + set_logs.
- * Returns null if missing / not completed / corrupt snapshot.
+ * Load one terminal session's detail from its snapshot + set_logs.
+ * Returns null if missing / active / corrupt snapshot.
  */
 export async function loadSessionDetail(db: Database, sessionId: string): Promise<HistoryDetail | null> {
   try {
     const session = await db.get<WorkoutSession>('workout_sessions').find(sessionId);
-    if (!session || session.sessionStatus !== 'completed') return null;
+    if (!session || (session.sessionStatus !== 'completed' && session.sessionStatus !== 'incomplete')) return null;
     const definition = definitionOf(session);
     if (!definition || !Array.isArray(definition.blocks)) return null;
 
@@ -157,6 +189,10 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
       .query(Q.where('session_id', sessionId))
       .fetch();
     const seIds = seRows.map((r: { id: string }) => r.id);
+    // Session-exercise rows keyed by position for notes + explicit substitutions.
+    const seByPosition = new Map(
+      seRows.map((r: { blockIndex: number; orderIndex: number }) => [`${r.blockIndex}:${r.orderIndex}`, r]),
+    );
 
     const allLogs: SetLog[] =
       seIds.length === 0
@@ -205,6 +241,7 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
       blockIndex,
       name: block.name,
       kind: block.kind,
+      role: block.role ?? null,
       rounds: block.rounds,
       steps: block.steps.map((step: StepDef, stepIndex: number) => {
         const logs = (logsByStep.get(`${blockIndex}:${stepIndex}`) ?? []).slice().sort((a, b) => {
@@ -215,6 +252,7 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
           if (a.round !== b.round) return a.round - b.round;
           return a.setIndex - b.setIndex;
         });
+        const se: any = seByPosition.get(`${blockIndex}:${stepIndex}`);
         const p = step.prescription;
         return {
           stepIndex,
@@ -227,6 +265,14 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
           targetRir: p.targetRir,
           logs,
           skipped,
+          exerciseNote: (se?.exerciseNote as string | null) ?? null,
+          substitution:
+            se?.actualExerciseName != null
+              ? {
+                  actualExerciseName: se.actualExerciseName as string,
+                  reason: (se.substitutionReason as string | null) ?? null,
+                }
+              : null,
         };
       }),
     }));
@@ -238,6 +284,7 @@ export async function loadSessionDetail(db: Database, sessionId: string): Promis
       endedAt: session.endedAt,
       durationMs: durationOf(session.startedAt, session.endedAt),
       status: session.sessionStatus,
+      incompleteReason: reasonOf(session),
       note: session.note ?? null,
       definition,
       blocks,

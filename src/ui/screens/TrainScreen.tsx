@@ -5,6 +5,7 @@ import { makeDbActions } from '../../data/actions';
 import { loadDashboard, type DashboardData, type DashboardSession } from '../../data/dashboard';
 import { loadNextUp, type NextUpInfo } from '../../data/scheduling';
 import { loadActiveWorkout, startWorkoutSession } from '../../workout/runner';
+import { reminderLabels, syncTrainingReminders } from '../../notifications/reminders';
 import { useActiveSessionStore } from '../../state/activeSessionStore';
 import { strings } from '../../constants/strings';
 import { gramRepsToKgReps } from '../../analytics/load';
@@ -71,6 +72,9 @@ export function TrainScreen() {
     } catch {
       setNextUp(null);
     }
+    // Program/routine/session state may have changed since the last visit —
+    // recompute the managed training reminder (cancel + reschedule one id).
+    void syncTrainingReminders(database, reminderLabels());
   }, []);
 
   useEffect(() => {
@@ -84,6 +88,9 @@ export function TrainScreen() {
     try {
       const sessionId = await startWorkoutSession(database, lastSession.routineId);
       setSession(sessionId, lastSession.name);
+      // The corresponding session is starting — drop its pending reminder
+      // instance; future repeats are recomputed by the same call.
+      void syncTrainingReminders(database, reminderLabels());
       startWorkout();
     } catch {
       setError(strings.workout.startFailed);
@@ -99,6 +106,7 @@ export function TrainScreen() {
     try {
       const sessionId = await startWorkoutSession(database, nextUp.routineId);
       setSession(sessionId, nextUp.routineName);
+      void syncTrainingReminders(database, reminderLabels());
       startWorkout();
     } catch {
       setError(strings.workout.startFailed);

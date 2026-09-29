@@ -66,6 +66,8 @@ function toSetLoadInput(log: SetLog): SetLoadInput {
     reps: log.reps,
     durationMs: log.durationMs,
     distanceMm: log.distanceMm,
+    // Actual RIR as logged (1.1.0): null stays null — missing is not zero.
+    actualRir: log.rir ?? null,
     isCompleted: log.isCompleted === 1,
     executionType:
       executionType === 'normal' ||
@@ -130,6 +132,10 @@ export async function loadAnalyticsSnapshot(db: Database): Promise<AnalyticsSnap
 
   const catalog = muscleCatalog();
   const sessions: AnalyticsSession[] = [];
+  // Session-exercise rows keyed by position for explicit substitutions (1.1.0).
+  const seByPosition = new Map(
+    seRows.map((r) => [`${r.sessionId}:${r.blockIndex}:${r.orderIndex}`, r]),
+  );
 
   for (const session of sessionRows) {
     let definition: RoutineDefinition | null = null;
@@ -148,7 +154,16 @@ export async function loadAnalyticsSnapshot(db: Database): Promise<AnalyticsSnap
           logsByStep.get(`${session.id}:${blockIndex}:${stepIndex}`)?.map((entry) => entry.input) ?? [];
         if (stepSets.length === 0) continue;
 
-        const row = step.exerciseId ? exerciseById.get(step.exerciseId) : undefined;
+        // Explicit substitution (1.1.0): performed sets accrue to the ACTUAL
+        // exercise (identity, volume, muscles, records, progression context).
+        // The planned exercise keeps no rows here, so comparability for it
+        // degrades to insufficient-data — never a false equivalence.
+        // Without a substitution the legacy fallback is byte-identical.
+        const se = seByPosition.get(`${session.id}:${blockIndex}:${stepIndex}`);
+        const substituted = se?.actualExerciseName != null;
+        const effName = se?.actualExerciseName ?? step.exerciseName;
+        const effId = substituted ? se?.actualExerciseId : step.exerciseId;
+        const row = effId ? exerciseById.get(effId) : undefined;
         const identity = row
           ? {
               id: row.id,
@@ -158,8 +173,8 @@ export async function loadAnalyticsSnapshot(db: Database): Promise<AnalyticsSnap
               metricFlags: row.metricFlags,
             }
           : {
-              id: null,
-              name: step.exerciseName ?? '',
+              id: substituted ? (effId ?? null) : null,
+              name: effName ?? '',
               category: '',
               equipment: '',
               metricFlags: 0,
@@ -167,7 +182,7 @@ export async function loadAnalyticsSnapshot(db: Database): Promise<AnalyticsSnap
         const contributions: Contributions | null = resolveContributions(catalog, identity);
 
         sessionSteps.push({
-          exerciseName: step.exerciseName,
+          exerciseName: effName,
           exerciseId: identity.id,
           contributions,
           sets: stepSets,

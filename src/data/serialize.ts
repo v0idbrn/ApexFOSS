@@ -1,6 +1,6 @@
 import { Database, Q } from '@nozbe/watermelondb';
 import { Routine, RoutineBlock, RoutineBlockStep, Prescription, BlockTransition, WorkoutSession } from './models';
-import { RoutineDefinition, ExecutionCursor, IntervalSpec } from '../types/engine';
+import { RoutineDefinition, ExecutionCursor, IntervalSpec, normalizeBlockRole } from '../types/engine';
 import type { RoutineDraft } from '../types/draft';
 import { parseCursor } from '../engine/cursor';
 
@@ -140,6 +140,7 @@ export async function serializeRoutine(db: Database, routine: Routine): Promise<
       id: block.id,
       name: block.name,
       kind: block.blockKind as any,
+      role: normalizeBlockRole(block.blockRole) ?? null,
       rounds: block.rounds,
       steps: stepDefs,
       transitions: transitions.map((t) => ({

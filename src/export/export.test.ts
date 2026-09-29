@@ -9,6 +9,7 @@ function makeDetail(overrides?: Partial<HistoryDetail>): HistoryDetail {
     endedAt: 1_700_000_600_000,
     durationMs: 600_000,
     status: 'completed',
+incompleteReason: null,
     note: null,
     definition: {
       id: 'r1',
@@ -50,6 +51,7 @@ function makeDetail(overrides?: Partial<HistoryDetail>): HistoryDetail {
         blockIndex: 0,
         name: 'Main',
         kind: 'normal',
+        role: null,
         rounds: 2,
         steps: [
           {
@@ -94,6 +96,8 @@ function makeDetail(overrides?: Partial<HistoryDetail>): HistoryDetail {
               },
             ],
             skipped: [],
+            exerciseNote: null,
+            substitution: null,
           },
         ],
       },
@@ -137,6 +141,7 @@ describe('CSV export', () => {
           blockIndex: 0,
           name: 'Block, with comma',
           kind: 'normal',
+          role: null,
           rounds: 1,
           steps: [
             {
@@ -161,6 +166,8 @@ describe('CSV export', () => {
                 },
               ],
               skipped: [],
+            exerciseNote: null,
+            substitution: null,
             },
           ],
         },

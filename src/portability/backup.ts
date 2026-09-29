@@ -18,9 +18,10 @@ import type {
 import { APP_VERSION, BACKUP_FORMAT, MAX_BACKUP_JSON_BYTES, BACKUP_FORMAT_VERSION, PortabilityError } from './types';
 import { canonicalJson, semanticChecksum, utf8ByteLength } from './canonical';
 import { BODY_MEASUREMENT_TYPES, BODY_STORAGE_UNITS } from '../types/body';
+import { normalizeBlockRole, normalizeMesocycleStage } from '../types/engine';
 import { normalizeBodyEntries } from '../analytics/body';
 import { schemaVersion } from '../data/schema';
-import { NOTE_MAX_LENGTH } from '../data/notes';
+import { EXERCISE_NOTE_MAX_LENGTH, NOTE_MAX_LENGTH } from '../data/notes';
 
 export interface RestoreHooks {
   onRowCreated?: (table: string, count: number) => void;
@@ -67,7 +68,12 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
     const pi = programIndexById.get(m.programId);
     if (pi == null) continue; // orphan phase — not representable in backup
     mesoIndexById.set(m.id, mesocycles.length);
-    mesocycles.push({ name: m.name, programIndex: pi, sortOrder: m.sortOrder });
+    mesocycles.push({
+      name: m.name,
+      programIndex: pi,
+      sortOrder: m.sortOrder,
+      stage: normalizeMesocycleStage(m.stage) ?? null,
+    });
   }
 
   // Package-local exercise keys (stable by first-use across routines, then leftover sorted by name).
@@ -115,6 +121,7 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
       return {
         name: b.name,
         kind: b.blockKind,
+        role: normalizeBlockRole(b.blockRole) ?? null,
         rounds: b.rounds,
         interval: b.blockKind === 'interval' && b.intervalJson ? JSON.parse(b.intervalJson) : null,
         steps: steps.map((s) => {
@@ -210,6 +217,10 @@ export async function createBackup(db: Database): Promise<ApexBackup> {
       exerciseName: se.exerciseName,
       blockIndex: se.blockIndex,
       orderIndex: se.orderIndex,
+      exerciseNote: se.exerciseNote != null ? String(se.exerciseNote) : null,
+      actualExerciseKey: se.actualExerciseId != null ? ensureEx(se.actualExerciseId, se.actualExerciseName ?? '') : null,
+      actualExerciseName: se.actualExerciseName != null ? String(se.actualExerciseName) : null,
+      substitutionReason: se.substitutionReason != null ? String(se.substitutionReason) : null,
     });
   }
 
@@ -403,6 +414,9 @@ export function validateBackup(raw: unknown): ApexBackup {
     if (typeof mm.sortOrder !== 'number' || !Number.isInteger(mm.sortOrder) || mm.sortOrder < 0) {
       throw new PortabilityError('invalid_integer', `mesocycles[${i}].sortOrder`);
     }
+    if (mm.stage !== undefined && mm.stage !== null && mm.stage !== 'normal' && mm.stage !== 'deload') {
+      throw new PortabilityError('invalid_string', `mesocycles[${i}].stage`);
+    }
   }
 
   const exerciseKeys = new Set<string>();
@@ -509,6 +523,9 @@ export function validateBackup(raw: unknown): ApexBackup {
     for (const [j, block] of (rr.blocks as unknown[]).entries()) {
       if (typeof block !== 'object' || block === null) throw new PortabilityError('missing_field', `routines[${i}].blocks[${j}]`);
       const b = block as Record<string, unknown>;
+      if (b.role !== undefined && b.role !== null && b.role !== 'main' && b.role !== 'warmup' && b.role !== 'cooldown') {
+        throw new PortabilityError('invalid_string', `routines[${i}].blocks[${j}].role`);
+      }
       if (!Array.isArray(b.steps) || b.steps.length === 0) throw new PortabilityError('empty_routine', 'blocks.steps');
       for (const [k, step] of (b.steps as unknown[]).entries()) {
         if (typeof step !== 'object' || step === null) throw new PortabilityError('missing_field', 'step');
@@ -554,6 +571,21 @@ export function validateBackup(raw: unknown): ApexBackup {
     }
     if (s.exerciseKey != null && !exerciseKeys.has(s.exerciseKey as string)) {
       throw new PortabilityError('dangling_exercise', `sessionExercises[${i}]`);
+    }
+    if (s.exerciseNote !== undefined && s.exerciseNote !== null &&
+        (typeof s.exerciseNote !== 'string' || s.exerciseNote.length > EXERCISE_NOTE_MAX_LENGTH)) {
+      throw new PortabilityError('invalid_string', `sessionExercises[${i}].exerciseNote`);
+    }
+    if (s.actualExerciseKey != null && !exerciseKeys.has(s.actualExerciseKey as string)) {
+      throw new PortabilityError('dangling_exercise', `sessionExercises[${i}].actualExerciseKey`);
+    }
+    if (s.actualExerciseName !== undefined && s.actualExerciseName !== null &&
+        typeof s.actualExerciseName !== 'string') {
+      throw new PortabilityError('invalid_string', `sessionExercises[${i}].actualExerciseName`);
+    }
+    if (s.substitutionReason !== undefined && s.substitutionReason !== null &&
+        typeof s.substitutionReason !== 'string') {
+      throw new PortabilityError('invalid_string', `sessionExercises[${i}].substitutionReason`);
     }
   }
 
@@ -796,6 +828,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           rec.name = m.name;
           rec.programId = programIds[m.programIndex] ?? null;
           rec.sortOrder = m.sortOrder;
+          rec.stage = m.stage ?? null;
           rec.createdAt = Date.now();
           rec.updatedAt = Date.now();
         });
@@ -823,6 +856,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
             rec.routineId = routine.id;
             rec.name = b.name;
             rec.blockKind = b.kind;
+            rec.blockRole = (b as { role?: unknown }).role ?? null;
             rec.sortOrder = bi;
             rec.rounds = b.kind === 'interval' ? 1 : b.rounds;
             rec.intervalJson = b.kind === 'interval' && b.interval ? JSON.stringify(b.interval) : null;
@@ -903,6 +937,11 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
           rec.exerciseName = se.exerciseName;
           rec.blockIndex = se.blockIndex;
           rec.orderIndex = se.orderIndex;
+          rec.exerciseNote = se.exerciseNote ?? null;
+          rec.actualExerciseId =
+            se.actualExerciseKey ? keyToId.get(se.actualExerciseKey) ?? null : null;
+          rec.actualExerciseName = se.actualExerciseName ?? null;
+          rec.substitutionReason = se.substitutionReason ?? null;
           rec.createdAt = Date.now();
           rec.updatedAt = Date.now();
         });

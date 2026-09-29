@@ -275,9 +275,12 @@ describe('prescribed vs performed volume', () => {
     ].map((name) => path.join(__dirname, name));
     volumeModules.push(path.join(__dirname, '..', 'data', 'dashboard.ts'));
 
+    // RIR in comments is documentation (e.g. "actual RIR as logged — null stays
+    // null"), not a prescription input; 1.1.0 surfaces actual RIR as an OUTPUT.
+    const commentFree = (src: string): string => src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
     const prescriptionInputs = /prescri|\brir\b|targetReps|targetSets|targetWeight/i;
     for (const file of volumeModules) {
-      const src = fs.readFileSync(file, 'utf8');
+      const src = commentFree(fs.readFileSync(file, 'utf8'));
       expect(prescriptionInputs.test(src)).toBe(false);
     }
 

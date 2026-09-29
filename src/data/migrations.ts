@@ -195,5 +195,29 @@ export const migrations = schemaMigrations({
         }),
       ],
     },
+    {
+      // v13 (1.1.0): optional execution-fidelity + programming-metadata
+      // columns. All nullable — legacy rows read null = defaults, no rewrite.
+      toVersion: 13,
+      steps: [
+        addColumns({
+          table: 'session_exercises',
+          columns: [
+            { name: 'exercise_note', type: 'string', isOptional: true },
+            { name: 'actual_exercise_id', type: 'string', isOptional: true },
+            { name: 'actual_exercise_name', type: 'string', isOptional: true },
+            { name: 'substitution_reason', type: 'string', isOptional: true },
+          ],
+        }),
+        addColumns({
+          table: 'routine_blocks',
+          columns: [{ name: 'block_role', type: 'string', isOptional: true }],
+        }),
+        addColumns({
+          table: 'mesocycles',
+          columns: [{ name: 'stage', type: 'string', isOptional: true }],
+        }),
+      ],
+    },
   ],
 });

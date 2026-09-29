@@ -920,8 +920,8 @@ describe('mesocycle portability (schema v9)', () => {
     const db = await dbWithMesocycles();
     const backup = await createBackup(db);
     expect(backup.data.mesocycles).toEqual([
-      { name: 'Accumulation', programIndex: 0, sortOrder: 1 },
-      { name: 'Intensification', programIndex: 0, sortOrder: 2 },
+      { name: 'Accumulation', programIndex: 0, sortOrder: 1, stage: null },
+      { name: 'Intensification', programIndex: 0, sortOrder: 2, stage: null },
     ]);
     const byName = new Map(backup.data.routines.map((r) => [r.name, r]));
     expect(byName.get('Day A')).toMatchObject({ mesocycleIndex: 0 });

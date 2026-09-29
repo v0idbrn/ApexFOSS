@@ -10,8 +10,13 @@ export interface SetLoadInput {
   weightGrams: number | null;
   reps: number | null;
   durationMs: number | null;
-  /** Optional distance (mm) — carried for records; not part of load math. */
+  /** Optional distance (mm) - carried for records; not part of load math. */
   distanceMm?: number | null;
+  /**
+   * Actual RIR as logged (1.1.0). Null = not recorded — NEVER 0 by default.
+   * Carried for progression context; never part of load math.
+   */
+  actualRir?: number | null;
   isCompleted: boolean;
   /** Execution marking carried for adherence; never part of load math. */
   executionType?: ExecutionType | null;

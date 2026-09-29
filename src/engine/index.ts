@@ -197,11 +197,19 @@ export function dispatch(
       return onTimerDone(definition, cursor);
     case 'UNDO_LAST':
       return onUndo(cursor);
-    case 'COMPLETE_SESSION':
+    case 'COMPLETE_SESSION': {
+      const reason = event.incompleteReason ?? null;
       return {
-        cursor: { ...cursor, status: 'completed', timer: null, lastReversible: null },
+        cursor: {
+          ...cursor,
+          status: reason ? 'incomplete' : 'completed',
+          incompleteReason: reason,
+          timer: null,
+          lastReversible: null,
+        },
         effects: [{ kind: 'CANCEL_TIMER' }, { kind: 'CANCEL_NOTIFICATION' }, { kind: 'COMPLETE_SESSION' }],
       };
+    }
   }
 }
 

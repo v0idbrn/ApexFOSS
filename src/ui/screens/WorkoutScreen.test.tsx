@@ -178,6 +178,7 @@ const detailFixture: HistoryDetail = {
   endedAt: START + 600_000,
   durationMs: 600_000,
   status: 'completed',
+incompleteReason: null,
   note: '',
   definition,
   blocks: [
@@ -185,6 +186,7 @@ const detailFixture: HistoryDetail = {
       blockIndex: 0,
       name: 'Main',
       kind: 'normal',
+      role: null,
       rounds: 1,
       steps: [
         {
@@ -209,6 +211,8 @@ const detailFixture: HistoryDetail = {
             },
           ],
           skipped: [],
+            exerciseNote: null,
+            substitution: null,
         },
       ],
     },
@@ -667,7 +671,8 @@ describe('WorkoutScreen finish and discard paths', () => {
     expect(confirm).toBeDefined();
 
     mockedApply.mockResolvedValue(
-      makeRuntime({ cursor: activeCursor({ status: 'completed', timer: null, lastReversible: null }) }),
+      makeRuntime({ cursor: activeCursor({ status: 'completed',
+incompleteReason: null, timer: null, lastReversible: null }) }),
     );
     await act(async () => {
       confirm!.onPress!();
@@ -691,7 +696,8 @@ describe('WorkoutScreen finish and discard paths', () => {
   it('lands on the summary when the last set completes the session (no dialog)', async () => {
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockedApply.mockResolvedValue(
-      makeRuntime({ cursor: activeCursor({ status: 'completed', timer: null }) }),
+      makeRuntime({ cursor: activeCursor({ status: 'completed',
+incompleteReason: null, timer: null }) }),
     );
     const renderer = await renderWorkout();
 
@@ -894,7 +900,8 @@ describe('WorkoutScreen post-workout progression (Phase 3B)', () => {
       Array<{ text: string; onPress?: () => void }>,
     ];
     mockedApply.mockResolvedValue(
-      makeRuntime({ cursor: activeCursor({ status: 'completed', timer: null, lastReversible: null }) }),
+      makeRuntime({ cursor: activeCursor({ status: 'completed',
+incompleteReason: null, timer: null, lastReversible: null }) }),
     );
     await act(async () => {
       buttons.find((b) => b.text === strings.workout.finish)!.onPress!();
@@ -916,7 +923,8 @@ describe('WorkoutScreen post-workout progression (Phase 3B)', () => {
       Array<{ text: string; onPress?: () => void }>,
     ];
     mockedApply.mockResolvedValue(
-      makeRuntime({ cursor: activeCursor({ status: 'completed', timer: null, lastReversible: null }) }),
+      makeRuntime({ cursor: activeCursor({ status: 'completed',
+incompleteReason: null, timer: null, lastReversible: null }) }),
     );
     await act(async () => {
       buttons.find((b) => b.text === strings.workout.finish)!.onPress!();

@@ -15,6 +15,7 @@ function detail(name: string, exerciseName: string, actualWeightGrams: number | 
     endedAt: 1_700_000_600_000,
     durationMs: 600_000,
     status: 'completed',
+incompleteReason: null,
     note: null,
     definition: {
       id: 'r1',
@@ -51,6 +52,7 @@ function detail(name: string, exerciseName: string, actualWeightGrams: number | 
         blockIndex: 0,
         name: 'Main',
         kind: 'normal',
+        role: null,
         rounds: 1,
         steps: [
           {
@@ -75,6 +77,8 @@ function detail(name: string, exerciseName: string, actualWeightGrams: number | 
               },
             ],
             skipped: [],
+            exerciseNote: null,
+            substitution: null,
           },
         ],
       },

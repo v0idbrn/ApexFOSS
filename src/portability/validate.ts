@@ -161,7 +161,12 @@ function validateBlock(raw: unknown, path: string, exerciseKeys: Set<string>): P
   if (kind === 'interval' && !interval) throw new PortabilityError('invalid_interval', path);
   if (kind !== 'interval' && interval) throw new PortabilityError('invalid_interval', path);
   if (kind === 'interval' && rounds !== 1) throw new PortabilityError('invalid_rounds', path);
-  return { name, kind, rounds, steps, interval };
+  // Block role (1.1.0 programming metadata): absent/null = main; unknown = reject.
+  const role = raw.role;
+  if (role !== undefined && role !== null && role !== 'main' && role !== 'warmup' && role !== 'cooldown') {
+    throw new PortabilityError('invalid_string', `${path}.role`);
+  }
+  return { name, kind, role: (role as PortableBlock['role']) ?? null, rounds, steps, interval };
 }
 
 function validatePortableRoutine(raw: unknown, exerciseKeys: Set<string>): {

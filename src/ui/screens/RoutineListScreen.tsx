@@ -6,6 +6,7 @@ import { loadDashboard } from '../../data/dashboard';
 import { definitionFromDraft } from '../../data/serialize';
 import { checkIntegrity } from '../../engine/integrity';
 import { startWorkoutSession } from '../../workout/runner';
+import { reminderLabels, syncTrainingReminders } from '../../notifications/reminders';
 import { useActiveSessionStore } from '../../state/activeSessionStore';
 import { strings } from '../../constants/strings';
 import type { BlockKind } from '../../types/engine';
@@ -328,6 +329,7 @@ export function RoutineListScreen() {
     try {
       const sessionId = await startWorkoutSession(database, row.id);
       setSession(sessionId, row.name);
+      void syncTrainingReminders(database, reminderLabels());
       push({ name: 'workout' });
     } catch (e) {
       setError(e instanceof Error ? e.message : strings.workout.startFailed);

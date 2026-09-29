@@ -1,9 +1,11 @@
 import { Database, Q } from '@nozbe/watermelondb';
 import { RoutineDefinition, ExecutionCursor, Effect, StepDef, BlockDef, TransitionType } from '../types/engine';
+import { normalizeBlockRole, normalizeMesocycleStage } from '../types/engine';
 import { classifySetExecution, normalizeOverrideReason } from '../workout/execution';
 import { RoutineDraft, emptyPrescription } from '../types/draft';
 import { BODY_MEASUREMENT_TYPES, BODY_STORAGE_UNITS, isBilateralMeasurement } from '../types/body';
 import { initialCursor } from '../engine/cursor';
+import { normalizeExerciseNote } from './notes';
 import {
   Exercise,
   Routine,
@@ -88,6 +90,7 @@ async function loadDraft(db: Database, routineId: string): Promise<RoutineDraft>
       localId: block.id,
       name: block.name,
       kind: block.blockKind as RoutineDraft['blocks'][number]['kind'],
+      role: normalizeBlockRole(block.blockRole) ?? null,
       rounds: block.rounds,
       steps: draftSteps,
       interval: block.intervalJson ? (JSON.parse(block.intervalJson) as RoutineDraft['blocks'][number]['interval']) : null,
@@ -126,9 +129,34 @@ export interface DbActions {
 
   createMesocycle(programId: string, name: string): Promise<string>;
   renameMesocycle(id: string, name: string): Promise<void>;
+  /** Sets deload intent metadata (1.1.0); null clears to normal. */
+  setMesocycleStage(id: string, stage: string | null): Promise<void>;
+  /** Sets block role metadata (1.1.0); null clears to main. */
+  setBlockRole(id: string, role: string | null): Promise<void>;
+  /**
+   * Records an explicit substitution on a session-exercise row (1.1.0) without
+   * touching planned programming identity. Creates the row when absent.
+   */
+  substituteSessionExercise(
+    sessionId: string,
+    blockIndex: number,
+    orderIndex: number,
+    plannedName: string,
+    actualId: string | null,
+    actualName: string,
+    reason: string | null,
+  ): Promise<string>;
+  /** Sets a per-exercise note (1.1.0, empty clears). Creates the row when absent. */
+  setSessionExerciseNote(
+    sessionId: string,
+    blockIndex: number,
+    orderIndex: number,
+    plannedName: string,
+    note: string | null,
+  ): Promise<string>;
   /** Detaches staged routines (preserved) and deletes the mesocycle container. */
   deleteMesocycle(id: string): Promise<void>;
-  listMesocycles(programId: string): Promise<Array<{ id: string; name: string; sortOrder: number; routineCount: number }>>;
+  listMesocycles(programId: string): Promise<Array<{ id: string; name: string; sortOrder: number; routineCount: number; stage: string | null }>>;
   /** Stages a routine; rejects when routine and mesocycle belong to different programs. */
   assignRoutineToMesocycle(routineId: string, mesocycleId: string): Promise<void>;
   removeRoutineFromMesocycle(routineId: string): Promise<void>;
@@ -479,6 +507,32 @@ export function makeDbActions(db: Database): DbActions {
       });
     },
 
+    /** 1.1.0 deload intent (pure metadata; never prescribes anything). Null clears to normal. */
+    async setMesocycleStage(id: string, stage: string | null) {
+      const value = stage == null ? null : normalizeMesocycleStage(stage);
+      if (stage != null && value == null) throw new Error('Unknown mesocycle stage');
+      await db.write(async () => {
+        const m = await db.get<Mesocycle>('mesocycles').find(id);
+        await m.update((rec) => {
+          rec.stage = value;
+          rec.updatedAt = now();
+        });
+      });
+    },
+
+    /** 1.1.0 block role (pure metadata: main/warmup/cooldown). Null clears to main. */
+    async setBlockRole(id: string, role: string | null) {
+      const value = role == null ? null : normalizeBlockRole(role);
+      if (role != null && value == null) throw new Error('Unknown block role');
+      await db.write(async () => {
+        const b = await db.get<RoutineBlock>('routine_blocks').find(id);
+        await b.update((rec) => {
+          rec.blockRole = value;
+          rec.updatedAt = now();
+        });
+      });
+    },
+
     async deleteMesocycle(id) {
       await db.write(async () => {
         const staged = await db
@@ -513,6 +567,7 @@ export function makeDbActions(db: Database): DbActions {
           name: m.name,
           sortOrder: m.sortOrder,
           routineCount: countByMeso.get(m.id) ?? 0,
+          stage: m.stage ?? null,
         }))
         .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
     },
@@ -684,6 +739,7 @@ export function makeDbActions(db: Database): DbActions {
             rec.routineId = routineId!;
             rec.name = b.name.trim() || `Block ${bi + 1}`;
             rec.blockKind = b.kind;
+            rec.blockRole = b.role ?? null;
             rec.sortOrder = bi;
             rec.rounds = b.kind === 'interval' ? 1 : Math.max(1, Math.round(b.rounds || 1));
             rec.intervalJson =
@@ -860,7 +916,8 @@ export function makeDbActions(db: Database): DbActions {
       await db.write(async () => {
         await session.update((rec) => {
           rec.cursorJson = JSON.stringify(cursor);
-          rec.sessionStatus = 'completed';
+          // Terminal state mirrors the cursor (1.1.0: 'completed' | 'incomplete').
+          rec.sessionStatus = cursor.status === 'incomplete' ? 'incomplete' : 'completed';
           rec.endedAt = now();
           rec.timerExpiresAt = null;
           rec.updatedAt = now();
@@ -906,6 +963,98 @@ export function makeDbActions(db: Database): DbActions {
           rec.updatedAt = now();
         }),
       );
+    },
+
+    /**
+     * 1.1.0 explicit substitution: records the performed exercise on the
+     * session-exercise row WITHOUT touching the planned exercise (programming
+     * identity is immutable). Creates the row when the swap happens before
+     * any set is logged. Reason is athlete-stated (closed enum) or null.
+     */
+    async substituteSessionExercise(
+      sessionId: string,
+      blockIndex: number,
+      orderIndex: number,
+      plannedName: string,
+      actualId: string | null,
+      actualName: string,
+      reason: string | null,
+    ) {
+      const cleanReason = reason == null ? null : normalizeOverrideReason(reason);
+      return db.write(async () => {
+        const rows = await db
+          .get<any>('session_exercises')
+          .query(
+            Q.where('session_id', sessionId),
+            Q.where('block_index', blockIndex),
+            Q.where('order_index', orderIndex),
+          )
+          .fetch();
+        const ts = now();
+        if (rows.length > 0) {
+          const row = rows[0];
+          await row.update((rec: any) => {
+            rec.actualExerciseId = actualId;
+            rec.actualExerciseName = actualName;
+            rec.substitutionReason = cleanReason;
+            rec.updatedAt = ts;
+          });
+          return row.id;
+        }
+        const row = await db.get<any>('session_exercises').create((rec: any) => {
+          rec.sessionId = sessionId;
+          rec.exerciseId = null;
+          rec.exerciseName = plannedName;
+          rec.blockIndex = blockIndex;
+          rec.orderIndex = orderIndex;
+          rec.actualExerciseId = actualId;
+          rec.actualExerciseName = actualName;
+          rec.substitutionReason = cleanReason;
+          rec.createdAt = ts;
+          rec.updatedAt = ts;
+        });
+        return row.id;
+      });
+    },
+
+    /** 1.1.0 per-exercise note (full replace, empty clears). Creates the row if needed. */
+    async setSessionExerciseNote(
+      sessionId: string,
+      blockIndex: number,
+      orderIndex: number,
+      plannedName: string,
+      note: string | null,
+    ) {
+      const value = note == null ? null : normalizeExerciseNote(note);
+      return db.write(async () => {
+        const rows = await db
+          .get<any>('session_exercises')
+          .query(
+            Q.where('session_id', sessionId),
+            Q.where('block_index', blockIndex),
+            Q.where('order_index', orderIndex),
+          )
+          .fetch();
+        const ts = now();
+        if (rows.length > 0) {
+          await rows[0].update((rec: any) => {
+            rec.exerciseNote = value;
+            rec.updatedAt = ts;
+          });
+          return rows[0].id;
+        }
+        const row = await db.get<any>('session_exercises').create((rec: any) => {
+          rec.sessionId = sessionId;
+          rec.exerciseId = null;
+          rec.exerciseName = plannedName;
+          rec.blockIndex = blockIndex;
+          rec.orderIndex = orderIndex;
+          rec.exerciseNote = value;
+          rec.createdAt = ts;
+          rec.updatedAt = ts;
+        });
+        return row.id;
+      });
     },
 
     async applyEffects(session, cursor, effects) {

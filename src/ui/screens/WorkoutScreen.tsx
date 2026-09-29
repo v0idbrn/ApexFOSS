@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, AppState, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, AppState, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { formatCountdown, formatKg, formatTempo, gramsToKg, kgToGrams, secondsToMs } from '../../utils/units';
 import { useTimerStore } from '../../state/timerStore';
 import { useActiveSessionStore } from '../../state/activeSessionStore';
-import type { BlockDef, EngineEvent, IntervalSpec, OverrideReason, PersistedInterval, Prescription, SetPayload, StepDef } from '../../types/engine';
+import type { BlockDef, EngineEvent, IntervalSpec, OverrideReason, SessionEndReason,
+  PersistedInterval, Prescription, SetPayload, StepDef } from '../../types/engine';
+import { SESSION_END_REASONS } from '../../types/engine';
 import { classifySetExecution, OVERRIDE_REASONS } from '../../workout/execution';
 import {
   applyWorkoutEvent,
@@ -16,6 +18,7 @@ import {
   reconcileTimerNotification,
   type WorkoutRuntime,
 } from '../../workout/runner';
+import { reminderLabels, syncTrainingReminders } from '../../notifications/reminders';
 import {
   recommendNextLoad,
   DEFAULT_AUTOREG_CONFIG,
@@ -70,9 +73,12 @@ import {
   SectionHeader,
   TextField,
   confirmDestructive,
+  Chip,
 } from '../components';
+import { ExercisePickerScreen } from './ExercisePickerScreen';
 import { Numpad, NumpadField } from '../Numpad';
 import { sessionProgress } from '../../workout/sessionProgress';
+import { makeDbActions } from '../../data/actions';
 import { loadSessionDetail } from '../../data/history';
 import { saveSessionNote } from '../../data/notes';
 import {
@@ -199,6 +205,28 @@ export function overrideReasonLabel(reason: OverrideReason): string {
   }
 }
 
+/** Localized label for an athlete-stated session-end reason (1.1.0). */
+export function sessionEndReasonLabel(reason: SessionEndReason): string {
+  switch (reason) {
+    case 'user_stopped':
+      return strings.sessionEnd.userStopped;
+    case 'time_constraint':
+      return strings.sessionEnd.timeConstraint;
+    case 'fatigue':
+      return strings.sessionEnd.fatigue;
+    case 'pain':
+      return strings.sessionEnd.pain;
+    case 'equipment_unavailable':
+      return strings.sessionEnd.equipmentUnavailable;
+    case 'interruption':
+      return strings.sessionEnd.interruption;
+    case 'technical_issue':
+      return strings.sessionEnd.technicalIssue;
+    case 'other':
+      return strings.sessionEnd.other;
+  }
+}
+
 const validNumber = (s: string): boolean => isValidNumpadValue(s);
 
 const fireTempoEffects = (effects: TempoEffect[]) => {
@@ -244,6 +272,9 @@ export function WorkoutScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [completedView, setCompletedView] = useState(false);
+  // Tracks whether the current session's completion was already observed, so
+  // the training-reminder resync fires once per completed session.
+  const completedRef = useRef(false);
   const [inputs, setInputs] = useState<NumpadInput>(emptyInputs);
   const [activeField, setActiveField] = useState<NumpadFieldKey | null>(null);
   // Ephemeral tempo trainer (intra-set aid) — never persisted, never engine-owned.
@@ -291,7 +322,17 @@ export function WorkoutScreen() {
       }
       setRt(active);
       setSession(active.sessionId, active.definition.name);
-      if (active.cursor.status === 'completed') setCompletedView(true);
+      if (active.cursor.status === 'completed') {
+        setCompletedView(true);
+        // Session just completed (first observation): the program rotation
+        // advanced, so recompute the managed reminder. Once per completion.
+        if (!completedRef.current) {
+          completedRef.current = true;
+          void syncTrainingReminders(database, reminderLabels());
+        }
+      } else {
+        completedRef.current = false;
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -380,6 +421,16 @@ export function WorkoutScreen() {
   // Athlete-stated override reason (Phase 3C): optional, explicit, reset per set.
   const [overrideReason, setOverrideReason] = useState<OverrideReason | null>(null);
 
+  // Stop-early flow (1.1.0): reason modal, then COMPLETE_SESSION with reason.
+  const [endReasonOpen, setEndReasonOpen] = useState(false);
+  const [endReason, setEndReason] = useState<SessionEndReason | null>(null);
+
+  // Substitution flow (1.1.0): picker, then reason, then confirm.
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapPick, setSwapPick] = useState<{ id: string | null; name: string } | null>(null);
+  const [swapReason, setSwapReason] = useState<OverrideReason | null>(null);
+  const [swappedName, setSwappedName] = useState<string | null>(null);
+
   // Reset actual inputs whenever the target set/step changes.
   const step = rt && rt.cursor.status === 'active' ? rt.definition.blocks[rt.cursor.blockIndex]?.steps[rt.cursor.stepIndex] : undefined;
   const posKey = rt ? `${rt.cursor.blockIndex}:${rt.cursor.stepIndex}:${rt.cursor.round}:${rt.cursor.setIndex}` : '';
@@ -414,6 +465,10 @@ export function WorkoutScreen() {
     }
     setActiveField('weight');
     setOverrideReason(null);
+    setSwappedName(null);
+    setSwapOpen(false);
+    setSwapPick(null);
+    setSwapReason(null);
     // New set/step: discard any in-flight tempo/interval (no stale phase timestamps).
     setTempo(idleTempoRuntime());
     releaseTempoKeepAwake();
@@ -862,8 +917,49 @@ export function WorkoutScreen() {
   const onFinish = () => {
     Alert.alert(strings.workout.finish, strings.workout.finishConfirm, [
       { text: strings.common.cancel, style: 'cancel' },
+      {
+        text: strings.workout.finishEarly,
+        style: 'destructive',
+        onPress: () => {
+          setEndReason(null);
+          setEndReasonOpen(true);
+        },
+      },
       { text: strings.workout.finish, style: 'default', onPress: () => void apply({ type: 'COMPLETE_SESSION', now: Date.now() }) },
     ]);
+  };
+
+  const onConfirmStopEarly = () => {
+    if (!endReason) return;
+    setEndReasonOpen(false);
+    void apply({ type: 'COMPLETE_SESSION', now: Date.now(), incompleteReason: endReason });
+  };
+
+  const onConfirmSwap = () => {
+    const current = rtRef.current;
+    if (!current || !swapPick) return;
+    const { blockIndex, stepIndex } = current.cursor;
+    const plannedName = current.definition.blocks[blockIndex]?.steps[stepIndex]?.exerciseName ?? '';
+    const actualId = swapPick.id;
+    const actualName = swapPick.name;
+    const reason = swapReason;
+    setSwapOpen(false);
+    void (async () => {
+      try {
+        await makeDbActions(database).substituteSessionExercise(
+          current.sessionId,
+          blockIndex,
+          stepIndex,
+          plannedName,
+          actualId,
+          actualName,
+          reason,
+        );
+        setSwappedName(actualName);
+      } catch {
+        // fail-soft: the workout continues with the programmed exercise
+      }
+    })();
   };
 
   const onDiscard = () => {
@@ -1074,7 +1170,7 @@ export function WorkoutScreen() {
               className="mt-2"
             >
               <Text className="text-title text-fg" numberOfLines={2}>
-                {currentStep.exerciseName || strings.common.none}
+                {swappedName ?? currentStep.exerciseName ?? strings.common.none}
               </Text>
               <View className="mt-1 flex-row items-center gap-2">
                 <Text className="text-caption text-dim" testID="step-position">
@@ -1083,6 +1179,23 @@ export function WorkoutScreen() {
                 {block && block.kind !== 'normal' ? (
                   <Badge label={strings.routines.blockKind[block.kind]} tone="accent" />
                 ) : null}
+                {swappedName ? (
+                  <Badge label={strings.history.substituted} tone="neutral" testID="step-substituted" />
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={strings.workout.substitute}
+                    onPress={() => {
+                      setSwapPick(null);
+                      setSwapReason(null);
+                      setSwapOpen(true);
+                    }}
+                    hitSlop={8}
+                    testID="step-substitute"
+                  >
+                    <Text className="text-caption font-semibold text-accent-ink">{strings.workout.substitute}</Text>
+                  </Pressable>
+                )}
               </View>
             </View>
           ) : null}
@@ -1446,6 +1559,96 @@ export function WorkoutScreen() {
             disabled={busy}
           />
         ) : null}
+        {swapOpen && !swapPick ? (
+          <ExercisePickerScreen
+            onPick={(id, name) => setSwapPick({ id, name })}
+            onCancel={() => {
+              setSwapOpen(false);
+              setSwapPick(null);
+              setSwapReason(null);
+            }}
+          />
+        ) : null}
+        <Modal
+          visible={swapOpen && swapPick !== null}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setSwapOpen(false)}
+        >
+          <View className="flex-1 items-center justify-center bg-black/60 px-6">
+            <View className="w-full rounded-xl border border-line bg-surface p-4">
+              <Text className="text-heading text-fg">{strings.workout.substituteTitle}</Text>
+              <Text className="mt-1 text-sm text-dim">
+                {swapPick?.name} · {strings.workout.substituteBody}
+              </Text>
+              <Text className="mb-2 mt-4 text-sm text-dim">{strings.workout.substituteReasonLabel}</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {(['equipment_unavailable', 'pain_discomfort', 'time_constraint', 'fatigue', 'other'] as const).map(
+                  (r) => (
+                    <Chip
+                      key={r}
+                      label={overrideReasonLabel(r)}
+                      active={swapReason === r}
+                      onPress={() => setSwapReason(r)}
+                    />
+                  ),
+                )}
+              </View>
+              <View className="mt-4 flex-row gap-2">
+                <Button
+                  label={strings.common.cancel}
+                  variant="secondary"
+                  onPress={() => setSwapOpen(false)}
+                  className="flex-1"
+                />
+                <Button
+                  label={strings.workout.substitute}
+                  onPress={onConfirmSwap}
+                  disabled={!swapReason}
+                  className="flex-1"
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
+        <Modal
+          visible={endReasonOpen}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setEndReasonOpen(false)}
+        >
+          <View className="flex-1 items-center justify-center bg-black/60 px-6">
+            <View className="w-full rounded-xl border border-line bg-surface p-4">
+              <Text className="text-heading text-fg">{strings.workout.finishEarlyTitle}</Text>
+              <Text className="mt-1 text-sm text-dim">{strings.workout.finishEarlyBody}</Text>
+              <View className="mt-4 flex-row flex-wrap gap-2">
+                {SESSION_END_REASONS.map((r) => (
+                  <Chip
+                    key={r}
+                    label={sessionEndReasonLabel(r)}
+                    active={endReason === r}
+                    onPress={() => setEndReason(r)}
+                  />
+                ))}
+              </View>
+              <View className="mt-4 flex-row gap-2">
+                <Button
+                  label={strings.common.cancel}
+                  variant="secondary"
+                  onPress={() => setEndReasonOpen(false)}
+                  className="flex-1"
+                />
+                <Button
+                  label={strings.workout.finishEarly}
+                  variant="danger"
+                  onPress={onConfirmStopEarly}
+                  disabled={!endReason}
+                  className="flex-1"
+                />
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Screen>
   );

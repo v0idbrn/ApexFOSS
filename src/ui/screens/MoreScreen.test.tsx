@@ -9,6 +9,22 @@ import { strings } from '../../constants/strings';
 import { getStrings, setStringsLocale } from '../../constants/strings';
 import { GITHUB_SPONSORS_URL, MERCADOPAGO_URL, PAYPAL_URL } from '../../constants/support';
 
+jest.mock('../../data', () => ({ database: {} }));
+jest.mock('../../notifications/reminders', () => ({
+  DEFAULT_REMINDER_HOUR: 7,
+  DEFAULT_REMINDER_MINUTE: 0,
+  loadReminderPrefs: jest.fn(() => Promise.resolve({ enabled: false, hour: 7, minute: 0 })),
+  saveReminderPrefs: jest.fn(() => Promise.resolve()),
+  syncTrainingReminders: jest.fn(() => Promise.resolve()),
+  reminderLabels: jest.fn(() => ({ appName: 'ApexFOSS', today: 'Today', blocks: 'blocks', steps: 'sets' })),
+}));
+jest.mock('../../notifications', () => ({
+  requestNotificationPermission: jest.fn(() => Promise.resolve(true)),
+}));
+
+import { loadReminderPrefs, saveReminderPrefs, syncTrainingReminders } from '../../notifications/reminders';
+import { requestNotificationPermission } from '../../notifications';
+
 /**
  * More screen: support entry (spec sections 30-32). Voluntary links open
  * only on explicit tap, point at the owner-provided public identities, and
@@ -141,5 +157,77 @@ describe('MoreScreen support section', () => {
     const renderer = await renderMore();
     expect(pressableByTestID(renderer, 'more-trust')).toBeDefined();
     expect(pressableByTestID(renderer, 'more-portability')).toBeDefined();
+  });
+});
+
+describe('MoreScreen training reminders', () => {
+  const mockLoadPrefs = loadReminderPrefs as jest.Mock;
+  const mockSavePrefs = saveReminderPrefs as jest.Mock;
+  const mockSync = syncTrainingReminders as jest.Mock;
+  const mockPerm = requestNotificationPermission as jest.Mock;
+
+  function switchByTestID(renderer: ReactTestRenderer, testID: string) {
+    return renderer.root
+      .findAll((node) => node.props?.testID === testID && typeof node.props?.onValueChange === 'function')
+      .find((node) => node.props?.accessibilityRole === 'switch');
+  }
+
+  beforeEach(() => {
+    mockLoadPrefs.mockReset().mockResolvedValue({ enabled: false, hour: 7, minute: 0 });
+    mockSavePrefs.mockReset().mockResolvedValue(undefined);
+    mockSync.mockReset().mockResolvedValue(undefined);
+    mockPerm.mockReset().mockResolvedValue(true);
+  });
+
+  it('renders the reminder row with localized copy and switch semantics', async () => {
+    const renderer = await renderMore();
+    const texts = textContents(renderer);
+    expect(texts).toContain(strings.reminders.enableLabel);
+    expect(texts).toContain(strings.reminders.hint);
+    const toggle = switchByTestID(renderer, 'more-reminders-toggle');
+    expect(toggle).toBeDefined();
+    expect(toggle!.props.accessibilityLabel).toBe(strings.reminders.enableLabel);
+    expect(toggle!.props.accessibilityState).toEqual({ checked: false });
+    expect(mockPerm).not.toHaveBeenCalled();
+  });
+
+  it('enabling requests permission contextually, persists and syncs, reveals time fields', async () => {
+    const renderer = await renderMore();
+    const toggle = switchByTestID(renderer, 'more-reminders-toggle');
+    await act(async () => {
+      toggle!.props.onValueChange(true);
+    });
+    await act(async () => {});
+    expect(mockPerm).toHaveBeenCalledTimes(1);
+    expect(mockSavePrefs).toHaveBeenCalledWith(expect.anything(), { enabled: true, hour: 7, minute: 0 });
+    expect(mockSync).toHaveBeenCalledTimes(1);
+    expect(textContents(renderer)).toContain(strings.reminders.hourLabel);
+    expect(textContents(renderer)).toContain(strings.reminders.minuteLabel);
+  });
+
+  it('denied permission blocks enable, persists nothing, shows localized explanation', async () => {
+    mockPerm.mockResolvedValue(false);
+    const renderer = await renderMore();
+    const toggle = switchByTestID(renderer, 'more-reminders-toggle');
+    await act(async () => {
+      toggle!.props.onValueChange(true);
+    });
+    await act(async () => {});
+    expect(textContents(renderer)).toContain(strings.reminders.permissionDenied);
+    expect(mockSavePrefs).not.toHaveBeenCalled();
+    expect(mockSync).not.toHaveBeenCalled();
+  });
+
+  it('disabling persists and syncs without touching permissions', async () => {
+    mockLoadPrefs.mockResolvedValue({ enabled: true, hour: 7, minute: 0 });
+    const renderer = await renderMore();
+    const toggle = switchByTestID(renderer, 'more-reminders-toggle');
+    await act(async () => {
+      toggle!.props.onValueChange(false);
+    });
+    await act(async () => {});
+    expect(mockPerm).not.toHaveBeenCalled();
+    expect(mockSavePrefs).toHaveBeenCalledWith(expect.anything(), { enabled: false, hour: 7, minute: 0 });
+    expect(mockSync).toHaveBeenCalledTimes(1);
   });
 });

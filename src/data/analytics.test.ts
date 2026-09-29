@@ -170,6 +170,7 @@ describe('loadAnalyticsSnapshot', () => {
         durationMs: null,
         distanceMm: null,
         isCompleted: true,
+        actualRir: null,
         executionType: null,
       },
     ]);
@@ -286,6 +287,7 @@ describe('loadAnalyticsSnapshot', () => {
         durationMs: null,
         distanceMm: null,
         isCompleted: true,
+        actualRir: null,
         executionType: null,
       },
       {
@@ -294,6 +296,7 @@ describe('loadAnalyticsSnapshot', () => {
         durationMs: null,
         distanceMm: null,
         isCompleted: false,
+        actualRir: null,
         executionType: null,
       },
       {
@@ -302,6 +305,7 @@ describe('loadAnalyticsSnapshot', () => {
         durationMs: 45_000,
         distanceMm: null,
         isCompleted: true,
+        actualRir: null,
         executionType: null,
       },
     ]);

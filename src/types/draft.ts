@@ -1,4 +1,4 @@
-import type { BlockKind, IntervalSpec, TempoSpec, TransitionType } from './engine';
+import type { BlockKind, BlockRole, IntervalSpec, TempoSpec, TransitionType } from './engine';
 
 /** Editor draft model — UI working copy of a routine structure (persisted via DbActions.saveRoutineDraft). */
 
@@ -25,6 +25,8 @@ export interface DraftBlock {
   localId: string;
   name: string;
   kind: BlockKind;
+  /** Programming role metadata (1.1.0); absent/null = main. Never engine semantics. */
+  role?: BlockRole | null;
   rounds: number;
   steps: DraftStep[];
   /** Required when kind === 'interval'. */

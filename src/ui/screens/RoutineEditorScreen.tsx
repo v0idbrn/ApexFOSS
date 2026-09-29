@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { makeDbActions, newLocalId } from '../../data/actions';
-import type { BlockKind, IntervalSpec, TransitionType } from '../../types/engine';
+import type { BlockKind, BlockRole, IntervalSpec, TransitionType } from '../../types/engine';
+import { BLOCK_ROLES } from '../../types/engine';
 import { emptyDraft, emptyPrescription, defaultIntervalSpec, type RoutineDraft } from '../../types/draft';
 import { strings } from '../../constants/strings';
 import { gramsToKg, kgToGrams, msToSeconds, secondsToMs, formatTempo } from '../../utils/units';
@@ -260,6 +261,9 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
             <View className="mb-3 flex-row items-center justify-between">
               <Text className="text-xs font-semibold uppercase tracking-wider text-dim">
                 {strings.routines.blockKind[block.kind]} {bi + 1}
+                {(block.role ?? 'main') !== 'main'
+                  ? ` · ${block.role === 'warmup' ? strings.routines.blockRoleWarmup : strings.routines.blockRoleCooldown}`
+                  : ''}
               </Text>
               <Text
                 accessibilityRole="button"
@@ -294,6 +298,26 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
                         }
                       })
                     }
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View className="mt-3">
+              <Text className="mb-2 text-sm text-dim">{strings.routines.blockRole}</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {BLOCK_ROLES.map((r) => (
+                  <Chip
+                    key={r}
+                    label={
+                      r === 'main'
+                        ? strings.routines.blockRoleMain
+                        : r === 'warmup'
+                          ? strings.routines.blockRoleWarmup
+                          : strings.routines.blockRoleCooldown
+                    }
+                    active={(block.role ?? 'main') === r}
+                    onPress={() => patchBlock(bi, (b) => { b.role = r; })}
                   />
                 ))}
               </View>

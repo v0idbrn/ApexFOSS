@@ -103,7 +103,7 @@ export function HistoryListScreen() {
               <View className="bg-surface">
                 <ListRow
                   title={item.name}
-                  subtitle={`${formatWhen(item.startedAt)} · ${strings.history.duration} ${formatDuration(item.durationMs)} · ${item.setCount} ${(item.setCount === 1 ? strings.workout.set : strings.history.sets).toLowerCase()}`}
+                  subtitle={`${formatWhen(item.startedAt)} · ${strings.history.duration} ${formatDuration(item.durationMs)} · ${item.setCount} ${(item.setCount === 1 ? strings.workout.set : strings.history.sets).toLowerCase()}${item.status === 'incomplete' ? ` · ${strings.history.incomplete}` : ''}`}
                   onPress={() => push({ name: 'historyDetail', sessionId: item.id })}
                 />
               </View>

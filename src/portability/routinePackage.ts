@@ -132,6 +132,7 @@ export function buildRoutinePackageFromDraft(
   const blocks: PortableBlock[] = draft.blocks.map((b) => ({
     name: b.name,
     kind: b.kind,
+    role: b.role ?? null,
     rounds: b.kind === 'interval' ? 1 : Math.max(1, Math.round(b.rounds || 1)),
     steps: b.steps.map((s): PortableStep => ({
       role: 'work',

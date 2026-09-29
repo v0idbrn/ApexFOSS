@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { loadSessionDetail, type HistoryDetail } from '../../data/history';
-import { saveSessionNote } from '../../data/notes';
+import { saveSessionNote, normalizeExerciseNote } from '../../data/notes';
+import { makeDbActions } from '../../data/actions';
 import {
   analyzeStepEvidence,
   loadProgressionSnapshot,
@@ -11,11 +12,11 @@ import {
 import type { ProgressionEvidence } from '../../analytics/progression';
 import { SessionProgressionSummary } from '../ProgressionCard';
 import { strings } from '../../constants/strings';
-import { overrideReasonLabel } from './WorkoutScreen';
+import { overrideReasonLabel, sessionEndReasonLabel } from './WorkoutScreen';
 import { formatCount, formatKg, msToSeconds } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps } from '../../analytics/load';
 import { summarizeAdherence, type AdherenceSummary } from '../../analytics/adherence';
-import { normalizeExecutionType } from '../../workout/execution';
+import { normalizeExecutionType, normalizeOverrideReason } from '../../workout/execution';
 import { plannedSets } from '../../workout/sessionProgress';
 import { useNav } from '../navigation';
 import { AppHeader, Button, Card, ErrorState, LoadingState, Screen, SectionHeader, TextField } from '../components';
@@ -86,6 +87,13 @@ function blockKindLabel(kind: string): string {
   return map[kind] ?? kind.toUpperCase();
 }
 
+/** Localized block-role badge (1.1.0); null when main/legacy. */
+function blockRoleLabel(role: string | null): string | null {
+  if (role === 'warmup') return strings.routines.blockRoleWarmup;
+  if (role === 'cooldown') return strings.routines.blockRoleCooldown;
+  return null;
+}
+
 /** Localized execution marker for a performed set (Phase 3C); null when unmarked. */
 function executionLabel(executionType: string | null | undefined): string | null {
   if (executionType === 'modified') return strings.history.execModified;
@@ -150,6 +158,21 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
     setNoteSaved(false);
   }, [detail]);
 
+  // Per-exercise notes (1.1.0) — keyed by position, same save pattern as the session note.
+  const [exNotes, setExNotes] = useState<Record<string, string>>({});
+  const [exSaved, setExSaved] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    if (!detail) return;
+    const init: Record<string, string> = {};
+    for (const block of detail.blocks) {
+      for (const step of block.steps) {
+        init[`${block.blockIndex}:${step.stepIndex}`] = step.exerciseNote ?? '';
+      }
+    }
+    setExNotes(init);
+    setExSaved({});
+  }, [detail]);
+
   // Progression intelligence (Phase 3B): one batched snapshot → engine per step.
   const [stepEvidence, setStepEvidence] = useState<Map<string, ProgressionEvidence>>(new Map());
   useEffect(() => {
@@ -186,6 +209,28 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
       setNoteSaved(false);
     }
   }, [detail, noteText]);
+
+  const saveExNote = useCallback(
+    async (blockIndex: number, stepIndex: number, plannedName: string) => {
+      if (!detail) return;
+      const key = `${blockIndex}:${stepIndex}`;
+      try {
+        const value = await makeDbActions(database).setSessionExerciseNote(
+          detail.id,
+          blockIndex,
+          stepIndex,
+          plannedName,
+          normalizeExerciseNote(exNotes[key] ?? ''),
+        );
+        void value;
+        setExNotes((prev) => ({ ...prev, [key]: normalizeExerciseNote(exNotes[key] ?? '') ?? '' }));
+        setExSaved((prev) => ({ ...prev, [key]: true }));
+      } catch {
+        setExSaved((prev) => ({ ...prev, [key]: false }));
+      }
+    },
+    [detail, exNotes],
+  );
 
   const sessionLoad = useMemo(() => {
     if (!detail) return null;
@@ -251,6 +296,12 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
         <View className="px-4 pt-4">
           <Card>
             <Text className="text-lg font-semibold text-fg">{detail.name}</Text>
+            {detail.status === 'incomplete' ? (
+              <Text className="mt-1 text-sm font-semibold text-warning">
+                {strings.history.incomplete}
+                {detail.incompleteReason ? ` · ${sessionEndReasonLabel(detail.incompleteReason)}` : ''}
+              </Text>
+            ) : null}
             <Text className="mt-1 text-sm text-dim">
               {strings.history.completedAt}: {formatWhen(detail.endedAt ?? detail.startedAt)}
             </Text>
@@ -347,13 +398,28 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
           <Enter key={`b${block.blockIndex}`} delayMs={Math.min(blockIdx, 6) * 40} className="px-4 pt-4">
             <SectionHeader
               title={`${strings.workout.block} ${block.blockIndex + 1} · ${block.name}`}
-              right={<Text className="text-xs text-dim">{blockKindLabel(block.kind)}</Text>}
+              right={
+                <View className="flex-row items-center gap-2">
+                  {blockRoleLabel(block.role) ? (
+                    <Text className="text-xs font-semibold text-accent-ink">{blockRoleLabel(block.role)}</Text>
+                  ) : null}
+                  <Text className="text-xs text-dim">{blockKindLabel(block.kind)}</Text>
+                </View>
+              }
             />
             {block.steps.map((step) => {
               const target = targetLine(step);
+              const noteKey = `${block.blockIndex}:${step.stepIndex}`;
+              const subReason = normalizeOverrideReason(step.substitution?.reason ?? null);
               return (
                 <Card key={`b${block.blockIndex}s${step.stepIndex}`} className="mb-2">
                   <Text className="text-base font-medium text-fg">{step.exerciseName || strings.common.none}</Text>
+                  {step.substitution ? (
+                    <Text className="mt-0.5 text-sm text-accent-ink">
+                      → {step.substitution.actualExerciseName}
+                      {subReason ? ` (${overrideReasonLabel(subReason)})` : ''} · {strings.history.substituted}
+                    </Text>
+                  ) : null}
                   {stepEvidence.get(`${block.blockIndex}:${step.stepIndex}`) ? (
                     <View className="mt-2">
                       <SessionProgressionSummary
@@ -392,6 +458,31 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
                       ) : null}
                     </>
                   )}
+                  <TextField
+                    label={strings.notes.exerciseLabel}
+                    accessibilityLabel={`${strings.notes.exerciseLabel} ${step.exerciseName}`}
+                    value={exNotes[noteKey] ?? ''}
+                    onChangeText={(t) => {
+                      setExNotes((prev) => ({ ...prev, [noteKey]: t }));
+                      setExSaved((prev) => ({ ...prev, [noteKey]: false }));
+                    }}
+                    placeholder={strings.notes.exercisePlaceholder}
+                    testID={`history-exnote-${block.blockIndex}-${step.stepIndex}`}
+                  />
+                  <Button
+                    label={strings.notes.save}
+                    variant="secondary"
+                    className="mt-2"
+                    testID={`history-exnote-save-${block.blockIndex}-${step.stepIndex}`}
+                    onPress={() =>
+                      void saveExNote(block.blockIndex, step.stepIndex, step.exerciseName)
+                    }
+                  />
+                  {exSaved[noteKey] ? (
+                    <Text accessibilityLiveRegion="polite" className="mt-1.5 text-sm text-accent-ink">
+                      {strings.notes.saved}
+                    </Text>
+                  ) : null}
                 </Card>
               );
             })}

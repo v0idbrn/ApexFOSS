@@ -91,8 +91,8 @@ describe('mesocycle actions (Phase 4B)', () => {
     const m1 = await actions.createMesocycle(p, 'Accumulation');
     const m2 = await actions.createMesocycle(p, 'Intensification');
     expect(await actions.listMesocycles(p)).toEqual([
-      { id: m1, name: 'Accumulation', sortOrder: 1, routineCount: 0 },
-      { id: m2, name: 'Intensification', sortOrder: 2, routineCount: 0 },
+      { id: m1, name: 'Accumulation', sortOrder: 1, routineCount: 0, stage: null },
+      { id: m2, name: 'Intensification', sortOrder: 2, routineCount: 0, stage: null },
     ]);
     const r = await actions.createRoutine('Day A');
     await actions.assignRoutineToProgram(r, p);

@@ -36,6 +36,7 @@ import { ReportScreen } from './src/ui/screens/ReportScreen';
 import { parseImportDeepLink } from './src/portability/encoding';
 import { setPendingDeepLink } from './src/portability/pendingDeepLink';
 import { ingestIncomingUrl } from './src/portability/pendingFileImport';
+import { reminderLabels, syncTrainingReminders } from './src/notifications/reminders';
 
 function renderRoute(route: Route) {
   switch (route.name) {
@@ -105,6 +106,9 @@ export default function App() {
       .catch(() => {});
     // Apply a persisted language override (device locale until hydrated).
     void useLocaleStore.getState().hydrate();
+    // Restore the managed training reminder after process death (recreates
+    // only the deterministic reminder id; timer notifications untouched).
+    void syncTrainingReminders(database, reminderLabels());
   }, []);
 
   useEffect(() => {
