@@ -1,0 +1,1 @@
+1.0.0: first release. Offline-first workout engine, routine authoring with preview and integrity checks, rest/auto timers, progress analytics, period reports with CSV export, portable routine sharing and versioned offline backups. No accounts, no ads, no telemetry.

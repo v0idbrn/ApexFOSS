@@ -1,0 +1,18 @@
+ApexFOSS es una app de registro de entrenamiento que funciona sin conexión, para Android. Crea rutinas con bloques, series, tempo y descansos programados, ejecútalas con un motor determinista y conserva cada registro en tu propio dispositivo.
+
+Qué hace:
+- Creación de rutinas: bloques (normal, superserie, contraste, circuito, intervalo), prescripción de series, objetivos RIR, notación de tempo, vista previa y verificaciones de integridad.
+- Ejecución del entrenamiento: registro de series de peso, reps, duración y distancia, deshacer, omitir, temporizadores de descanso y automáticos que sobreviven al segundo plano y a los reinicios.
+- Progreso: volumen y tiempo semanal, récords personales con 1RM estimado, tendencias de carga a 7 y 28 días, distribución muscular, prueba de latidos y sugerencias de autorregulación por RIR.
+- Informes: resúmenes por período (7 días, 28 días, todo el historial) con exportación CSV del mismo período.
+- Portabilidad: comparte rutinas como JSON portable, QR o enlace profundo (siempre validados, previsualizados y confirmados explícitamente); respaldos completos sin conexión, versionados, con checksum y restauración atómica.
+
+Privacidad por diseño:
+- Sin cuentas, sin servidores, sin analítica, sin telemetría, sin anuncios, sin suscripciones.
+- La compilación de versión final no tiene permiso INTERNET: la app no puede hacer llamadas de red.
+- Las exportaciones, respaldos y archivos compartidos salen del dispositivo solo cuando tú los compartes. Las notificaciones locales te avisan cuando termina el descanso; nada se sube.
+- Los enlaces voluntarios de apoyo (GitHub Sponsors, PayPal, Mercado Pago) abren tu navegador solo al tocarlos explícitamente.
+
+Límite de salud: ApexFOSS es software de fitness general para registrar y cronometrar tu propio entrenamiento. No es software médico: no diagnostica, trata, monitorea ni predice ninguna condición, y no reemplaza el consejo profesional.
+
+Software libre y de código abierto bajo la GNU General Public License v3.0 o posterior.

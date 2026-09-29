@@ -1,0 +1,1 @@
+1.0.0: primera versión. Motor de entrenamiento sin conexión, creación de rutinas con vista previa y verificaciones, temporizadores de descanso y automáticos, analítica de progreso, informes por período con exportación CSV, rutinas portátiles y respaldos versionados sin conexión. Sin cuentas, sin anuncios, sin telemetría.

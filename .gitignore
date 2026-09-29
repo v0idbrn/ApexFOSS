@@ -7,9 +7,10 @@ dist/
 web-build/
 expo-env.d.ts
 
-# CNG generated native projects (regenerated via `npx expo prebuild`)
-android/
-ios/
+# CNG generated native projects (regenerated via `npx expo prebuild`).
+# Anchored to repo root so fastlane/metadata/android stays committable.
+/android/
+/ios/
 
 # Tooling installed locally (JDK, Android SDK) — never commit
 .tooling/

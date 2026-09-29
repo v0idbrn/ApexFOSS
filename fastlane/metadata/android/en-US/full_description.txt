@@ -1,0 +1,18 @@
+ApexFOSS is an offline-first workout tracker for Android. Author routines with blocks, sets, tempo and rest prescriptions, run them with a deterministic execution engine, and keep every record on your own device.
+
+What it does:
+- Routine authoring: blocks (normal, superset, contrast, circuit, interval), set prescriptions, RIR targets, tempo notation, routine preview and integrity checks.
+- Workout execution: set logging for weight, reps, duration and distance, undo, skip, rest and auto timers that survive backgrounding and restarts.
+- Progress: weekly volume and time, personal records with estimated 1RM, training-load trends over 7 and 28 days, muscle distribution, readiness tap test, RIR autoregulation hints.
+- Reports: period summaries (7 days, 28 days, all time) with CSV export scoped to the same period.
+- Portability: share routines as portable JSON, QR or deep link (always validated, previewed and explicitly confirmed); full offline versioned backups with checksum and atomic restore.
+
+Privacy by design:
+- No accounts, no servers, no analytics, no telemetry, no ads, no subscriptions.
+- The release build holds no INTERNET permission: the app cannot make network calls.
+- Exports, backups and shared files leave the device only when you share them yourself. Local notifications remind you when rest ends; nothing is uploaded.
+- Voluntary support links (GitHub Sponsors, PayPal, Mercado Pago) open your browser on explicit tap only.
+
+Health boundary: ApexFOSS is general fitness software for recording and timing your own training. It is not medical software: it does not diagnose, treat, monitor or predict any condition, and it does not replace professional advice.
+
+Free and open-source software under the GNU General Public License v3.0 or later.

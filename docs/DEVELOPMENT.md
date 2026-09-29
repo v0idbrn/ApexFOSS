@@ -31,6 +31,16 @@ npm run build:apk       # release APK → android/app/build/outputs/apk/release/
 
 `npm run android` requires a connected device or emulator.
 
+### Release AAB (Google Play)
+
+Play requires the Android App Bundle for new apps — upload the AAB, not the APK:
+
+```bash
+cd android && ./gradlew bundleRelease   # → app/build/outputs/bundle/release/app-release.aab
+```
+
+Verify like the APK (package `com.apexfoss.app`, versionCode/versionName, no INTERNET, signature) plus the AAB-specific checks in `docs/DISTRIBUTION_PLAYSTORE.md` §3 — notably the 16 KB ELF-alignment re-check (`llvm-readelf` on the bundled `.so` files). Never commit APKs or AABs.
+
 ## Release signing
 
 Official ApexFOSS releases are signed. The repository contains **no keystores,
@@ -52,7 +62,9 @@ external configuration first. Never commit either one.
 
 1. `npm test` and `npm run typecheck` green.
 2. `npm run prebuild` (regenerates `android/` with current `version`/`versionCode`).
-3. `npm run build:apk` (or `gradlew assembleDebug assembleRelease`).
-4. Verify the APK: package/version, ABIs, no INTERNET permission, not
-   debuggable, `apksigner verify` (see `docs/SECURITY_AUDIT.md`).
+3. `npm run build:apk` (or `gradlew assembleDebug assembleRelease`); `gradlew bundleRelease` for the Play AAB.
+4. Verify the APK/AAB: package/version, ABIs, no INTERNET permission, not
+   debuggable, signature valid (`apksigner verify` for APK, `jarsigner -verify`
+   for AAB), 16 KB alignment re-check (see `docs/SECURITY_AUDIT.md` and
+   `docs/DISTRIBUTION_PLAYSTORE.md` §3).
 5. Device smoke test, then distribute.
