@@ -24,6 +24,7 @@
       "expo-notifications",
       "@morrowdigital/watermelondb-expo-plugin",
       "./plugins/withWatermelonJsiFix",
+      "./plugins/with16KbPageSize",
       "./plugins/withApexSigning",
       "./plugins/withNetworkHardening",
       "./plugins/withFileIntentFilters",
