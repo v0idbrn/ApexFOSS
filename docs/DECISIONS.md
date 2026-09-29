@@ -1280,3 +1280,16 @@ code changed.
 
 - Support never gates functionality: the app remains fully usable offline for free.
 - URL changes are single-constant edits covered by the More screen test.
+
+## D-052 - Third support link: Mercado Pago (2026-09-29)
+
+**Status:** Accepted (extends D-051, unchanged policy)
+
+**Context.** The owner provided a third voluntary support identity (Mercado Pago payment link) for users where GitHub Sponsors/PayPal are impractical. The D-051 constraints still hold: no payment SDK, no paywall, no tracking, explicit-tap external browser only.
+
+**Decision.** Add `MERCADOPAGO_URL = 'https://link.mercadopago.com.ar/openv0id'` to `src/constants/support.ts` and a third `ListRow` (`more-support-mercadopago`, `strings.more.supportMercadoPago` EN/ES) after PayPal in the More screen support section, reusing the existing `openSupport` helper. Mirror the link in README (EN/ES), `package.json` funding, and `.github/FUNDING.yml` custom. Extend the More screen test (render, explicit-tap open, exact URL, no-SDK guard).
+
+**Consequences.**
+
+- Support order is fixed: GitHub Sponsors, PayPal, Mercado Pago.
+- Still no INTERNET permission, no SDK, no in-app network request.

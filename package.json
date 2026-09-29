@@ -5,7 +5,8 @@
   "license": "GPL-3.0-or-later",
   "funding": [
     "https://github.com/sponsors/v0idbrn",
-    "https://paypal.me/amelie615"
+    "https://paypal.me/amelie615",
+    "https://link.mercadopago.com.ar/openv0id"
   ],
   "main": "index.ts",
   "scripts": {

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { strings, type Locale } from '../../constants/strings';
-import { GITHUB_SPONSORS_URL, PAYPAL_URL } from '../../constants/support';
+import { GITHUB_SPONSORS_URL, MERCADOPAGO_URL, PAYPAL_URL } from '../../constants/support';
 import { useLocale, useLocaleStore } from '../../state/localeStore';
 import { useNav } from '../navigation';
 import { ListRow, Screen, SectionHeader } from '../components';
@@ -128,6 +128,11 @@ export function MoreScreen() {
                 title={strings.more.supportPayPal}
                 testID="more-support-paypal"
                 onPress={() => openSupport(PAYPAL_URL)}
+              />
+              <ListRow
+                title={strings.more.supportMercadoPago}
+                testID="more-support-mercadopago"
+                onPress={() => openSupport(MERCADOPAGO_URL)}
               />
             </View>
           </Enter>

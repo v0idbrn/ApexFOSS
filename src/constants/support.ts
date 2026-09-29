@@ -5,3 +5,4 @@
  */
 export const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/v0idbrn';
 export const PAYPAL_URL = 'https://paypal.me/amelie615';
+export const MERCADOPAGO_URL = 'https://link.mercadopago.com.ar/openv0id';

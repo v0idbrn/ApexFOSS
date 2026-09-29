@@ -84,6 +84,7 @@ more: {
       'ApexFOSS is free, open-source and privacy-first. If it is useful to you, you can support its development.',
     supportSponsors: 'Support via GitHub Sponsors',
     supportPayPal: 'Support via PayPal',
+    supportMercadoPago: 'Support via Mercado Pago',
   },
   home: {
     title: 'ApexFOSS',

@@ -6,7 +6,8 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Navigator, useNav } from '../navigation';
 import { MoreScreen } from './MoreScreen';
 import { strings } from '../../constants/strings';
-import { GITHUB_SPONSORS_URL, PAYPAL_URL } from '../../constants/support';
+import { getStrings, setStringsLocale } from '../../constants/strings';
+import { GITHUB_SPONSORS_URL, MERCADOPAGO_URL, PAYPAL_URL } from '../../constants/support';
 
 /**
  * More screen: support entry (spec sections 30-32). Voluntary links open
@@ -71,8 +72,10 @@ describe('MoreScreen support section', () => {
     expect(texts).toContain(strings.more.supportBody);
     expect(texts).toContain(strings.more.supportSponsors);
     expect(texts).toContain(strings.more.supportPayPal);
+    expect(texts).toContain(strings.more.supportMercadoPago);
     expect(texts).not.toContain('more.supportTitle');
     expect(texts).not.toContain('more.supportBody');
+    expect(texts).not.toContain('more.supportMercadoPago');
   });
 
   it('opens nothing on render; each link opens only after an explicit tap', async () => {
@@ -94,11 +97,20 @@ describe('MoreScreen support section', () => {
     });
     expect(openURL).toHaveBeenCalledTimes(2);
     expect(openURL).toHaveBeenLastCalledWith(PAYPAL_URL);
+
+    const mercadopago = pressableByTestID(renderer, 'more-support-mercadopago');
+    expect(mercadopago).toBeDefined();
+    await act(async () => {
+      mercadopago!.props.onPress();
+    });
+    expect(openURL).toHaveBeenCalledTimes(3);
+    expect(openURL).toHaveBeenLastCalledWith(MERCADOPAGO_URL);
   });
 
   it('uses exactly the owner-provided public identities', () => {
     expect(GITHUB_SPONSORS_URL).toBe('https://github.com/sponsors/v0idbrn');
     expect(PAYPAL_URL).toBe('https://paypal.me/amelie615');
+    expect(MERCADOPAGO_URL).toBe('https://link.mercadopago.com.ar/openv0id');
   });
 
   it('ships no payment or donation SDK', () => {
@@ -106,7 +118,23 @@ describe('MoreScreen support section', () => {
       fs.readFileSync(path.join(__dirname, '..', '..', '..', 'package.json'), 'utf8'),
     ) as { dependencies: Record<string, string>; devDependencies: Record<string, string> };
     const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
-    expect(deps.filter((d) => /(stripe|paypal|braintree|razorpay|donation)/i.test(d))).toEqual([]);
+    expect(deps.filter((d) => /(stripe|paypal|mercadopago|braintree|razorpay|donation)/i.test(d))).toEqual([]);
+  });
+
+  it('renders all three support links in Spanish with no raw keys', async () => {
+    setStringsLocale('es');
+    try {
+      const renderer = await renderMore();
+      const texts = textContents(renderer);
+      const esStrings = getStrings('es');
+      expect(texts).toContain(esStrings.more.supportSponsors);
+      expect(texts).toContain(esStrings.more.supportPayPal);
+      expect(texts).toContain(esStrings.more.supportMercadoPago);
+      expect(texts).not.toContain('more.supportMercadoPago');
+      expect(pressableByTestID(renderer, 'more-support-mercadopago')).toBeDefined();
+    } finally {
+      setStringsLocale('en');
+    }
   });
 
   it('keeps the existing About & legal rows reachable', async () => {
