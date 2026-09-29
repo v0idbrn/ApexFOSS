@@ -31,6 +31,17 @@ function readSigningProps() {
 }
 
 const withApexSigning = (config) => {
+  // Sign-less source builds (F-Droid recipe, D-055): APEX_SKIP_SIGNING=1 skips
+  // the injection entirely so prebuild succeeds without any keystore material.
+  // Default behavior is unchanged — a missing config still fails fast, and the
+  // maintainer release path is untouched.
+  if (process.env.APEX_SKIP_SIGNING === '1') {
+    console.warn(
+      '[withApexSigning] APEX_SKIP_SIGNING=1 — skipping release signing injection ' +
+        '(unsigned source build; NOT a maintainer release)',
+    );
+    return config;
+  }
   const props = readSigningProps();
   return withAppBuildGradle(config, (config) => {
     if (config.modResults.language !== 'groovy') return config;
