@@ -97,4 +97,37 @@ describe('distribution metadata invariants', () => {
       }
     }
   });
+
+  it('16KB plugin is registered and injects the exact linker flag (D-054)', () => {
+    const app = readJson('app.json').expo;
+    expect(app.plugins).toContain('./plugins/with16KbPageSize');
+    const source = readText('plugins/with16KbPageSize.js');
+    expect(source).toContain('-Wl,-z,max-page-size=16384');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const plugin = require('../../plugins/with16KbPageSize.js');
+    const sample = [
+      '    defaultConfig {',
+      '        externalNativeBuild {',
+      '            cmake {',
+      '                // upstream comment',
+      '            }',
+      '        }',
+      '    }',
+    ].join('\n');
+    const once = plugin.apply16KbFlag(sample);
+    expect(once.changed).toBe(true);
+    expect(once.contents).toContain(plugin.FLAG_LINE);
+    expect(once.contents.match(/max-page-size=16384/g)).toHaveLength(1);
+    const twice = plugin.apply16KbFlag(once.contents);
+    expect(twice.changed).toBe(false);
+    expect(twice.contents).toBe(once.contents);
+    expect(() => plugin.apply16KbFlag('android { }')).toThrow();
+  });
+
+  it('signing plugin supports sign-less source builds without weakening the default (D-055)', () => {
+    const source = readText('plugins/withApexSigning.js');
+    expect(source).toContain("process.env.APEX_SKIP_SIGNING === '1'");
+    // Default path still fails fast when the external config is missing.
+    expect(source).toMatch(/throw new Error\([\s\S]*?signing config not found/);
+  });
 });
