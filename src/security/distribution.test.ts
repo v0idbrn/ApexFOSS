@@ -20,13 +20,13 @@ describe('distribution metadata invariants', () => {
   it('app.json declares the release identity (package, version, versionCode)', () => {
     const app = readJson('app.json').expo;
     expect(app.package ?? app.android?.package).toBe('com.apexfoss.app');
-    expect(app.version).toBe('1.0.0');
-    expect(app.android?.versionCode).toBe(2);
+    expect(app.version).toBe('1.1.0');
+    expect(app.android?.versionCode).toBe(3);
   });
 
   it('package.json version and GPL license match the release identity', () => {
     const pkg = readJson('package.json');
-    expect(pkg.version).toBe('1.0.0');
+    expect(pkg.version).toBe('1.1.0');
     expect(pkg.license).toBe('GPL-3.0-or-later');
   });
 
