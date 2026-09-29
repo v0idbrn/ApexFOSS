@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1151%20%2F%2088%20suites-4ade80" alt="1151 tests in 88 suites" />
+  <img src="https://img.shields.io/badge/tests-1206%20%2F%2092%20suites-4ade80" alt="1206 tests in 92 suites" />
 </p>
 
 <p align="center">
@@ -125,33 +125,33 @@ UI (React Native / NativeWind)
 
 ApexFOSS is **not yet published on any app store or channel** (no Play Store, no F-Droid, no GitHub Release yet). Publication is prepared, not completed — see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). Status: release candidate — preparing for Google Play (internal testing first) and F-Droid submission preparation; track readiness in [docs/DISTRIBUTION_MATRIX.md](docs/DISTRIBUTION_MATRIX.md).
 
-- **Recommended:** install the signed `app-release.apk` for the current 1.0.0 build obtained from the project maintainer, by opening it on your Android device. One universal APK for ARM (`arm64-v8a` + `armeabi-v7a`), requiring **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (emulator-oriented) are not part of the current compatibility target.
+- **Recommended:** install the signed `app-release.apk` for the current 1.1.0 build obtained from the project maintainer, by opening it on your Android device. One universal APK for ARM (`arm64-v8a` + `armeabi-v7a`), requiring **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (emulator-oriented) are not part of the current compatibility target.
 - **Building from source** is optional and documented for developers in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
-- **Validation status:** the 1.0.0 build is release-built with automated tests passing; final physical-device validation and friend testing are still pending — see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. An earlier partial device pass (Phase 2K, Samsung SM-A045M, Android 14) is historical evidence, not final validation.
+- **Validation status:** the 1.1.0 build is release-built with automated tests passing; final physical-device validation and friend testing are still pending — see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. An earlier partial device pass (Phase 2K, Samsung SM-A045M, Android 14) is historical evidence, not final validation.
 
 ## Testing
 
 ```bash
-npm test                # 1151 tests across 88 suites — engine, persistence, timers,
+npm test                # 1206 tests across 92 suites — engine, persistence, timers,
                         # migrations, analytics, portability, export, security, UI
 npm run typecheck       # TypeScript passes with no errors
 ```
 
 - Debug and release APKs build locally (`npm run build:apk`), and the release APK's permission set has been audited (see [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
 - GitHub Actions CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs typecheck + tests on every push and pull request to `main`.
-- The suite runs on Jest with no device attached. **Physical validation is pending for 1.0.0**: the final build still needs an on-device smoke pass and real-world friend testing. A partial historical device pass (Phase 2K, Samsung SM-A045M, Android 14) covered install/launch, Home, routine authoring → preview/integrity, workout launch, session resume with timer catch-up, and cold-restart persistence; the rest of the matrix — full timer pause/resume, completed-session flows, Trust Center, EN/ES — was **not** exercised on hardware; see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21.
+- The suite runs on Jest with no device attached. **Physical validation is pending for 1.1.0**: the final build still needs an on-device smoke pass and real-world friend testing. A partial historical device pass (Phase 2K, Samsung SM-A045M, Android 14) covered install/launch, Home, routine authoring → preview/integrity, workout launch, session resume with timer catch-up, and cold-restart persistence; the rest of the matrix — full timer pause/resume, completed-session flows, Trust Center, EN/ES — was **not** exercised on hardware; see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21.
 
 ## Project status
 
 Current state, in precise terms:
 
 - **Implemented:** everything listed under [Features](#features).
-- **Tested:** 1151 Jest tests / 88 suites pass; TypeScript type-check passes; CI runs both on every push.
-- **Release-built:** debug and release APKs build locally; the signed 1.0.0 release APK is built and verified (package `com.apexfoss.app`, versionCode 2, no INTERNET permission, not debuggable).
-- **Physically validated:** partial historical pass only (Phase 2K); **final v1.0 device validation and friend testing pending**.
+- **Tested:** 1206 Jest tests / 92 suites pass; TypeScript type-check passes; CI runs both on every push.
+- **Release-built:** debug and release APKs build locally; the signed 1.1.0 release APK is built and verified (package `com.apexfoss.app`, versionCode 3, no INTERNET permission, not debuggable).
+- **Physically validated:** partial historical pass only (Phase 2K); **device validation for 1.1.0 and friend testing pending**.
 - **Published:** no — no store, channel, or GitHub Release submission has been made.
 
-- **Version:** 1.0.0 (unreleased), Android only, local database schema version 12.
+- **Version:** 1.1.0 (unreleased), Android only, local database schema version 13.
 - **Distribution:** prepared, not submitted ([docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)).
 - **Legal:** privacy, health-boundary, and terms documents exist in [docs/](docs/) — terms are a **draft pending legal review**.
 - **License:** GPL-3.0-or-later (see below).

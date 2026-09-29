@@ -1,0 +1,1 @@
+v1.1.0: Execution honesty and training reminders — explicit session completion with incomplete reasons, actual RIR (null stays null), session and exercise notes, explicit substitutions, local next-up training reminder, block roles and mesocycle stages. Database schema v13; all new fields round-trip through .apexbackup.

@@ -1332,3 +1332,18 @@ code changed.
 
 - The F-Droid recipe (`npm install` → `APEX_SKIP_SIGNING=1` prebuild → Gradle build) is proven for the public repo; the trial recipe item moves to NEEDS VERIFICATION only for F-Droid's own infrastructure.
 - The variable must never be set in maintainer release builds; CI does not set it.
+
+## D-056 - Local training reminders from program rotation (1.1.0, 2026-09-29)
+
+**Status:** Accepted
+
+**Context.** The training loop records what happened but does not help the athlete remember to train. Any reminder source must stay offline-first and local-only, must never fire for a nonexistent commitment, and must coexist with the in-session timer notifications without ever cancelling them.
+
+**Decision.** One managed daily reminder whose content is derived from the program rotation (`loadNextUp` — WHAT is next, never a calendar date). Deterministic identifier `apex-training-reminder`; resync = cancel only that identifier, then schedule only when the rotation suggests a routine (no program → no reminder). Permission is requested only on explicit enable from the More screen; app start and schedule/program changes resync through the same pure plan (`buildReminderPlan`). Timer/recovery notifications are untouched — `cancelAllScheduledNotificationsAsync` is never used.
+
+**Consequences.
+
+
+- Missed-day handling is a rotation question, not a notifications question; the reminder carries no calendar truth.
+- The reminder is ephemeral OS state rebuilt from local data; it participates in no backup (nothing to restore).
+- expo-notifications was already a dependency (timers); no new dependency.

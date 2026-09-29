@@ -2,6 +2,28 @@
 
 Notable changes to ApexFOSS. Versions follow a simple pre-1.0 convention; a date appears only when a version is actually tagged and released. The project follows nothing beyond this file — planned work lives in `docs/DECISIONS.md` and `docs/DISTRIBUTION.md`, not here.
 
+## 1.1.0 — unreleased
+
+Training-loop maturity pass: honest execution records, explicit substitutions, execution notes, local training reminders, and programming metadata. Same architecture and ports; database **schema v13** (additive, nullable columns) with `.apexbackup` round-trip for every new field (legacy backups still restore).
+
+### Execution fidelity
+- **Explicit session completion state**: sessions end `completed` or `incomplete` with a structured, optional **incomplete reason** (fatigue, pain, equipment, time, other) — persisted, shown in history, and carried in backups. Missing data stays missing: an unrecorded value is never coerced to a zero or a default.
+- **Actual RIR per set**: recorded optionally, distinct from the prescription; `null` = not recorded (never 0). Surfaced through analytics, load and records without feeding prescriptions back into volume.
+- **Session and exercise notes**: free-text session note plus per-exercise execution notes where context matters; editable, persisted, backed up.
+- **Explicit substitutions**: the planned exercise is preserved alongside the actual exercise performed, with an optional reason (e.g. equipment unavailable). Performed sets, volume, PRs and progression evidence accrue to the **actual** exercise; the planned position's comparability degrades instead of silently equating two different exercises.
+
+### Training reminders
+- **Local daily training reminder**: names the next-up routine from the program rotation; nothing is scheduled when no program suggests a routine. Deterministic notification identifier, resync on app start and schedule/program changes, contextual permission request on explicit enable, and timer/recovery notifications are never touched (no `cancelAll`).
+
+### Programming metadata
+- **Block roles** (e.g. warm-up) and **mesocycle stages** (e.g. deload) as optional metadata on routine blocks and mesocycles — recorded where justified, without a new programming taxonomy.
+
+### Portability
+- All 1.1.0 fields round-trip through `.apexbackup` (export → validate → restore) with hostile-value rejection and rollback; legacy backups without the new fields restore with nulls.
+
+### Tests
+- **1206 Jest tests across 92 suites** plus a clean `tsc --noEmit`.
+
 ## 1.0.0 — unreleased
 
 Product-completion and release-hardening pass on top of the 0.1.0 snapshot: training intelligence, program planning, portability, reports, and the final hardening fixes. No store, channel, or GitHub Release submission has been made; this entry describes what the codebase contains, not a published artifact.

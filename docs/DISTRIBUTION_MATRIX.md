@@ -7,7 +7,7 @@
 |---|---|---|---|---|
 | Package ID `com.apexfoss.app` | PASS | PASS | PASS | `app.json`, `build.gradle`, aapt/AAB checks |
 | License GPL-3.0-or-later | n/a (Play accepts any) | PASS | PASS | `LICENSE`, SPDX field, `docs/THIRD_PARTY_LICENSES.md` |
-| Version 1.0.0 / code 2 | READY | READY | READY | Pinned; tag `v1.0.0` intentionally not created yet |
+| Version 1.1.0 / code 3 | READY | READY | READY | Pinned; release tags intentionally not created yet |
 | Target SDK 36 | PASS (floor since 31 Aug 2026) | n/a | PASS | Verified Sept 2026 policy + local build |
 | Release APK build | READY (upload AAB instead) | READY | READY | `assembleRelease` verified, SHA recorded |
 | Release AAB build | PASS (validated this pass) | n/a | PASS | `bundleRelease` OK; `jarsigner` verified; manifest/ABIs checked |

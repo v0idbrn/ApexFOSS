@@ -44,7 +44,7 @@ Play's health/fitness and data-safety questionnaires will effectively ask:
 1. `SYSTEM_ALERT_WINDOW` (D-035) may trigger permission-review scrutiny — preferred path: device-verify removal in a future phase.
 2. The FCM/Firebase classes merged in by `expo-notifications` (F-14) exist without `google-services.json` — harmless (no INTERNET anyway) but reviewers may ask; the security audit documents it.
 3. Signing: Play App Signing enrollment must be decided (upload key = current `CN=ApexFOSS` keystore vs. Google-managed key).
-4. `versionCode` is 2 — every upload needs a bump (process decision; currently manual).
+4. `versionCode` is 3 — every upload needs a bump (process decision; currently manual).
 5. **16 KB page alignment — fixed and verified** (`plugins/with16KbPageSize.js`, D-054): `libwatermelondb-jsi.so` now ships with 16 KB ELF alignment like every other arm64 library — see [DISTRIBUTION_PLAYSTORE.md](DISTRIBUTION_PLAYSTORE.md) §1.4. Re-run the binary check on the exact submission build.
 
 ## F-Droid

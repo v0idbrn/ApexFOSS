@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1151%20%2F%2088%20suites-4ade80" alt="1151 pruebas en 88 suites" />
+  <img src="https://img.shields.io/badge/tests-1206%20%2F%2092%20suites-4ade80" alt="1206 pruebas en 92 suites" />
 </p>
 
 <p align="center">
@@ -125,14 +125,14 @@ Interfaz (React Native / NativeWind)
 
 ApexFOSS **aún no está publicado en ninguna tienda ni canal** (ni Play Store, ni F-Droid, ni GitHub Release). La publicación está preparada, no completada — ver [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). Estado: candidato a versión final — en preparación para Google Play (primero pruebas internas) y preparación de envío a F-Droid; sigue el progreso en [docs/DISTRIBUTION_MATRIX.md](docs/DISTRIBUTION_MATRIX.md).
 
-- **Recomendado:** instala el `app-release.apk` firmado de la compilación 1.0.0 actual, obtenido del mantenedor del proyecto, abriéndolo en tu dispositivo Android. Un APK universal para ARM (`arm64-v8a` + `armeabi-v7a`), que requiere **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (orientados a emuladores) no forman parte del objetivo actual de compatibilidad.
+- **Recomendado:** instala el `app-release.apk` firmado de la compilación 1.1.0 actual, obtenido del mantenedor del proyecto, abriéndolo en tu dispositivo Android. Un APK universal para ARM (`arm64-v8a` + `armeabi-v7a`), que requiere **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (orientados a emuladores) no forman parte del objetivo actual de compatibilidad.
 - **Compilar desde el código fuente** es opcional y está documentado para desarrolladores en [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
-- **Estado de validación:** la compilación 1.0.0 está compilada para versión final con las pruebas automatizadas en verde; la validación final en dispositivo físico y las pruebas con amigos siguen pendientes — ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. Un pase previo parcial en dispositivo (Fase 2K, Samsung SM-A045M, Android 14) es evidencia histórica, no validación final.
+- **Estado de validación:** la compilación 1.1.0 está compilada para versión final con las pruebas automatizadas en verde; la validación final en dispositivo físico y las pruebas con amigos siguen pendientes — ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. Un pase previo parcial en dispositivo (Fase 2K, Samsung SM-A045M, Android 14) es evidencia histórica, no validación final.
 
 ## Pruebas
 
 ```bash
-npm test                # 1151 pruebas en 88 suites — motor, persistencia,
+npm test                # 1206 pruebas en 92 suites — motor, persistencia,
                         # temporizadores, migraciones, analítica, portabilidad,
                         # exportación, seguridad, interfaz
 npm run typecheck       # TypeScript pasa sin errores
@@ -140,19 +140,19 @@ npm run typecheck       # TypeScript pasa sin errores
 
 - Las compilaciones debug y de versión final se generan localmente (`npm run build:apk`), y el conjunto de permisos del APK de versión final ha sido auditado (ver [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md)).
 - La CI de GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) ejecuta verificación de tipos y pruebas en cada push y pull request a `main`.
-- La suite corre en Jest sin dispositivo conectado. **La validación en dispositivo está pendiente para 1.0.0**: la compilación final aún necesita un pase de humo en dispositivo y pruebas reales con amigos. Un pase histórico parcial en dispositivo (Fase 2K, Samsung SM-A045M, Android 14) cubrió instalación/inicio, Home, autorización de rutinas → previsualización/integridad, inicio de entrenamiento, reanudación de sesión con sincronización del temporizador y persistencia tras reinicio en frío; el resto de la matriz — pausa/reanudación completa del temporizador, flujos de sesión completada, Trust Center, EN/ES — **no** se ejercitó en hardware; ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21.
+- La suite corre en Jest sin dispositivo conectado. **La validación en dispositivo está pendiente para 1.1.0**: la compilación final aún necesita un pase de humo en dispositivo y pruebas reales con amigos. Un pase histórico parcial en dispositivo (Fase 2K, Samsung SM-A045M, Android 14) cubrió instalación/inicio, Home, autorización de rutinas → previsualización/integridad, inicio de entrenamiento, reanudación de sesión con sincronización del temporizador y persistencia tras reinicio en frío; el resto de la matriz — pausa/reanudación completa del temporizador, flujos de sesión completada, Trust Center, EN/ES — **no** se ejercitó en hardware; ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21.
 
 ## Estado del proyecto
 
 Estado actual, en términos precisos:
 
 - **Implementado:** todo lo listado en [Características](#características).
-- **Probado:** 1151 pruebas Jest en 88 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
-- **Compilado para versión final:** los APKs debug y de versión final se generan localmente; el APK de versión final firmado de 1.0.0 está compilado y verificado (paquete `com.apexfoss.app`, versionCode 2, sin permiso INTERNET, no depurable).
-- **Validado en dispositivo:** solo un pase histórico parcial (Fase 2K); **la validación final de v1.0 en dispositivo y las pruebas con amigos están pendientes**.
+- **Probado:** 1206 pruebas Jest en 92 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
+- **Compilado para versión final:** los APKs debug y de versión final se generan localmente; el APK de versión final firmado de 1.1.0 está compilado y verificado (paquete `com.apexfoss.app`, versionCode 3, sin permiso INTERNET, no depurable).
+- **Validado en dispositivo:** solo un pase histórico parcial (Fase 2K); **la validación en dispositivo de 1.1.0 y las pruebas con amigos están pendientes**.
 - **Publicado:** no — no se ha enviado nada a ninguna tienda, canal ni GitHub Release.
 
-- **Versión:** 1.0.0 (sin publicar), solo Android, esquema de base de datos local en la versión 12.
+- **Versión:** 1.1.0 (sin publicar), solo Android, esquema de base de datos local en la versión 13.
 - **Distribución:** preparada, no enviada ([docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)).
 - **Legal:** existen documentos de privacidad, límite de salud y términos en [docs/](docs/) — los términos son un **borrador pendiente de revisión legal**.
 - **Licencia:** GPL-3.0-or-later (ver abajo).
