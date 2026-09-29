@@ -12,9 +12,9 @@
 | Release APK build | READY (upload AAB instead) | READY | READY | `assembleRelease` verified, SHA recorded |
 | Release AAB build | PASS (validated this pass) | n/a | PASS | `bundleRelease` OK; `jarsigner` verified; manifest/ABIs checked |
 | 64-bit ABIs | PASS | n/a | PASS | `arm64-v8a` included |
-| 16 KB page alignment | **BLOCKED** (`libwatermelondb-jsi.so` 0x1000) | n/a | BLOCKED | `llvm-readelf` evidence; fix = linker flag/NDK or WatermelonDB upgrade |
+| 16 KB page alignment | **PASS** (all 19 arm64 libs `0x4000`, `zipalign -P 16` clean) | n/a | PASS | D-054; `llvm-readelf` evidence; re-check submission build |
 | Signing (maintainer) | READY (external keystore, verified) | n/a (F-Droid signs itself) | READY | `apksigner`/`jarsigner`; Play App Signing enrollment undecided |
-| F-Droid sign-less build tolerance | n/a | NEEDS VERIFICATION | NEEDS VERIFICATION | Prebuild fails fast without external config; trial recipe required |
+| F-Droid sign-less build tolerance | READY (proven: skip-prebuild + debug/release builds, no INTERNET in release) | READY | D-055; F-Droid infra run still manual |
 | Privacy policy | MANUAL ACTION (hosted URL) | READY (`docs/PRIVACY.md` in repo) | MANUAL ACTION | Host URL + enter in Console |
 | Data Safety form | MANUAL ACTION (answers prepared §4) | n/a | MANUAL ACTION | `docs/DISTRIBUTION_PLAYSTORE.md` §4 + `DATA_MAP.md` |
 | Content rating (IARC) | MANUAL ACTION | n/a | MANUAL ACTION | Complete honestly at submission |

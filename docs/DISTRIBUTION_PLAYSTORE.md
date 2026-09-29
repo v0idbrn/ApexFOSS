@@ -8,7 +8,7 @@ Related: `docs/DISTRIBUTION.md` (channel overview), `docs/DISTRIBUTION_MATRIX.md
 
 ## 1. Technical
 
-Values verified from `app.json`, the generated `android/` project, the Gradle build log, and the locally built release APK (`android/app/build/outputs/apk/release/app-release.apk`, SHA-256 `E3DDA7729288FA442FA53DA133F3268B60F8215FD4162C36A8657B6377ABF706`).
+Values verified from `app.json`, the generated `android/` project, the Gradle build log, and the locally built release APK (`android/app/build/outputs/apk/release/app-release.apk`, SHA-256 `61817863F5F3AA168BDE9AE148D9944EE0C97C6A0CCB8E38CEC2626957424740`).
 
 | Item | Value | Evidence |
 |---|---|---|
@@ -33,7 +33,7 @@ Values verified from `app.json`, the generated `android/` project, the Gradle bu
 1. **Target API — PASS.** Since 31 August 2026, new apps and updates must target API 36+. ApexFOSS targets 36 today, so it is submittable on this axis. Re-check at submission: the floor rises over time.
 2. **AAB for new apps — READY.** Play requires the Android App Bundle for new apps; `bundleRelease` builds it from this repo (validated §3). Upload the AAB, not the APK.
 3. **64-bit — PASS.** `arm64-v8a` is included.
-4. **16 KB page size — BLOCKED (one library).** Since 1 November 2025, apps targeting API 35+ must have 16 KB-aligned native code on 64-bit. Verification performed this pass with the NDK's `llvm-readelf` on every `lib/arm64-v8a/*.so` from the release APK: **18 of 19 libraries report `LOAD` alignment `0x4000` (compliant); `libwatermelondb-jsi.so` reports `0x1000` (4 KB, non-compliant).** That library is compiled from source during the Gradle build (`@nozbe/watermelondb@0.28.0`, `native/android-jsi`), not a prebuilt blob, so the fix is a toolchain/linker-flag change (`-Wl,-z,max-page-size=16384` or NDK r28+ defaults) or a WatermelonDB upgrade once upstream ships an aligned build — then re-verify with `llvm-readelf` and on a 16 KB device/emulator image. Play Console's App Bundle Explorer also reports 16 KB compatibility at upload time. `armeabi-v7a` (32-bit) is unaffected by this rule.
+4. **16 KB page size — FIXED and verified (was BLOCKED).** Since 1 November 2025, apps targeting API 35+ must have 16 KB-aligned native code on 64-bit. Previous state (NDK `llvm-readelf` on every `lib/arm64-v8a/*.so`): 18 of 19 libraries reported `LOAD` alignment `0x4000`, but `libwatermelondb-jsi.so` reported `0x1000`. Root cause: WatermelonDB 0.28.0 compiles its JSI adapter from C++ source via CMake with the NDK default 4 KB max-page-size, and AGP does not override it for this module (D-054). Fix: `plugins/with16KbPageSize.js` (registered in `app.json`) appends `-Wl,-z,max-page-size=16384` via `CMAKE_SHARED_LINKER_FLAGS` to the module's `defaultConfig` cmake block at prebuild time — idempotent, re-applies after fresh `npm install`, no WatermelonDB downgrade, no other dependency touched. Post-fix verification on a clean `clean assembleRelease bundleRelease` build: **all 19 arm64 `.so` report `LOAD` align `0x4000` (0 non-compliant lines), `armeabi-v7a` likewise `0x4000`, `zipalign -c -P 16 4` exits 0** — APK SHA-256 `61817863F5F3AA168BDE9AE148D9944EE0C97C6A0CCB8E38CEC2626957424740`, AAB SHA-256 `7C70570440328E00DC63A2D9C07A65B8A1343594E490817749034132EB880D7B`. Play Console's App Bundle Explorer remains the final submission-day confirmation.
 5. **minSdk 24** — fine (Play install floor is far lower); raising `targetSdk` does not raise `minSdk`.
 
 ## 2. Store listing (all MANUAL Play Console actions)
@@ -64,12 +64,12 @@ No listing content lives in Play yet. Draft copy lives in `fastlane/metadata/and
 
 `gradlew bundleRelease` completed `BUILD SUCCESSFUL` from this repo using the maintainer's external signing config (not committed). The AAB is a local validation artifact at `android/app/build/outputs/bundle/release/app-release.aab` and is **not committed**.
 
-Checks performed on the built AAB (`android/app/build/outputs/bundle/release/app-release.aab`, 32,011,779 B, 1258 entries, `BUILD SUCCESSFUL`):
+Checks performed on the built AAB (`android/app/build/outputs/bundle/release/app-release.aab`, 32,011,852 B, `BUILD SUCCESSFUL`):
 - [x] package `com.apexfoss.app` / versionName `1.0.0` (base manifest string pool; `versionCode` 2 pinned in `build.gradle`, same pipeline as the verified APK)
 - [x] base manifest: no INTERNET permission string, no debuggable flag
 - [x] Signature valid: `jarsigner -verify` → `jar verified` (self-signed-cert PKIX warning is expected; same `CN=ApexFOSS` config as the APK)
 - [x] ABI splits present for `arm64-v8a` + `armeabi-v7a`; dex files + `base/assets/index.android.bundle` present
-- [ ] **16 KB re-check:** the AAB contains the same native libraries as the APK — `libwatermelondb-jsi.so` alignment still `0x1000` until the §1(4) fix lands. Re-run the `llvm-readelf` check on every AAB rebuild.
+- [x] **16 KB re-check (post-fix):** AAB's `base/lib/arm64-v8a/libwatermelondb-jsi.so` reports `LOAD` align `0x4000` on all segments. Re-run the `llvm-readelf` check on every AAB rebuild.
 
 Play App Signing enrollment (upload key = current `CN=ApexFOSS` keystore vs. Google-managed key) is undecided — decide before first upload; losing the upload key means losing update identity.
 
@@ -115,7 +115,7 @@ Permissions → justification (for the permissions declaration):
 
 ## 7. Remaining manual actions (owner, at submission time)
 
-1. Fix or upgrade `libwatermelondb-jsi.so` to 16 KB ELF alignment (§1.4) and re-verify.
+1. Re-run the 16 KB `llvm-readelf` + `zipalign -c -P 16` checks on the exact submission build (the fix is automated, but the binary is the acceptance criterion).
 2. Decide Play App Signing enrollment; safeguard the upload key.
 3. Provision contact email + hosted privacy-policy URL.
 4. Complete store listing, content rating, target-audience, Data Safety, permissions and financial/health declarations in Play Console.

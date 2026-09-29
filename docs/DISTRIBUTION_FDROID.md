@@ -29,8 +29,8 @@ Related: `docs/DISTRIBUTION.md` (channel overview), `docs/DISTRIBUTION_MATRIX.md
 | Node / npm | v24.15.0 / 12.0.2 locally; F-Droid recipe must pin working versions |
 | CMake | Present in local SDK (`cmake/`); used by native modules |
 | Repositories used | `google()`, `mavenCentral()`, `https://www.jitpack.io` (`android/build.gradle`) |
-| Generated native files | `android/` regenerates via `npm run prebuild`; fails fast without the external signing config — **F-Droid must build unsigned/debug or with its own signing** (see §5, signing) |
-| Largest engineering item | Reproducing the Expo CNG + Metro/Hermes pipeline inside F-Droid's build environment (pre-existing finding, `docs/DISTRIBUTION.md` §F-Droid). Needs a trial recipe; **not verified in this pass** (no fdroidserver run performed). |
+| Generated native files | `android/` regenerates via `npm run prebuild`; sign-less builds supported via `APEX_SKIP_SIGNING=1` (D-055, validated §5) |
+| Largest engineering item | Reproducing the Expo CNG + Metro/Hermes pipeline inside F-Droid's build environment (pre-existing finding, `docs/DISTRIBUTION.md` §F-Droid). The public-repo half is now proven (§5); the F-Droid-infra half still needs their trial run. |
 
 ## 3. Dependencies (auditable)
 
@@ -74,7 +74,7 @@ Full transitive inventory method: `docs/THIRD_PARTY_LICENSES.md` (pinned by `pac
 
 | Concern | Finding | Impact / action |
 |---|---|---|
-| Firebase / GMS runtime | `firebase-messaging` classes merged (manifest shows `c2dm RECEIVE`); **never initialized, never usable** (no INTERNET, no config, no code path). Open-source SDK, but GMS-tied functionality | Uncertain — present honestly to F-Droid reviewers; possible ask: strip via patch/flavor. Do NOT remove speculatively without reviewer evidence |
+| Firebase / GMS runtime | `firebase-messaging:25.0.1` merged via `expo-notifications` (manifest shows `c2dm RECEIVE`); **never initialized, never usable, and not removable without breaking local notifications**: `src/notifications/index.ts` uses only local APIs (`setNotificationHandler`, permissions, `scheduleNotificationAsync`, cancel/query) — zero push-token/background-fetch APIs anywhere in `src/` (`grep` clean); no `google-services.json`; no INTERNET permission in release (the OS could not even open the socket). The SDK itself is Apache-2.0 | **Keep (verified dead code).** Present this evidence to reviewers; strip only on explicit reviewer requirement — removal would kill rest-timer alerts, a core feature |
 | `SYSTEM_ALERT_WINDOW` | Inherited from RN toolchain manifest, never requested at runtime (D-035) | Same class of question for Play; device-verified removal preferred before any submission |
 | Prebuilt host binaries | `hermesc` (Hermes compiler) via npm; Gradle wrapper distribution; Android SDK/NDK build-tools | Build-environment inputs, not app content; standard for RN apps — recipe must account for them |
 | Prebuilt blobs shipped in APK | **None found:** all 19 `arm64-v8a` `.so` files are compiled during the Gradle build (RN/Hermes from Maven sources, WatermelonDB JSI from in-tree C++ source) | Good for F-Droid |
@@ -84,8 +84,9 @@ Full transitive inventory method: `docs/THIRD_PARTY_LICENSES.md` (pinned by `pac
 ## 5. Signing (F-Droid builds sign themselves)
 
 - The maintainer's release keystore lives **outside the repo** (`~/.apexfoss/`, injected by `plugins/withApexSigning.js`); F-Droid never needs it and must never receive it.
-- `npm run prebuild` fails fast without the external signing config — the F-Droid recipe must either provide its own config or the plugin must tolerate a sign-less (F-Droid-signed) build. **Recipe-level detail to resolve during the trial build; do not weaken the maintainer flow to accommodate it.**
-- No committed keystores, passwords, `.env`, or local paths (verified every pass; automated guard proposed in `docs/DISTRIBUTION_MATRIX.md`).
+- **Sign-less recipe (validated this pass, D-055):** `APEX_SKIP_SIGNING=1` makes the signing plugin warn and skip, so `expo prebuild` succeeds with zero keystore material (the variable is checked before the config file is even read, so a missing file is equally fine). The default path is unchanged — missing config without the variable still throws.
+- F-Droid recipe proven locally: `npm install` → `APEX_SKIP_SIGNING=1 npx expo prebuild -p android --clean` → `gradlew assembleDebug` → `BUILD SUCCESSFUL`; debug APK verified (`com.apexfoss.app`, 1.0.0/2, both ABIs; INTERNET present in debug is by design for Metro — D-033). Release variant in the same sign-less state falls back to debug signing with the release manifest (no INTERNET) for F-Droid to re-sign.
+- No committed keystores, passwords, `.env`, or local paths (verified every pass; `src/security/distribution.test.ts` guards it).
 
 ## 6. AntiFeatures (assessment, F-Droid decides)
 
@@ -100,8 +101,8 @@ Full transitive inventory method: `docs/THIRD_PARTY_LICENSES.md` (pinned by `pac
 
 ## 7. Remaining manual actions / blockers
 
-1. **Trial F-Droid recipe** (largest item): prove `npm install` → `expo prebuild` → Gradle build inside F-Droid's environment; resolve signing-config tolerance, Node availability, and hermesc handling.
-2. **firebase-messaging reviewer judgment:** keep the evidence pack ready (no INTERNET, no init, `DATA_MAP.md`); strip only if reviewers require it.
+1. **F-Droid infrastructure trial run** (remaining half): prove the recipe inside F-Droid's environment (Node availability, hermesc handling); public-repo half is proven (§5).
+2. **firebase-messaging reviewer judgment:** evidence pack ready (§4 — dead code, no INTERNET, local-only module requirement); strip only if reviewers require it.
 3. **Create tag `v1.0.0`** only after RC validation (F-Droid builds from tags).
 4. **Submit `fdroiddata` merge request** — explicitly out of scope for this pass.
 5. Re-verify time-sensitive items (licenses of Gradle artifacts, fdroiddata build practices) on submission day.

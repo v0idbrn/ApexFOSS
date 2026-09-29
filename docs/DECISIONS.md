@@ -1306,3 +1306,29 @@ code changed.
 
 - Submission checklists (`DISTRIBUTION_PLAYSTORE.md`, `DISTRIBUTION_FDROID.md`, `DISTRIBUTION_MATRIX.md`) are the definition of done for publication; nothing is published by this decision.
 - Any future per-channel divergence (flavors, patches) requires a new decision entry justifying it.
+
+## D-054 - 16 KB page alignment via prebuild linker flag (blocker resolution, 2026-09-29)
+
+**Status:** Accepted
+
+**Context.** Play blocks submissions targeting API 35+ whose arm64 native libraries are not 16 KB-aligned. `llvm-readelf` on the release APK showed 18 of 19 libraries at `LOAD` align `0x4000` but `libwatermelondb-jsi.so` at `0x1000`: WatermelonDB 0.28.0 compiles its JSI adapter from C++ source (standard `add_library SHARED`, no custom linker script) with the NDK default 4 KB max-page-size, and AGP does not override it for this module. Replacing or downgrading WatermelonDB was rejected (D-039-adjacent stack freeze; JSI behavior must not regress).
+
+**Decision.** New config plugin `plugins/with16KbPageSize.js` (registered in `app.json`) appends `-Wl,-z,max-page-size=16384` through `CMAKE_SHARED_LINKER_FLAGS` to the module's `defaultConfig` cmake block at prebuild time. Idempotent marker, fail-fast when the upstream block moves, re-applies after fresh `npm install` — so F-Droid source builds get the same fix automatically. Acceptance is the binary, not the flag: clean `clean assembleRelease bundleRelease` verified — all 19 arm64 `.so` at `0x4000`, `armeabi-v7a` likewise, `zipalign -c -P 16 4` exit 0; APK `61817863…7424740`, AAB `7C705704…32EB880D7B`.
+
+**Consequences.**
+
+- The reported Play blocker is gone; the binary check must still be re-run on the exact submission build (documented in `DISTRIBUTION_PLAYSTORE.md` §1.4 and `DEVELOPMENT.md`).
+- If upstream WatermelonDB ships an aligned build, this plugin becomes redundant — remove it then, not before.
+
+## D-055 - Sign-less source builds for F-Droid via explicit opt-out (blocker resolution, 2026-09-29)
+
+**Status:** Accepted
+
+**Context.** `plugins/withApexSigning.js` failed fast when the external keystore config was absent, which made a clean public-source build (F-Droid recipe) impossible: F-Droid must build without the maintainer's private keystore, passwords, or local paths.
+
+**Decision.** `APEX_SKIP_SIGNING=1` makes the plugin log a warning and return the config untouched, so `expo prebuild` succeeds sign-less (Gradle falls back to debug signing, which F-Droid replaces with its own). The default path is byte-for-byte unchanged: missing config without the variable still throws, and the maintainer release flow is untouched. Validated locally: sign-less prebuild → `assembleDebug` → installable APK with correct package/version and no INTERNET permission; then a normal prebuild restored the maintainer configuration.
+
+**Consequences.**
+
+- The F-Droid recipe (`npm install` → `APEX_SKIP_SIGNING=1` prebuild → Gradle build) is proven for the public repo; the trial recipe item moves to NEEDS VERIFICATION only for F-Droid's own infrastructure.
+- The variable must never be set in maintainer release builds; CI does not set it.

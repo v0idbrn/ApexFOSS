@@ -24,13 +24,14 @@ Product-completion and release-hardening pass on top of the 0.1.0 snapshot: trai
 - **Exercise deletion guard**: exercises referenced by routine steps can no longer be deleted silently — the previously unreachable "in use" confirmation is wired up.
 - **Report correctness**: wall-clock duration from session timestamps, real planned/performed/skipped/modified adherence (no fabricated execution type), per-exercise volume no longer double-filtered, average set counts over completed sets.
 - Version references aligned to **1.0.0** (`versionCode` 2, database **schema v12**, backup `appVersion`, Trust Center about strings).
-- Test suite: **1149 Jest tests across 88 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
+- Test suite: **1151 Jest tests across 88 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
 
 ### License, support, and guards (1.0.0)
 - **License resolved: GPL-3.0-or-later** (D-050): full `LICENSE` file added; READMEs, terms, third-party license notes, and distribution plan aligned; dependency policy gate corrected to flag `GPL-2.0-only`.
 - **Voluntary support links** (D-051): GitHub Sponsors + PayPal in the READMEs, `.github/FUNDING.yml`, and the More screen — no payment SDK, no paywall, app fully usable offline.
 - **Mercado Pago support link** (D-052): third voluntary link (`https://link.mercadopago.com.ar/openv0id`) in the More screen support section, READMEs, and funding metadata — same explicit-tap external-browser pattern, no SDK.
 - **Import-path guard test**: fails if executable/network primitives (`eval`, `new Function`, dynamic import execution, fetch/XHR, shell/fs) appear in the portability layer or if the deep-link intake ever auto-imports without preview.
+- **Distribution blockers resolved** (D-054/D-055): 16 KB ELF alignment for `libwatermelondb-jsi.so` via prebuild linker flag (verified `0x4000` on both ABIs, `zipalign -P 16` clean); sign-less source builds via `APEX_SKIP_SIGNING=1` for the F-Droid recipe; distribution metadata invariants covered by automated test.
 
 ## 0.1.0 — unreleased
 

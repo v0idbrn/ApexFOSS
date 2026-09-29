@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1149%20%2F%2088%20suites-4ade80" alt="1149 pruebas en 88 suites" />
+  <img src="https://img.shields.io/badge/tests-1151%20%2F%2088%20suites-4ade80" alt="1151 pruebas en 88 suites" />
 </p>
 
 <p align="center">
@@ -132,7 +132,7 @@ ApexFOSS **aún no está publicado en ninguna tienda ni canal** (ni Play Store, 
 ## Pruebas
 
 ```bash
-npm test                # 1149 pruebas en 88 suites — motor, persistencia,
+npm test                # 1151 pruebas en 88 suites — motor, persistencia,
                         # temporizadores, migraciones, analítica, portabilidad,
                         # exportación, seguridad, interfaz
 npm run typecheck       # TypeScript pasa sin errores
@@ -147,7 +147,7 @@ npm run typecheck       # TypeScript pasa sin errores
 Estado actual, en términos precisos:
 
 - **Implementado:** todo lo listado en [Características](#características).
-- **Probado:** 1149 pruebas Jest en 88 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
+- **Probado:** 1151 pruebas Jest en 88 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
 - **Compilado para versión final:** los APKs debug y de versión final se generan localmente; el APK de versión final firmado de 1.0.0 está compilado y verificado (paquete `com.apexfoss.app`, versionCode 2, sin permiso INTERNET, no depurable).
 - **Validado en dispositivo:** solo un pase histórico parcial (Fase 2K); **la validación final de v1.0 en dispositivo y las pruebas con amigos están pendientes**.
 - **Publicado:** no — no se ha enviado nada a ninguna tienda, canal ni GitHub Release.
