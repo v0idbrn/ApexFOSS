@@ -24,7 +24,7 @@ Product-completion and release-hardening pass on top of the 0.1.0 snapshot: trai
 - **Exercise deletion guard**: exercises referenced by routine steps can no longer be deleted silently — the previously unreachable "in use" confirmation is wired up.
 - **Report correctness**: wall-clock duration from session timestamps, real planned/performed/skipped/modified adherence (no fabricated execution type), per-exercise volume no longer double-filtered, average set counts over completed sets.
 - Version references aligned to **1.0.0** (`versionCode` 2, database **schema v12**, backup `appVersion`, Trust Center about strings).
-- Test suite: **1140 Jest tests across 87 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
+- Test suite: **1149 Jest tests across 88 suites** plus a clean `tsc --noEmit`, with light CI on `main`.
 
 ### License, support, and guards (1.0.0)
 - **License resolved: GPL-3.0-or-later** (D-050): full `LICENSE` file added; READMEs, terms, third-party license notes, and distribution plan aligned; dependency policy gate corrected to flag `GPL-2.0-only`.

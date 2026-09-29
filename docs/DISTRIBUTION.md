@@ -1,9 +1,11 @@
 # ApexFOSS — Distribution
 
 **Status: planning document — NO submission to any store or channel has been made. Nothing here is a claim of compliance or approval.**
-**Last updated: 2026-09-25 (Phase 2G).**
+**Last updated: 2026-09-29 (distribution-readiness pass).**
 
 Channels under consideration: **GitHub Releases**, **F-Droid**, **Google Play**. Each has different requirements; all require work listed below before an actual release.
+
+Deep readiness docs (this pass): [DISTRIBUTION_PLAYSTORE.md](DISTRIBUTION_PLAYSTORE.md) (technical, listing, Data Safety, AAB validation), [DISTRIBUTION_FDROID.md](DISTRIBUTION_FDROID.md) (source build, dependencies, AntiFeatures), [DISTRIBUTION_MATRIX.md](DISTRIBUTION_MATRIX.md) (cross-channel status table), [STORE_ASSETS.md](STORE_ASSETS.md) (graphics checklist), [FDROID_METADATA_REFERENCE.yml](FDROID_METADATA_REFERENCE.yml) (draft submission reference), `fastlane/metadata/android/` (draft listing copy, en-US + es-AR).
 
 ## Common prerequisites (all channels)
 
@@ -42,7 +44,8 @@ Play's health/fitness and data-safety questionnaires will effectively ask:
 1. `SYSTEM_ALERT_WINDOW` (D-035) may trigger permission-review scrutiny — preferred path: device-verify removal in a future phase.
 2. The FCM/Firebase classes merged in by `expo-notifications` (F-14) exist without `google-services.json` — harmless (no INTERNET anyway) but reviewers may ask; the security audit documents it.
 3. Signing: Play App Signing enrollment must be decided (upload key = current `CN=ApexFOSS` keystore vs. Google-managed key).
-4. `versionCode` is 1 — every upload needs a bump (process decision; currently manual).
+4. `versionCode` is 2 — every upload needs a bump (process decision; currently manual).
+5. **16 KB page alignment is a pre-submission blocker:** `libwatermelondb-jsi.so` ships with 4 KB ELF alignment (verified with `llvm-readelf`; all other arm64 libs are 16 KB-aligned) — see [DISTRIBUTION_PLAYSTORE.md](DISTRIBUTION_PLAYSTORE.md) §1.4.
 
 ## F-Droid
 

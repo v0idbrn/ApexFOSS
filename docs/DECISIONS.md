@@ -1293,3 +1293,16 @@ code changed.
 
 - Support order is fixed: GitHub Sponsors, PayPal, Mercado Pago.
 - Still no INTERNET permission, no SDK, no in-app network request.
+
+## D-053 - Distribution channels and artifact policy (distribution-readiness, 2026-09-29)
+
+**Status:** Accepted
+
+**Context.** The 1.0.0 release candidate needs a documented distribution end-state before RC testing ends: which channels, which artifacts, and what must never diverge per channel — without publishing anything yet.
+
+**Decision.** Official channels, in order: Google Play (internal/closed testing first, then production), F-Droid (after Play testing), GitHub Releases (tag + APK + checksums), maintainer-signed APK as fallback. Artifact policy: AAB for Play uploads, APK for GitHub/direct distribution; F-Droid builds and signs itself from source. No store-specific runtime behavior — one source, one behavior — and no proprietary SDK added merely for publication (no Play Billing, no Firebase init, no analytics). Store metadata lives in `fastlane/metadata/android/` (en-US + es-AR, factual copy only, no fabricated screenshots). The 16 KB `libwatermelondb-jsi.so` misalignment is owned as the pre-submission Play blocker (linker-flag fix or WatermelonDB upgrade, then `llvm-readelf` re-verification). Tag `v1.0.0` is created only after RC validation.
+
+**Consequences.**
+
+- Submission checklists (`DISTRIBUTION_PLAYSTORE.md`, `DISTRIBUTION_FDROID.md`, `DISTRIBUTION_MATRIX.md`) are the definition of done for publication; nothing is published by this decision.
+- Any future per-channel divergence (flavors, patches) requires a new decision entry justifying it.
