@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | GitHub Releases | published (v1.1.0 pre-release + APK + SHA-256) | tag + notes + asset | Done — maintain per release | none |
 | Obtainium | ready (tracks the published release) | nothing in-app | Done (user path documented) | none |
-| F-Droid | ready (submission pack prepared) | `fdroiddata` MR + trial build + screenshots | Owner files MR (GitLab) with `docs/DISTRIBUTION_FDROID_SUBMISSION.md` §1 | GitLab-side MR + screenshots + reviewer process |
+| F-Droid | blocked (submission pack prepared) | `fdroiddata` MR + trial build + screenshots + Firebase flavour | Resolve Firebase flavour, capture screenshots, owner files MR (GitLab) | Firebase/GMS policy (flavour required); screenshots; reviewer process |
 | IzzyOnDroid | ready (pack prepared) | GitHub Release + fastlane complete + issue filed | Publish release, capture screenshots, file Codeberg suggestion issue | Screenshots; ~41 MB vs 30 MB guideline; maintainer-filed issue |
 | Uptodown | deferred (prepared) | free account + APK upload by owner | Owner registers + uploads | Owner account action |
 | Aptoide | deferred | Manual path needs subscription (not on Play) | Revisit once on Google Play (then automatic) | Subscription cost; not on Play |
@@ -47,7 +47,8 @@
 | Feature graphic 1024×500 | MANUAL ACTION (missing) | n/a | MANUAL ACTION | Create from real UI |
 | High-res icon 512 | READY (source 1024 exists) | READY | READY | Downscale at upload |
 | Source availability | n/a | READY (public repo) | READY | github.com/v0idbrn/ApexFOSS |
-| Dependency licensing | n/a | READY with notes | READY | All direct npm deps MIT; Gradle artifacts documented; firebase-messaging reviewer judgment pending |
+| Dependency licensing | n/a | READY with notes | READY | All direct npm deps MIT; Gradle artifacts documented |
+| F-Droid Firebase/GMS policy | n/a | **BLOCKED** (`firebase-messaging` via expo-notifications; policy requires a flavour without it) | BLOCKED | Separate implementation: F-Droid flavour + device validation of local notifications |
 | Proprietary components shipped | n/a | READY (none found) | READY | All 19 arm64 `.so` compiled during build |
 | Telemetry / ads / trackers | READY (none) | READY (none) | READY | Inventory + `grep` clean |
 | No INTERNET in release | PASS (verified APK + AAB) | Consistent | PASS | aapt + manifest checks |
@@ -58,4 +59,4 @@
 | GitHub Release published | PUBLISHED (v1.1.0 pre-release + APK + notes) | n/a | DONE | https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.0 |
 | Submission (upload / MR) | **NOT DONE (out of scope)** | **NOT DONE (out of scope)** | MANUAL ACTION | Internal/closed testing first |
 
-**Bottom line:** GitHub Release v1.1.0 is published (pre-release, device validation pending). F-Droid and IzzyOnDroid packs are prepared; their submissions are manual reviewer processes. Play/Uptodown/Aptoide/Huawei/Samsung assessed in `docs/DISTRIBUTION_CHANNELS.md` — all deferred or out except the GitHub/Obtainium path. No other technical blocker remains on the repository side.
+**Bottom line:** GitHub Release v1.1.0 is published (pre-release, device validation pending). F-Droid has one named blocker (Firebase flavour, requires separate implementation + device validation) plus the usual manual externals (MR, screenshots, review). IzzyOnDroid needs screenshots + filed issue + the 30 MB discussion. Play/Uptodown/Aptoide/Huawei/Samsung assessed in `docs/DISTRIBUTION_CHANNELS.md`. No other technical blocker remains on the repository side.

@@ -74,7 +74,7 @@ Full transitive inventory method: `docs/THIRD_PARTY_LICENSES.md` (pinned by `pac
 
 | Concern | Finding | Impact / action |
 |---|---|---|
-| Firebase / GMS runtime | `firebase-messaging:25.0.1` merged via `expo-notifications` (manifest shows `c2dm RECEIVE`); **never initialized, never usable, and not removable without breaking local notifications**: `src/notifications/index.ts` uses only local APIs (`setNotificationHandler`, permissions, `scheduleNotificationAsync`, cancel/query) — zero push-token/background-fetch APIs anywhere in `src/` (`grep` clean); no `google-services.json`; no INTERNET permission in release (the OS could not even open the socket). The SDK itself is Apache-2.0 | **Keep (verified dead code).** Present this evidence to reviewers; strip only on explicit reviewer requirement — removal would kill rest-timer alerts, a core feature |
+| Firebase / GMS runtime | `firebase-messaging:25.0.1` merged via `expo-notifications` (manifest shows `c2dm RECEIVE` + non-exported `ExpoFirebaseMessagingService` listening for `MESSAGING_EVENT`); **never initialized, never usable, and not removable without breaking local notifications**: `src/notifications/index.ts` uses only local APIs (`setNotificationHandler`, permissions, `scheduleNotificationAsync`, cancel/query) — zero push-token/background-fetch APIs anywhere in `src/` (`grep` clean); no `google-services.json`; no INTERNET permission in release (the OS could not even open the socket). The SDK itself is Apache-2.0 | **F-DROID BLOCKER — requires separate implementation.** F-Droid policy explicitly forbids Firebase/GMS and requires a flavour without them. Source analysis shows FCM imports are confined to push-only classes (tokens, topics, FCM service/delegates, RemoteMessage serializers) — the local-scheduling path does not touch them — so an F-Droid flavour (patched module without `firebase-messaging`) is feasible, but it needs implementation + device validation of rest-timer notifications before any submission. Do NOT submit the current binary graph and hope reviewers miss it |
 | `SYSTEM_ALERT_WINDOW` | Inherited from RN toolchain manifest, never requested at runtime (D-035) | Same class of question for Play; device-verified removal preferred before any submission |
 | Prebuilt host binaries | `hermesc` (Hermes compiler) via npm; Gradle wrapper distribution; Android SDK/NDK build-tools | Build-environment inputs, not app content; standard for RN apps — recipe must account for them |
 | Prebuilt blobs shipped in APK | **None found:** all 19 `arm64-v8a` `.so` files are compiled during the Gradle build (RN/Hermes from Maven sources, WatermelonDB JSI from in-tree C++ source) | Good for F-Droid |
@@ -102,7 +102,7 @@ Full transitive inventory method: `docs/THIRD_PARTY_LICENSES.md` (pinned by `pac
 ## 7. Remaining manual actions / blockers
 
 1. **F-Droid infrastructure trial run** (remaining half): prove the recipe inside F-Droid's environment (Node availability, hermesc handling); public-repo half is proven (§5).
-2. **firebase-messaging reviewer judgment:** evidence pack ready (§4 — dead code, no INTERNET, local-only module requirement); strip only if reviewers require it.
-3. **Create tag `v1.0.0`** only after RC validation (F-Droid builds from tags).
+2. **Firebase flavour (BLOCKER, separate implementation):** policy explicitly forbids Firebase/GMS — build the notifications-module flavour without `firebase-messaging` and device-validate rest-timer alerts before filing the MR (§4).
+3. **Create tag per release** (v1.1.0 exists; F-Droid builds from tags).
 4. **Submit `fdroiddata` merge request** — explicitly out of scope for this pass.
 5. Re-verify time-sensitive items (licenses of Gradle artifacts, fdroiddata build practices) on submission day.

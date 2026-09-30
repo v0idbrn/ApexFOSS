@@ -24,10 +24,11 @@ build:
     ndk: 27.1.12297006
   node: v24.15.0 (pin a working version in the recipe)
   # android/ is GENERATED (gitignored): recipe must run
-  #   npm install && npx expo prebuild -p android --clean
-  # BEFORE gradle. Prebuild currently fails fast without the maintainer's
-  # external signing config -> recipe must handle sign-less/F-Droid-signed
-  # builds (open item, see docs/DISTRIBUTION_FDROID.md section 5).
+  #   npm install && APEX_SKIP_SIGNING=1 npx expo prebuild -p android --clean
+  # BEFORE gradle. APEX_SKIP_SIGNING=1 is the validated sign-less path (D-055):
+  # the signing plugin warns and skips, Gradle falls back to debug signing
+  # (F-Droid re-signs). Default prebuild without the variable still fails fast
+  # when the maintainer config is absent — by design, never weaken it.
   outputApk: app/build/outputs/apk/release/app-release.apk
   # Preferred submission artifact for Play is the AAB
   # (app/build/outputs/bundle/release/app-release.aab); F-Droid builds APK.

@@ -50,9 +50,9 @@ Notes and open verifications (do not silently "fix" — confirm during MR CI):
 
 - `output` points at the universal release APK (both ARM ABIs, ~41 MB). The Play AAB also builds from this repo if reviewers prefer bundles.
 - `subdir: android` requires the CNG prebuild step above — `android/` is generated, never committed. `APEX_SKIP_SIGNING=1` is the validated sign-less path (D-055); maintainer signing is untouched.
+- **F-DROID BLOCKER — requires separate implementation:** F-Droid policy explicitly forbids Firebase/GMS and demands a flavour without them. `firebase-messaging:25.0.1` arrives via `expo-notifications` (dead code here: never initialized, no INTERNET, no token APIs in `src/`; FCM imports are confined to push-only classes, local scheduling untouched). The fix is an F-Droid flavour of the notifications module without `firebase-messaging` **plus device validation that rest-timer alerts still fire**. Do not file the MR before that flavour exists — reviewers will demand it.
 - Node/npm and NDK provisioning on the buildserver must be confirmed by the trial build (`fdroid build`); adjust `sudo`/`init` to what the runners actually provide.
-- `firebase-messaging` (via `expo-notifications`, dead code — no INTERNET, no init, no token APIs) is disclosed in `docs/DISTRIBUTION_FDROID.md` §4; strip only on explicit reviewer requirement.
-- Screenshots for the fastlane listing are still missing (no device available); add real captures under `fastlane/metadata/android/<locale>/images/phoneScreenshots/` before or during review — never mockups.
+- `SCREENSHOTS: PENDING DEVICE SESSION` — no captures, no mockups, no generated images. When a device is available, capture portrait EN (minimum): Home, Routines, Train, active workout with rest timer, Progress, History or 28-day report, More/About with Support section, Portability/backup screen. Landscape/tablet only if tablet layout is ever claimed (it is not).
 
 ## 2. F-Droid — submission steps (manual, owner)
 
