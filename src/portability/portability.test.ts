@@ -21,7 +21,7 @@ import {
   encodeRoutineTransport,
   fitsSingleTransport,
 } from './encoding';
-import { uniqueRoutineName, exerciseMatchKey } from './importRoutine';
+import { uniqueRoutineName, exerciseMatchKey, importRoutinePackage } from './importRoutine';
 import { fitsQr, encodeQr } from './qr';
 
 function makeDb(): Database {
@@ -468,3 +468,60 @@ describe('import atomicity helpers (unit)', () => {
 void makeDbActions;
 void makeDb;
 void intervalDraft;
+
+describe('portable routine block role (1.1.0)', () => {
+  function roleDraft(): RoutineDraft {
+    const d = sampleDraft();
+    d.blocks[0].role = 'warmup';
+    return d;
+  }
+
+  it('exports, validates and imports the block role', async () => {
+    const metaMap = new Map([
+      ['ex1', { name: 'Bench Press', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+      ['ex2', { name: 'OHP', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+    ]);
+    const pkg = buildRoutinePackageFromDraft(roleDraft(), metaMap, 1);
+    expect(pkg.routine.blocks[0].role).toBe('warmup');
+    const parsed = parseRoutinePackage(serializeRoutinePackage(pkg));
+    expect(parsed.routine.blocks[0].role).toBe('warmup');
+    const db = makeDb();
+    await importRoutinePackage(db, serializeRoutinePackage(pkg));
+    const blocks = (await db.get('routine_blocks').query().fetch()) as unknown as Array<{ blockRole: string | null }>;
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].blockRole).toBe('warmup');
+  });
+
+  it('legacy packages without a role import as main', async () => {
+    const metaMap = new Map([
+      ['ex1', { name: 'Bench Press', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+      ['ex2', { name: 'OHP', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+    ]);
+    const pkg = buildRoutinePackageFromDraft(sampleDraft(), metaMap, 1);
+    const raw = JSON.parse(serializeRoutinePackage(pkg));
+    // A pre-1.1.0 package has no role key at all; validated shape fills null.
+    delete raw.routine.blocks[0].role;
+    raw.checksum = semanticChecksum({
+      routine: { ...raw.routine, blocks: raw.routine.blocks.map((b: object) => ({ ...b, role: null })) },
+      exercises: raw.exercises,
+    });
+    const parsed = parseRoutinePackage(JSON.stringify(raw));
+    expect(parsed.routine.blocks[0].role ?? null).toBeNull();
+    const db = makeDb();
+    await importRoutinePackage(db, JSON.stringify(raw));
+    const blocks = (await db.get('routine_blocks').query().fetch()) as unknown as Array<{ blockRole: string | null }>;
+    expect(blocks[0].blockRole).toBeNull();
+  });
+
+  it('rejects an unknown block role', () => {
+    const metaMap = new Map([
+      ['ex1', { name: 'Bench Press', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+      ['ex2', { name: 'OHP', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+    ]);
+    const pkg = buildRoutinePackageFromDraft(roleDraft(), metaMap, 1);
+    const raw = JSON.parse(serializeRoutinePackage(pkg));
+    raw.routine.blocks[0].role = 'boss-mode';
+    // No checksum recompute needed: structural validation rejects first.
+    expect(() => parseRoutinePackage(JSON.stringify(raw))).toThrow(PortabilityError);
+  });
+});

@@ -89,9 +89,7 @@ more: {
     supportMercadoPago: 'Apoyar con Mercado Pago',
   },
   reminders: {
-    title: 'Recordatorios de entrenamiento',
     enableLabel: 'Recuérdame entrenar',
-    timeLabel: 'Hora del recordatorio',
     hourLabel: 'Hora',
     minuteLabel: 'Minuto',
     hint: 'Muestra la próxima rutina programada a tu hora habitual. Solo cuando un programa sugiere una — nunca en días sin programar.',

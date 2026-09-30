@@ -87,9 +87,7 @@ more: {
     supportMercadoPago: 'Support via Mercado Pago',
   },
   reminders: {
-    title: 'Training reminders',
     enableLabel: 'Remind me to train',
-    timeLabel: 'Reminder time',
     hourLabel: 'Hour',
     minuteLabel: 'Minute',
     hint: 'Shows the next programmed routine at your usual time. Only when a program suggests one — never on unscheduled days.',

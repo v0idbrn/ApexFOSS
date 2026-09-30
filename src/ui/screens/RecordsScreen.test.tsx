@@ -177,8 +177,7 @@ describe('RecordsScreen (Phase 2J §12)', () => {
   });
 });
 
-describe('RecordsScreen empty state (Phase 2L Stage H)', () => {
-  it('offers a start-workout action that switches to the train tab', async () => {
+describe('RecordsScreen empty state (Phase 2L Stage H)', () => {  it('offers a start-workout action that switches to the train tab', async () => {
     const renderer = await renderRecordsWithTabProbe(snapshotWith([]));
     const empty = renderer.root
       .findAllByType(EmptyState)
@@ -194,5 +193,59 @@ describe('RecordsScreen empty state (Phase 2L Stage H)', () => {
     });
 
     expect(tabOf(renderer)).toBe('train');
+  });
+});
+
+describe('RecordsScreen recent performances (1.1.0)', () => {
+  function sessionWithRir(): AnalyticsSnapshot['sessions'][number] {
+    const s = benchSession();
+    s.exercises = [
+      {
+        exerciseName: 'Bench Press',
+        contributions: null,
+        sets: [
+          { weightGrams: 80_000, reps: 5, durationMs: null, isCompleted: true, actualRir: 2 },
+          { weightGrams: 80_000, reps: 5, durationMs: null, isCompleted: true, actualRir: 1 },
+          { weightGrams: null, reps: null, durationMs: null, isCompleted: false },
+        ],
+      },
+    ];
+    return s;
+  }
+
+  async function expand(renderer: ReactTestRenderer): Promise<void> {
+    const toggle = renderer.root
+      .findAll(
+        (n) =>
+          n.props?.accessibilityRole === 'button' &&
+          typeof n.props?.onPress === 'function' &&
+          typeof n.props?.accessibilityLabel === 'string' &&
+          n.props.accessibilityLabel.startsWith('Bench Press'),
+      )
+      .shift();
+    expect(toggle).toBeDefined();
+    await act(async () => {
+      toggle!.props.onPress();
+    });
+    await act(async () => {});
+  }
+
+  it('lists recent sessions with completed counts, best set and actual RIR', async () => {
+    const renderer = await renderRecordsScreen(snapshotWith([sessionWithRir()]));
+    await expand(renderer);
+    const texts = textsOf(renderer);
+    expect(texts).toContain(strings.records.recentPerformances);
+    expect(texts.some((t) => t.includes('2/3'))).toBe(true);
+    expect(texts.some((t) => t.includes('RIR 1'))).toBe(true);
+  });
+
+  it('omits the RIR fragment when nothing was recorded', async () => {
+    const s = sessionWithRir();
+    s.exercises[0].sets = [{ weightGrams: 80_000, reps: 5, durationMs: null, isCompleted: true }];
+    const renderer = await renderRecordsScreen(snapshotWith([s]));
+    await expand(renderer);
+    const texts = textsOf(renderer);
+    expect(texts).toContain(strings.records.recentPerformances);
+    expect(texts.some((t) => t.includes('RIR'))).toBe(false);
   });
 });

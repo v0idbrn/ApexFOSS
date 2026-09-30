@@ -918,4 +918,42 @@ function makeHistPrescMap(
       expect(analyzeProgression({ ...defaultInput, sessions: [], now }).state).toBe('insufficient_data');
     });
   });
+
+  describe('actual RIR (1.1.0)', () => {
+    function rirSessions(currentRir: number | null | undefined, baselineRir: number | null | undefined) {
+      const withRir = (r: number | null | undefined) =>
+        r === undefined ? makeSet(50000, 10) : { ...makeSet(50000, 10), actualRir: r };
+      const sessions = [
+        makeSessionWithPresc('s1', now - 86400000, 'Bench Press', [withRir(baselineRir)]),
+        makeSessionWithPresc('s2', now, 'Bench Press', [withRir(currentRir)]),
+      ];
+      const historicalPrescriptions = makeHistPrescMap([
+        { sessionId: 's1', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+        { sessionId: 's2', exerciseName: 'Bench Press', presc: makeHistoricalPrescription('Bench Press', 'ex_bench', defaultHistoricalPrescription, 'barbell') },
+      ]);
+      return analyzeProgression({ ...defaultInput, sessions, historicalPrescriptions, now });
+    }
+
+    it('carries logged actual RIR into current and baseline performances', () => {
+      const result = rirSessions(1, 3);
+      expect(result.current?.actualRir).toBe(1);
+      expect(result.baseline?.actualRir).toBe(3);
+    });
+
+    it('keeps missing actual RIR as null, never 0', () => {
+      const result = rirSessions(undefined, undefined);
+      expect(result.current?.actualRir).toBeNull();
+      expect(result.baseline?.actualRir).toBeNull();
+    });
+
+    it('preserves an actual RIR of 0 distinctly from missing', () => {
+      const result = rirSessions(0, null);
+      expect(result.current?.actualRir).toBe(0);
+      expect(result.baseline?.actualRir).toBeNull();
+    });
+
+    it('does not change the verdict based on RIR presence alone', () => {
+      expect(rirSessions(1, 3).state).toBe(rirSessions(undefined, undefined).state);
+    });
+  });
 });

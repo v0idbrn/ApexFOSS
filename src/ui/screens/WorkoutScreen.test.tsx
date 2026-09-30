@@ -1,6 +1,6 @@
 import React from 'react';
-import { Alert, Text } from 'react-native';
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { Alert, Modal, Text } from 'react-native';
+import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { loadSessionDetail, type HistoryDetail } from '../../data/history';
@@ -23,6 +23,26 @@ import {
 } from './WorkoutScreen';
 
 jest.mock('../../data', () => ({ database: {} }));
+const mockSubstitute = jest.fn(async () => 'se1');
+jest.mock('../../data/actions', () => ({
+  makeDbActions: () => ({ substituteSessionExercise: mockSubstitute }),
+}));
+jest.mock('./ExercisePickerScreen', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  return {
+    ExercisePickerScreen: ({ onPick, onCancel }: { onPick: (id: string, name: string) => void; onCancel: () => void }) => (
+      <>
+        <Text testID="mock-picker-pick" onPress={() => onPick('ex-db', 'DB Press')}>
+          pick
+        </Text>
+        <Text testID="mock-picker-cancel" onPress={onCancel}>
+          cancel
+        </Text>
+      </>
+    ),
+  };
+});
 jest.mock('../../workout/runner', () => ({
   loadActiveWorkout: jest.fn(),
   loadWorkoutRuntime: jest.fn(),
@@ -932,5 +952,141 @@ incompleteReason: null, timer: null, lastReversible: null }) }),
 
     expect(renderer.root.findAllByProps({ testID: 'post-progression-0' })).toHaveLength(0);
     expect(textsOf(renderer)).toContain(strings.workout.sessionSaved);
+  });
+});
+
+describe('WorkoutScreen stop-early and substitution (1.1.0)', () => {
+  function openModal(renderer: ReactTestRenderer) {
+    const modal = renderer.root.findAllByType(Modal).find((m) => m.props.visible);
+    expect(modal).toBeDefined();
+    return modal!;
+  }
+
+  function chipIn(modal: ReactTestInstance, label: string) {
+    const node = modal
+      .findAll(
+        (n) =>
+          typeof n.props?.onPress === 'function' &&
+          n.findAllByType(Text).some((t) => flatten(t.props.children) === label),
+      )
+      .pop();
+    expect(node).toBeDefined();
+    return node!;
+  }
+
+  function pressableByTestID(renderer: ReactTestRenderer, testID: string) {
+    const node = renderer.root
+      .findAll((n) => n.props?.testID === testID && typeof n.props?.onPress === 'function')
+      .shift();
+    expect(node).toBeDefined();
+    return node!;
+  }
+
+  function modalButton(modal: ReactTestInstance, label: string) {
+    const node = modal
+      .findAll(
+        (n) =>
+          n.props?.accessibilityRole === 'button' &&
+          n.props?.accessibilityLabel === label &&
+          typeof n.props?.onPress === 'function',
+      )
+      .shift();
+    expect(node).toBeDefined();
+    return node!;
+  }
+
+  async function openEndReasonModal(renderer: ReactTestRenderer) {
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    await pressButton(renderer, strings.workout.finish);
+    const [, , buttons] = alertSpy.mock.calls[0] as unknown as [
+      string,
+      string,
+      Array<{ text: string; onPress?: () => void }>,
+    ];
+    const stopEarly = buttons.find((b) => b.text === strings.workout.finishEarly);
+    expect(stopEarly).toBeDefined();
+    await act(async () => {
+      stopEarly!.onPress!();
+    });
+  }
+
+  it('offers Stop early with all eight reasons; confirm dispatches the reason', async () => {
+    const renderer = await renderWorkout();
+    await openEndReasonModal(renderer);
+    expect(textsOf(renderer)).toContain(strings.workout.finishEarlyTitle);
+    expect(textsOf(renderer)).toContain(strings.workout.finishEarlyBody);
+    const modal = openModal(renderer);
+    const labels = [
+      strings.sessionEnd.userStopped,
+      strings.sessionEnd.timeConstraint,
+      strings.sessionEnd.fatigue,
+      strings.sessionEnd.pain,
+      strings.sessionEnd.equipmentUnavailable,
+      strings.sessionEnd.interruption,
+      strings.sessionEnd.technicalIssue,
+      strings.sessionEnd.other,
+    ];
+    for (const label of labels) chipIn(modal, label);
+    const confirm = buttonByLabel(renderer, strings.workout.finishEarly);
+    expect(confirm.props.disabled).toBe(true);
+    await act(async () => {
+      chipIn(modal, strings.sessionEnd.fatigue).props.onPress();
+    });
+    expect(buttonByLabel(renderer, strings.workout.finishEarly).props.disabled).toBe(false);
+    await pressButton(renderer, strings.workout.finishEarly);
+    expect(mockedApply).toHaveBeenCalledWith(
+      database,
+      expect.anything(),
+      expect.objectContaining({ type: 'COMPLETE_SESSION', incompleteReason: 'fatigue' }),
+    );
+    await unmountWorkout(renderer);
+  });
+
+  it('substitution flow picks an exercise, a reason, and records actuals', async () => {
+    const renderer = await renderWorkout();
+    const swap = pressableByTestID(renderer, 'step-substitute');
+    await act(async () => {
+      swap.props.onPress();
+    });
+    // Picker phase: no reason modal yet.
+    expect(textsOf(renderer)).not.toContain(strings.workout.substituteTitle);
+    expect(renderer.root.findAllByProps({ testID: 'mock-picker-pick' }).length).toBeGreaterThanOrEqual(1);
+    await act(async () => {
+      renderer.root.findAllByProps({ testID: 'mock-picker-pick' })[0].props.onPress();
+    });
+    expect(textsOf(renderer)).toContain(strings.workout.substituteTitle);
+    const modal = openModal(renderer);
+    await act(async () => {
+      chipIn(modal, strings.workout.reasonEquipment).props.onPress();
+    });
+    await act(async () => {
+      modalButton(modal, strings.workout.substitute).props.onPress();
+    });
+    expect(mockSubstitute).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Number),
+      expect.any(Number),
+      'Bench Press',
+      'ex-db',
+      'DB Press',
+      'equipment_unavailable',
+    );
+    expect(textsOf(renderer)).toContain('DB Press');
+    expect(renderer.root.findAllByProps({ testID: 'step-substituted' }).length).toBeGreaterThanOrEqual(1);
+    await unmountWorkout(renderer);
+  });
+
+  it('cancelling the picker records nothing', async () => {
+    const renderer = await renderWorkout();
+    const swap = pressableByTestID(renderer, 'step-substitute');
+    await act(async () => {
+      swap.props.onPress();
+    });
+    await act(async () => {
+      renderer.root.findAllByProps({ testID: 'mock-picker-cancel' })[0].props.onPress();
+    });
+    expect(mockSubstitute).not.toHaveBeenCalled();
+    expect(renderer.root.findAllByProps({ testID: 'mock-picker-pick' })).toHaveLength(0);
+    await unmountWorkout(renderer);
   });
 });

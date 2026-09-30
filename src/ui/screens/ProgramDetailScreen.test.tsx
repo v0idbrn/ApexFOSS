@@ -28,6 +28,7 @@ interface MesocycleInput {
   name: string;
   sortOrder: number;
   routineCount: number;
+  stage?: string | null;
 }
 
 const PROGRAM: ProgramInput = { id: 'p1', name: 'Block A', routineCount: 2 };
@@ -81,6 +82,7 @@ function setup(opts: SetupOptions = {}) {
     deleteProgram: jest.fn().mockResolvedValue(undefined),
     createMesocycle: jest.fn().mockResolvedValue('m-new'),
     renameMesocycle: jest.fn().mockResolvedValue(undefined),
+    setMesocycleStage: jest.fn().mockResolvedValue(undefined),
     deleteMesocycle: jest.fn().mockResolvedValue(undefined),
     assignRoutineToMesocycle: jest.fn().mockResolvedValue(undefined),
     removeRoutineFromMesocycle: jest.fn().mockResolvedValue(undefined),
@@ -296,5 +298,41 @@ describe('ProgramDetailScreen mesocycles (Phase 4B)', () => {
     expect(actions.deleteMesocycle).not.toHaveBeenCalled();
     await confirmLastAlert();
     expect(actions.deleteMesocycle).toHaveBeenCalledWith('m1');
+  });
+});
+
+describe('ProgramDetailScreen mesocycle stage (1.1.0)', () => {
+  function chipByLabel(renderer: ReactTestRenderer, label: string) {
+    const node = renderer.root
+      .findAll(
+        (n) =>
+          typeof n.props?.onPress === 'function' &&
+          n.findAllByType(Text).some((t) => flatten(t.props.children) === label),
+      )
+      .pop();
+    expect(node).toBeDefined();
+    return node!;
+  }
+
+  it('marks a normal mesocycle and switches it to deload', async () => {
+    const actions = setup({ mesos: [{ ...MESO, stage: null }] });
+    const renderer = await renderScreen();
+    expect(textsOf(renderer)).toContain(strings.programs.mesocycleStage);
+    await act(async () => {
+      chipByLabel(renderer, strings.programs.stageDeload).props.onPress();
+    });
+    await act(async () => {});
+    expect(actions.setMesocycleStage).toHaveBeenCalledWith('m1', 'deload');
+  });
+
+  it('marks a deload mesocycle and clears it back to normal', async () => {
+    const actions = setup({ mesos: [{ ...MESO, stage: 'deload' }] });
+    const renderer = await renderScreen();
+    expect(textsOf(renderer)).toContain(strings.programs.stageDeload);
+    await act(async () => {
+      chipByLabel(renderer, strings.programs.stageNormal).props.onPress();
+    });
+    await act(async () => {});
+    expect(actions.setMesocycleStage).toHaveBeenCalledWith('m1', null);
   });
 });

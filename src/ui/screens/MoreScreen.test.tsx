@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import React from 'react';
-import { Linking, Text } from 'react-native';
+import { Linking, Text, TextInput } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Navigator, useNav } from '../navigation';
 import { MoreScreen } from './MoreScreen';
@@ -229,5 +229,35 @@ describe('MoreScreen training reminders', () => {
     expect(mockPerm).not.toHaveBeenCalled();
     expect(mockSavePrefs).toHaveBeenCalledWith(expect.anything(), { enabled: false, hour: 7, minute: 0 });
     expect(mockSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('editing the time persists the new time and resyncs', async () => {
+    mockLoadPrefs.mockResolvedValue({ enabled: true, hour: 7, minute: 0 });
+    const renderer = await renderMore();
+    const inputs = renderer.root.findAllByType(TextInput);
+    expect(inputs.length).toBeGreaterThanOrEqual(2);
+    await act(async () => {
+      inputs[0].props.onChangeText('18');
+    });
+    await act(async () => {});
+    expect(mockSavePrefs).toHaveBeenCalledWith(expect.anything(), { enabled: true, hour: 18, minute: 0 });
+    expect(mockSync).toHaveBeenCalled();
+  });
+
+  it('renders reminder copy in Spanish with no raw keys', async () => {
+    mockLoadPrefs.mockResolvedValue({ enabled: true, hour: 7, minute: 0 });
+    setStringsLocale('es');
+    try {
+      const renderer = await renderMore();
+      const texts = textContents(renderer);
+      const esStrings = getStrings('es');
+      expect(texts).toContain(esStrings.reminders.enableLabel);
+      expect(texts).toContain(esStrings.reminders.hint);
+      expect(texts).toContain(esStrings.reminders.hourLabel);
+      expect(texts).not.toContain('reminders.enableLabel');
+      expect(switchByTestID(renderer, 'more-reminders-toggle')).toBeDefined();
+    } finally {
+      setStringsLocale('en');
+    }
   });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, TextInput } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Navigator } from '../navigation';
 import { HistoryDetailScreen } from './HistoryDetailScreen';
@@ -14,8 +14,15 @@ import {
 import type { ProgressionEvidence } from '../../analytics/progression';
 
 jest.mock('../../data', () => ({ database: {} }));
+const mockSetExNote = jest.fn(async () => 'se1');
+jest.mock('../../data/actions', () => ({
+  makeDbActions: () => ({ setSessionExerciseNote: mockSetExNote }),
+}));
 jest.mock('../../data/history', () => ({ loadSessionDetail: jest.fn() }));
-jest.mock('../../data/notes', () => ({ saveSessionNote: jest.fn() }));
+jest.mock('../../data/notes', () => {
+  const actual = jest.requireActual('../../data/notes');
+  return { saveSessionNote: jest.fn(), normalizeExerciseNote: actual.normalizeExerciseNote };
+});
 jest.mock('../../data/progression', () => ({
   loadProgressionSnapshot: jest.fn(),
   analyzeStepEvidence: jest.fn(),
@@ -521,5 +528,62 @@ describe('HistoryDetailScreen session adherence (Phase 3D)', () => {
     } finally {
       setStringsLocale(original);
     }
+  });
+});
+
+describe('HistoryDetailScreen fidelity (1.1.0)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function detailWithFidelity(): HistoryDetail {
+    const base = JSON.parse(JSON.stringify(detailWithBlock)) as HistoryDetail;
+    base.status = 'incomplete';
+    base.incompleteReason = 'fatigue';
+    base.blocks[0].steps[0].substitution = {
+      actualExerciseName: 'DB Press',
+      reason: 'equipment_unavailable',
+    };
+    base.blocks[0].steps[0].exerciseNote = 'Left shoulder tight';
+    return base;
+  }
+
+  it('shows the incomplete state with its reason', async () => {
+    mockedLoad.mockResolvedValue(detailWithFidelity());
+    const renderer = await renderDetail();
+    const texts = textsOf(renderer);
+    expect(texts.some((t) => t.includes(strings.history.incomplete))).toBe(true);
+    expect(texts.some((t) => t.includes(strings.sessionEnd.fatigue))).toBe(true);
+  });
+
+  it('shows the substitution without rewriting the programmed exercise', async () => {
+    mockedLoad.mockResolvedValue(detailWithFidelity());
+    const renderer = await renderDetail();
+    const texts = textsOf(renderer);
+    expect(texts).toContain('Bench Press');
+    expect(texts.some((t) => t.includes('DB Press'))).toBe(true);
+    expect(texts.some((t) => t.includes(strings.history.substituted))).toBe(true);
+  });
+
+  it('loads the exercise note and saves edits through the writer', async () => {
+    mockedLoad.mockResolvedValue(detailWithFidelity());
+    const renderer = await renderDetail();
+    const field = renderer.root
+      .findAllByType(TextInput)
+      .find((n) => n.props.accessibilityLabel === `${strings.notes.exerciseLabel} Bench Press`);
+    expect(field).toBeDefined();
+    expect(field!.props.value).toBe('Left shoulder tight');
+    await act(async () => {
+      field!.props.onChangeText('Tight, warmed up longer');
+    });
+    const save = renderer.root
+      .findAll((n) => n.props?.testID === 'history-exnote-save-0-0' && typeof n.props?.onPress === 'function')
+      .shift();
+    expect(save).toBeDefined();
+    await act(async () => {
+      save!.props.onPress();
+    });
+    await act(async () => {});
+    expect(mockSetExNote).toHaveBeenCalledWith('sess_1', 0, 0, 'Bench Press', 'Tight, warmed up longer');
   });
 });
