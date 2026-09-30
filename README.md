@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1206%20%2F%2092%20suites-4ade80" alt="1206 tests in 92 suites" />
+  <img src="https://img.shields.io/badge/tests-1227%20%2F%2093%20suites-4ade80" alt="1227 tests in 93 suites" />
 </p>
 
 <p align="center">
@@ -123,16 +123,17 @@ UI (React Native / NativeWind)
 
 ## Installation
 
-ApexFOSS is **not yet published on any app store or channel** (no Play Store, no F-Droid, no GitHub Release yet). Publication is prepared, not completed — see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). Status: release candidate — preparing for Google Play (internal testing first) and F-Droid submission preparation; track readiness in [docs/DISTRIBUTION_MATRIX.md](docs/DISTRIBUTION_MATRIX.md).
+ApexFOSS is **not on any app store yet** (no Play Store, no F-Droid). It **is** published as a signed APK on [GitHub Releases](https://github.com/v0idbrn/ApexFOSS/releases) (v1.1.0, pre-release while device validation is pending) — see [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). Status: release candidate — preparing for Google Play (internal testing first) and F-Droid submission preparation; track readiness in [docs/DISTRIBUTION_MATRIX.md](docs/DISTRIBUTION_MATRIX.md).
 
-- **Recommended:** install the signed `app-release.apk` for the current 1.1.0 build obtained from the project maintainer, by opening it on your Android device. One universal APK for ARM (`arm64-v8a` + `armeabi-v7a`), requiring **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (emulator-oriented) are not part of the current compatibility target.
+- **Recommended:** install `app-release.apk` from the [v1.1.0 GitHub Release](https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.0), by opening it on your Android device. One universal APK for ARM (`arm64-v8a` + `armeabi-v7a`), requiring **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (emulator-oriented) are not part of the current compatibility target.
+- **Updates via Obtainium (optional):** add `https://github.com/v0idbrn/ApexFOSS` as a GitHub source in Obtainium (enable “include prereleases” for the 1.1.0 line). Do not mix with a future F-Droid build — different signers require reinstalling to switch.
 - **Building from source** is optional and documented for developers in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - **Validation status:** the 1.1.0 build is release-built with automated tests passing; final physical-device validation and friend testing are still pending — see [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. An earlier partial device pass (Phase 2K, Samsung SM-A045M, Android 14) is historical evidence, not final validation.
 
 ## Testing
 
 ```bash
-npm test                # 1206 tests across 92 suites — engine, persistence, timers,
+npm test                # 1227 tests across 93 suites — engine, persistence, timers,
                         # migrations, analytics, portability, export, security, UI
 npm run typecheck       # TypeScript passes with no errors
 ```
@@ -146,7 +147,7 @@ npm run typecheck       # TypeScript passes with no errors
 Current state, in precise terms:
 
 - **Implemented:** everything listed under [Features](#features).
-- **Tested:** 1206 Jest tests / 92 suites pass; TypeScript type-check passes; CI runs both on every push.
+- **Tested:** 1227 Jest tests / 93 suites pass; TypeScript type-check passes; CI runs both on every push.
 - **Release-built:** debug and release APKs build locally; the signed 1.1.0 release APK is built and verified (package `com.apexfoss.app`, versionCode 3, no INTERNET permission, not debuggable).
 - **Physically validated:** partial historical pass only (Phase 2K); **device validation for 1.1.0 and friend testing pending**.
 - **Published:** no — no store, channel, or GitHub Release submission has been made.

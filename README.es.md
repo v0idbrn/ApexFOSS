@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1206%20%2F%2092%20suites-4ade80" alt="1206 pruebas en 92 suites" />
+  <img src="https://img.shields.io/badge/tests-1227%20%2F%2093%20suites-4ade80" alt="1227 pruebas en 93 suites" />
 </p>
 
 <p align="center">
@@ -123,16 +123,17 @@ Interfaz (React Native / NativeWind)
 
 ## Instalación
 
-ApexFOSS **aún no está publicado en ninguna tienda ni canal** (ni Play Store, ni F-Droid, ni GitHub Release). La publicación está preparada, no completada — ver [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). Estado: candidato a versión final — en preparación para Google Play (primero pruebas internas) y preparación de envío a F-Droid; sigue el progreso en [docs/DISTRIBUTION_MATRIX.md](docs/DISTRIBUTION_MATRIX.md).
+ApexFOSS **aún no está en ninguna tienda de aplicaciones** (ni Play Store, ni F-Droid). **Sí** está publicado como APK firmado en [GitHub Releases](https://github.com/v0idbrn/ApexFOSS/releases) (v1.1.0, pre-lanzamiento mientras la validación en dispositivo sigue pendiente) — ver [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). Estado: candidato a versión final — en preparación para Google Play (primero pruebas internas) y preparación de envío a F-Droid; sigue el progreso en [docs/DISTRIBUTION_MATRIX.md](docs/DISTRIBUTION_MATRIX.md).
 
-- **Recomendado:** instala el `app-release.apk` firmado de la compilación 1.1.0 actual, obtenido del mantenedor del proyecto, abriéndolo en tu dispositivo Android. Un APK universal para ARM (`arm64-v8a` + `armeabi-v7a`), que requiere **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (orientados a emuladores) no forman parte del objetivo actual de compatibilidad.
+- **Recomendado:** instala el `app-release.apk` del [GitHub Release v1.1.0](https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.0), abriéndolo en tu dispositivo Android. Un APK universal para ARM (`arm64-v8a` + `armeabi-v7a`), que requiere **Android 7.0+** (minSdk 24, targetSdk 36). `x86`/`x86_64` (orientados a emuladores) no forman parte del objetivo actual de compatibilidad.
+- **Actualizaciones con Obtainium (opcional):** agrega `https://github.com/v0idbrn/ApexFOSS` como fuente de GitHub en Obtainium (activa “incluir pre-lanzamientos” para la línea 1.1.0). No lo mezcles con una futura compilación de F-Droid — firmantes distintos exigen reinstalar para cambiar.
 - **Compilar desde el código fuente** es opcional y está documentado para desarrolladores en [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 - **Estado de validación:** la compilación 1.1.0 está compilada para versión final con las pruebas automatizadas en verde; la validación final en dispositivo físico y las pruebas con amigos siguen pendientes — ver [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) #21. Un pase previo parcial en dispositivo (Fase 2K, Samsung SM-A045M, Android 14) es evidencia histórica, no validación final.
 
 ## Pruebas
 
 ```bash
-npm test                # 1206 pruebas en 92 suites — motor, persistencia,
+npm test                # 1227 pruebas en 93 suites — motor, persistencia,
                         # temporizadores, migraciones, analítica, portabilidad,
                         # exportación, seguridad, interfaz
 npm run typecheck       # TypeScript pasa sin errores
@@ -147,7 +148,7 @@ npm run typecheck       # TypeScript pasa sin errores
 Estado actual, en términos precisos:
 
 - **Implementado:** todo lo listado en [Características](#características).
-- **Probado:** 1206 pruebas Jest en 92 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
+- **Probado:** 1227 pruebas Jest en 93 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
 - **Compilado para versión final:** los APKs debug y de versión final se generan localmente; el APK de versión final firmado de 1.1.0 está compilado y verificado (paquete `com.apexfoss.app`, versionCode 3, sin permiso INTERNET, no depurable).
 - **Validado en dispositivo:** solo un pase histórico parcial (Fase 2K); **la validación en dispositivo de 1.1.0 y las pruebas con amigos están pendientes**.
 - **Publicado:** no — no se ha enviado nada a ninguna tienda, canal ni GitHub Release.

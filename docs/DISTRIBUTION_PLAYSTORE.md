@@ -13,8 +13,8 @@ Values verified from `app.json`, the generated `android/` project, the Gradle bu
 | Item | Value | Evidence |
 |---|---|---|
 | Package / applicationId | `com.apexfoss.app` | `app.json`, `android/app/build.gradle`, aapt badging |
-| versionName | `1.0.0` | `app.json`, `build.gradle`, aapt badging |
-| versionCode | `2` | `app.json`, `build.gradle`, aapt badging |
+| versionName | `1.1.0` | `app.json`, `build.gradle`, aapt badging |
+| versionCode | `3` | `app.json`, `build.gradle`, aapt badging |
 | minSdk | 24 (Android 7.0) | Expo root-project log, aapt badging |
 | targetSdk | 36 (Android 16) | Expo root-project log, aapt badging |
 | compileSdk / buildTools | 36 / 36.0.0 | Gradle configure log |
@@ -65,7 +65,7 @@ No listing content lives in Play yet. Draft copy lives in `fastlane/metadata/and
 `gradlew bundleRelease` completed `BUILD SUCCESSFUL` from this repo using the maintainer's external signing config (not committed). The AAB is a local validation artifact at `android/app/build/outputs/bundle/release/app-release.aab` and is **not committed**.
 
 Checks performed on the built AAB (`android/app/build/outputs/bundle/release/app-release.aab`, 32,011,852 B, `BUILD SUCCESSFUL`):
-- [x] package `com.apexfoss.app` / versionName `1.0.0` (base manifest string pool; `versionCode` 2 pinned in `build.gradle`, same pipeline as the verified APK)
+- [x] package `com.apexfoss.app` / versionName `1.1.0` (base manifest string pool; `versionCode` 3 pinned in `build.gradle`, same pipeline as the verified APK)
 - [x] base manifest: no INTERNET permission string, no debuggable flag
 - [x] Signature valid: `jarsigner -verify` → `jar verified` (self-signed-cert PKIX warning is expected; same `CN=ApexFOSS` config as the APK)
 - [x] ABI splits present for `arm64-v8a` + `armeabi-v7a`; dex files + `base/assets/index.android.bundle` present
@@ -112,13 +112,37 @@ Permissions → justification (for the permissions declaration):
 
 - Play target-API requirements: from 31 August 2026, phone/tablet/foldable new apps and updates must target API 36+ (support.google.com/googleplay/android-developer/answer/11926878; developer.android.com/google/play/requirements/target-sdk).
 - 16 KB page-size compatibility: required since 1 November 2025 for new apps and updates targeting API 35+; AGP 8.5.1+/NDK r28+ path; Play Console App Bundle Explorer reports compatibility (developer.android.com/guide/practices/page-sizes).
+- Play Console registration (September 2026): US$25 one-time fee + government ID + new personal accounts must pass closed testing with real testers and device verification; since 30 September 2026, packages must be registered under Android developer verification (auto-registration for most Play apps; sideloaded-package rules expanding globally through 2027).
 
-## 7. Remaining manual actions (owner, at submission time)
+## 7. Status (September 2026)
 
-1. Re-run the 16 KB `llvm-readelf` + `zipalign -c -P 16` checks on the exact submission build (the fix is automated, but the binary is the acceptance criterion).
-2. Decide Play App Signing enrollment; safeguard the upload key.
-3. Provision contact email + hosted privacy-policy URL.
-4. Complete store listing, content rating, target-audience, Data Safety, permissions and financial/health declarations in Play Console.
-5. Decide `SYSTEM_ALERT_WINDOW` (remove with device verification, or justify).
-6. Upload AAB to internal/closed testing first; confirm 16 KB report in App Bundle Explorer.
-7. Re-check time-sensitive policy (target-API floor, 16 KB rule) on submission day.
+**NOT PUBLISHED. No account created, no fee paid, no action taken in Play Console.**
+
+### READY
+
+- Package `com.apexfoss.app`, versionName 1.1.0, versionCode 3, targetSdk 36, minSdk 24.
+- Release AAB builds (`bundleRelease`); 64-bit ABIs; non-debuggable; no INTERNET; 16 KB-aligned native libs.
+- External release signing; Data Safety answers and declaration checklists prepared (§4–§5); fastlane listing drafts (en-US + es-AR).
+
+### MISSING
+
+- Play Console developer account (owner decision; requires fee + ID).
+- Contact email, hosted privacy-policy URL, feature graphic, real screenshots.
+- Content rating, target-audience, Data Safety and declaration forms (prepared, not submitted).
+- Closed-testing tester group (required for new personal accounts).
+
+### BLOCKED
+
+- Nothing technical on the repository side. Publication is gated solely by the owner authorizations below.
+
+### USER ACTION REQUIRED (explicitly NOT authorized in this pass)
+
+1. Pay the US$25 Play Console registration fee + identity verification.
+2. Meet new-personal-account testing requirements (closed track with real testers).
+3. Decide Play App Signing enrollment; safeguard the upload key.
+4. Register the package under Android developer verification (auto-flow covers most Play apps once published).
+5. Provision contact email + hosted privacy-policy URL.
+6. Complete store listing, content rating, target-audience, Data Safety, permissions and financial/health declarations in Play Console.
+7. Decide `SYSTEM_ALERT_WINDOW` (remove with device verification, or justify).
+8. Upload AAB to internal/closed testing first; confirm 16 KB report in App Bundle Explorer.
+9. Re-run the 16 KB `llvm-readelf` + `zipalign -c -P 16` checks on the exact submission build; re-check time-sensitive policy on submission day.

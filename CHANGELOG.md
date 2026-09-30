@@ -2,7 +2,7 @@
 
 Notable changes to ApexFOSS. Versions follow a simple pre-1.0 convention; a date appears only when a version is actually tagged and released. The project follows nothing beyond this file — planned work lives in `docs/DECISIONS.md` and `docs/DISTRIBUTION.md`, not here.
 
-## 1.1.0 — unreleased
+## 1.1.0 — 2026-09-30
 
 Training-loop maturity pass: honest execution records, explicit substitutions, execution notes, local training reminders, and programming metadata. Same architecture and ports; database **schema v13** (additive, nullable columns) with `.apexbackup` round-trip for every new field (legacy backups still restore).
 
@@ -22,7 +22,7 @@ Training-loop maturity pass: honest execution records, explicit substitutions, e
 - All 1.1.0 fields round-trip through `.apexbackup` (export → validate → restore) with hostile-value rejection and rollback; legacy backups without the new fields restore with nulls.
 
 ### Tests
-- **1206 Jest tests across 92 suites** plus a clean `tsc --noEmit`.
+- **1227 Jest tests across 93 suites** plus a clean `tsc --noEmit`.
 
 ## 1.0.0 — unreleased
 

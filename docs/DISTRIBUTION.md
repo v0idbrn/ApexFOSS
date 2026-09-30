@@ -1,7 +1,7 @@
 # ApexFOSS — Distribution
 
-**Status: planning document — NO submission to any store or channel has been made. Nothing here is a claim of compliance or approval.**
-**Last updated: 2026-09-29 (distribution-readiness pass).**
+**Status: GitHub Release v1.1.0 published (pre-release); NO store submission (Play/F-Droid) has been made. Nothing here is a claim of compliance or approval.**
+**Last updated: 2026-09-30 (distribution expansion).**
 
 Channels under consideration: **GitHub Releases**, **F-Droid**, **Google Play**. Each has different requirements; all require work listed below before an actual release.
 
@@ -16,12 +16,11 @@ Deep readiness docs (this pass): [DISTRIBUTION_PLAYSTORE.md](DISTRIBUTION_PLAYST
 - [ ] Reproducible/clean release build from a tagged commit: `npm run prebuild`, `assembleRelease`, verify with the audit checklist in `docs/SECURITY_AUDIT.md` (badging, apksigner, content scan).
 - [ ] Decide signing-key custody story: the release keystore currently lives at `~/.apexfoss/apexfoss-signing.properties` **outside the repository** (good), but the owner must decide rotation/backup of that key — losing it means losing update identity.
 
-## GitHub Releases (simplest)
+## GitHub Releases (live since v1.1.0)
 
-- Upload `app-release.apk` + checksums per release tag.
-- Requirements: public repo + license file (for the "open source" claim), release notes, `SECURITY.md` advisory channel enabled.
+- v1.1.0 published as pre-release at `https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.0` (tag `v1.1.0`, `app-release.apk` + SHA-256 + notes). Per-release process stays: tag → release with APK + checksums + notes.
 - No platform privacy form; the repo's own `docs/PRIVACY.md` / `docs/DATA_MAP.md` serve as the privacy surface.
-- Risks: sideload warnings on Android (unknown sources), no auto-update (by design: expo-updates disabled), users must trust the signing key shown in `SECURITY.md`-adjacent release notes (publish the signing cert fingerprint `5ea2889b…973eb0` or similar in release notes).
+- Known trade-offs: sideload warnings on Android (unknown sources), no auto-update (by design: expo-updates disabled; Obtainium covers update tracking), users trust the signing key published in the release notes (cert fingerprint `5ea2889b…973eb0`).
 
 ## Google Play
 
@@ -66,7 +65,8 @@ F-Droid accepts only FOSS apps meeting its inclusion policy (spec §23):
 - [ ] Security contact provisioned (`SECURITY.md`)
 - [ ] Device validation pass (deep link, notifications, wipe, palette legibility on-screen)
 - [ ] Store questionnaires answered from `docs/HEALTH_AND_FITNESS.md` + `docs/DATA_MAP.md` without overclaiming
-- [ ] Signing key custody decided; certificate fingerprint published with releases
-- [ ] Release APK re-audited from the exact tagged commit (checklist in `docs/SECURITY_AUDIT.md`)
+- [x] Signing certificate fingerprint published with the release (`5ea2889b…973eb0` in the v1.1.0 notes; key custody/rotation story still open)
+- [x] Release APK re-audited from the exact tagged commit — v1.1.0: package/version/ABIs, no INTERNET, non-debuggable, `CN=ApexFOSS` signer, 16 KB + `zipalign -P 16` clean (SHA-256 `D054DB9B…6CB7AAF7`)
+- [x] Tag `v1.1.0` created; GitHub Release published (pre-release: device validation pending) with APK + SHA-256 + notes
 
-**This phase performed zero submissions and zero registrations.**
+**GitHub Release v1.1.0 is live. No store submission (Play/F-Droid) and no other registration performed.**

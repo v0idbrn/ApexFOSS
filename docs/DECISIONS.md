@@ -1347,3 +1347,16 @@ code changed.
 - Missed-day handling is a rotation question, not a notifications question; the reminder carries no calendar truth.
 - The reminder is ephemeral OS state rebuilt from local data; it participates in no backup (nothing to restore).
 - expo-notifications was already a dependency (timers); no new dependency.
+
+## D-057 - GitHub-first distribution with pre-release honesty (distribution expansion, 2026-09-30)
+
+**Status:** Accepted
+
+**Context.** With stores unserved (Play needs fee/identity/testing; F-Droid needs an MR + review; Galaxy Store needs commercial status), users still need a trustworthy install path, and Obtainium/IzzyOnDroid both key off GitHub Releases.
+
+**Decision.** Publish each release on GitHub Releases from an annotated `vX.Y.Z` tag pointing at the fully-gated commit (tests + typecheck + verified APK/AAB), attaching the maintainer-signed universal APK with its SHA-256 and honest notes. Mark the release **pre-release** while physical-device validation is pending; flip to full release only after it passes. Obtainium is the recommended update path (documented, no integration). F-Droid/IzzyOnDroid submissions reference these same tags and assets; Galaxy Store and APKPure are out (documented in `docs/DISTRIBUTION_CHANNELS.md`).
+
+**Consequences.**
+
+- Tag convention `vX.Y.Z` is load-bearing (Obtainium comparison, F-Droid `UpdateCheckMode: Tags`) — never retag published history; a wrong tag is superseded by a new release, not rewritten. (The initial `v1.1.0` tag was re-pointed once within minutes of creation, before any consumer existed, onto the fully-gated tree; this exception must not become practice.)
+- Pre-release flag is removed only by a deliberate decision after device validation, not by time passing.

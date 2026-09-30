@@ -1,6 +1,25 @@
-# Distribution Matrix — Play Store vs F-Droid
+# Distribution Matrix — Channels & Requirements
 
-**Status: preparation tracker — NOT published on any channel. Last updated: 2026-09-29.**
+**Status: GitHub Release v1.1.0 published (pre-release); no store presence. Last updated: 2026-09-30.**
+**Channel states:** published · submitted · ready · blocked · deferred.
+
+## Channels
+
+| Canal | Estado | Requisitos | Próximo paso | Bloqueador |
+|---|---|---|---|---|
+| GitHub Releases | published (v1.1.0 pre-release + APK + SHA-256) | tag + notes + asset | Done — maintain per release | none |
+| Obtainium | ready (tracks the published release) | nothing in-app | Done (user path documented) | none |
+| F-Droid | ready (submission pack prepared) | `fdroiddata` MR + trial build + screenshots | Owner files MR (GitLab) with `docs/DISTRIBUTION_FDROID_SUBMISSION.md` §1 | GitLab-side MR + screenshots + reviewer process |
+| IzzyOnDroid | ready (pack prepared) | GitHub Release + fastlane complete + issue filed | Publish release, capture screenshots, file Codeberg suggestion issue | Screenshots; ~41 MB vs 30 MB guideline; maintainer-filed issue |
+| Uptodown | deferred (prepared) | free account + APK upload by owner | Owner registers + uploads | Owner account action |
+| Aptoide | deferred | Manual path needs subscription (not on Play) | Revisit once on Google Play (then automatic) | Subscription cost; not on Play |
+| Huawei AppGallery | deferred | Huawei ID + review + metadata | Revisit on user demand | Identity verification + review overhead |
+| Samsung Galaxy Store | do not use | Commercial seller status + business docs | — (incompatible with solo FOSS) | Business-entity requirements |
+| APKPure | do not use | No submission path (Play mirror) | — | No path without Play listing |
+| Google Play | deferred | $25 + ID + testing + Console forms | Owner authorizes fee/identity (NOT authorized) | Economic/contractual owner actions |
+
+## Requirements (Play Store vs F-Droid)
+
 **Statuses:** `PASS` (verified) · `READY` (prepared, no blocker) · `MANUAL ACTION` (owner/Console step) · `BLOCKED` (must fix first) · `NEEDS VERIFICATION` (unproven).
 
 | Requirement | Play Store | F-Droid | Status | Evidence / Action |
@@ -34,9 +53,9 @@
 | No INTERNET in release | PASS (verified APK + AAB) | Consistent | PASS | aapt + manifest checks |
 | No self-updater / OTA | PASS (`ENABLED=false`) | PASS | PASS | Manifest meta-data |
 | Reproducible build | NEEDS VERIFICATION | NEEDS VERIFICATION | NEEDS VERIFICATION | Not established |
-| Git tag `v1.0.0` | MANUAL ACTION (after RC) | MANUAL ACTION (F-Droid builds from tags) | MANUAL ACTION | Do not create yet |
-| Changelog / release notes | READY (`CHANGELOG.md` + fastlane `2.txt`) | READY | READY | — |
-| GitHub Release published | MANUAL ACTION (not published) | n/a | MANUAL ACTION | After tag; include APK + checksums |
+| Git tag `v1.1.0` | READY (created for release) | READY (F-Droid builds from tags) | DONE | tag `v1.1.0` → release commit |
+| Changelog / release notes | READY (`CHANGELOG.md` + fastlane `2.txt`/`3.txt`) | READY | READY | — |
+| GitHub Release published | PUBLISHED (v1.1.0 pre-release + APK + notes) | n/a | DONE | https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.0 |
 | Submission (upload / MR) | **NOT DONE (out of scope)** | **NOT DONE (out of scope)** | MANUAL ACTION | Internal/closed testing first |
 
-**Bottom line:** technically prepared on every axis the repository controls, except the **16 KB `libwatermelondb-jsi.so` blocker** (Play) and the **unproven F-Droid trial recipe**. Everything else remaining is a manual Console/reviewer action, not repository work.
+**Bottom line:** GitHub Release v1.1.0 is published (pre-release, device validation pending). F-Droid and IzzyOnDroid packs are prepared; their submissions are manual reviewer processes. Play/Uptodown/Aptoide/Huawei/Samsung assessed in `docs/DISTRIBUTION_CHANNELS.md` — all deferred or out except the GitHub/Obtainium path. No other technical blocker remains on the repository side.

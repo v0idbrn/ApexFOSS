@@ -1,0 +1,101 @@
+# F-Droid + IzzyOnDroid Submission Pack (ApexFOSS 1.1.0)
+
+**Status: PREPARED — nothing submitted. No MR filed, no issue opened, no acceptance claimed.**
+**Last updated: 2026-09-30.**
+
+## 1. F-Droid — draft `fdroiddata` metadata
+
+File to create as `metadata/com.apexfoss.app.yml` in a fork of
+`fdroiddata` (GitLab). Drafted from the verified repo state; run
+`fdroid lint` + `fdroid rewritemeta` + a trial build before submitting.
+
+```yaml
+Categories:
+  - Sports & Health
+License: GPL-3.0-or-later
+AuthorName: v0idbrn
+WebSite: https://github.com/v0idbrn/ApexFOSS
+SourceCode: https://github.com/v0idbrn/ApexFOSS.git
+IssueTracker: https://github.com/v0idbrn/ApexFOSS/issues
+Changelog: https://github.com/v0idbrn/ApexFOSS/blob/main/CHANGELOG.md
+Donate:
+  - https://github.com/sponsors/v0idbrn
+  - https://paypal.me/amelie615
+  - https://link.mercadopago.com.ar/openv0id
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: 1.1.0
+CurrentVersionCode: 3
+
+Builds:
+  - versionName: 1.1.0
+    versionCode: 3
+    commit: v1.1.0
+    subdir: android
+    sudo:
+      - apt-get update
+      - apt-get install -y nodejs npm openjdk-17-jdk
+    init:
+      - sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006"
+      - npm install
+    prebuild:
+      - APEX_SKIP_SIGNING=1 npx expo prebuild -p android --clean
+    gradle:
+      - yes
+    output: app/build/outputs/apk/release/app-release.apk
+```
+
+Notes and open verifications (do not silently "fix" — confirm during MR CI):
+
+- `output` points at the universal release APK (both ARM ABIs, ~41 MB). The Play AAB also builds from this repo if reviewers prefer bundles.
+- `subdir: android` requires the CNG prebuild step above — `android/` is generated, never committed. `APEX_SKIP_SIGNING=1` is the validated sign-less path (D-055); maintainer signing is untouched.
+- Node/npm and NDK provisioning on the buildserver must be confirmed by the trial build (`fdroid build`); adjust `sudo`/`init` to what the runners actually provide.
+- `firebase-messaging` (via `expo-notifications`, dead code — no INTERNET, no init, no token APIs) is disclosed in `docs/DISTRIBUTION_FDROID.md` §4; strip only on explicit reviewer requirement.
+- Screenshots for the fastlane listing are still missing (no device available); add real captures under `fastlane/metadata/android/<locale>/images/phoneScreenshots/` before or during review — never mockups.
+
+## 2. F-Droid — submission steps (manual, owner)
+
+1. Create a GitLab account (if none exists).
+2. Fork `fdroiddata`, clone, branch from `master` (e.g. `com.apexfoss.app`).
+3. Add the metadata file above as `metadata/com.apexfoss.app.yml`.
+4. Install `fdroidserver` locally (`pip install fdroidserver`); run `fdroid lint` and `fdroid rewritemeta`, fix findings.
+5. Trial-build if feasible; push the branch; open a merge request titled `New App: com.apexfoss.app`.
+6. Track reviewer questions; typical timeline ranges from days to weeks.
+7. After merge, the build server picks it up automatically (24–48 h to appear, signing step is manual on their side).
+
+Alternative (slower): file a Request-For-Packaging ticket instead of an MR. The MR path above is preferred.
+
+## 3. IzzyOnDroid — status and next step
+
+Eligibility (checked against the published inclusion policy):
+
+| Requirement | ApexFOSS state |
+|---|---|
+| FOSS (OSI/FSF-approved) license | PASS — GPL-3.0-or-later, `LICENSE` at root |
+| Code freely accessible (GitHub) | PASS |
+| Unique package/display name | PASS (`com.apexfoss.app` / ApexFOSS) |
+| Release-signed APK, not debuggable/testOnly | PASS (maintainer `CN=ApexFOSS` key; verified non-debuggable) |
+| APK from project (GitHub tagged releases preferred) | READY once the v1.1.0 GitHub Release exists |
+| Fastlane metadata (short/full/icon/screenshots) | PARTIAL — texts + `icon.png` present; **screenshots missing** (no device) |
+| No self-updater, no ads/trackers | PASS (no updater; zero trackers; offline) |
+| Health-data app with no ATS elements | PASS (fitness data, no analytics/tracking SDKs) |
+| No `usesCleartextTraffic` abuse | PASS (not set) |
+| **APK ≤ 30 MB guideline** | **CAVEAT — universal APK is 41.4 MB** (measured 1.1.0: arm64 libs 16.1 MB + armeabi libs 11.1 MB + dex 8.1 MB + assets 1.9 MB; an arm64-only split would still be ~30 MB, i.e. borderline). Mitigations: request an exception with justification (offline-first, old-device support via armeabi-v7a), or drop armeabi-v7a in a store-specific artifact only if reviewers require it (would abandon Android 7 32-bit devices — a product decision, not taken here) |
+
+Next step (manual, owner): open a suggestion issue in the IzzyOnDroid Maintenance Repo (Codeberg) using their app-suggestion template, linking the repo + the v1.1.0 GitHub Release + this assessment. Do not claim acceptance before a maintainer confirms.
+
+## 4. Obtainium — user installation path (no integration needed)
+
+Obtainium tracks the GitHub Releases page directly; nothing is added to ApexFOSS for it.
+
+1. Install Obtainium (from its GitHub releases or F-Droid/IzzyOnDroid).
+2. In Obtainium: **Add app** → paste `https://github.com/v0idbrn/ApexFOSS` (source auto-detected as GitHub).
+3. Obtainium lists the v1.1.0 release assets; install `app-release.apk` (universal, both ARM ABIs).
+4. Updates: Obtainium notifies/installs on new GitHub releases (enable "include prereleases" if the release is flagged as such).
+
+Warnings to surface to users:
+
+- Signature continuity: the GitHub APK is developer-signed (`CN=ApexFOSS`). Do NOT mix with a future F-Droid build (different signer) — switching sources requires uninstall + reinstall (data loss without a prior `.apexbackup` export).
+- Obtainium performs no tracker scan and no review; users trust the developer directly (the repo is public and the release notes carry the SHA-256).
+- Version comparison works with `v1.1.0`-style tags; keep that tag convention for every release.
