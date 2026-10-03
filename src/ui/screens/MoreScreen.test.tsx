@@ -244,6 +244,18 @@ describe('MoreScreen training reminders', () => {
     expect(mockSync).toHaveBeenCalled();
   });
 
+  it('does not persist out-of-range intermediate keystrokes (e.g. "72" while replacing "7")', async () => {
+    mockLoadPrefs.mockResolvedValue({ enabled: true, hour: 7, minute: 0 });
+    const renderer = await renderMore();
+    const inputs = renderer.root.findAllByType(TextInput);
+    await act(async () => {
+      inputs[0].props.onChangeText('72');
+    });
+    await act(async () => {});
+    expect(mockSavePrefs).not.toHaveBeenCalled();
+    expect(mockSync).not.toHaveBeenCalled();
+  });
+
   it('renders reminder copy in Spanish with no raw keys', async () => {
     mockLoadPrefs.mockResolvedValue({ enabled: true, hour: 7, minute: 0 });
     setStringsLocale('es');

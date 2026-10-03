@@ -1360,3 +1360,15 @@ code changed.
 
 - Tag convention `vX.Y.Z` is load-bearing (Obtainium comparison, F-Droid `UpdateCheckMode: Tags`) — never retag published history; a wrong tag is superseded by a new release, not rewritten. (The initial `v1.1.0` tag was re-pointed once within minutes of creation, before any consumer existed, onto the fully-gated tree; this exception must not become practice.)
 - Pre-release flag is removed only by a deliberate decision after device validation, not by time passing.
+
+## D-058 - Reminder time fields persist only complete in-range values (bugfix, 2026-10-03)
+
+**Status:** Accepted
+
+**Context.** The reminder hour could never be changed from 7: every keystroke persisted immediately through `clampInt`, so intermediate states ("72" while replacing "7" with "21") were silently clamped back to the default 7 in the DB while the UI showed garbage.
+
+**Decision.** `onReminderTime` persists + resyncs only when the result is an integer in range (hour 0–23, minute 0–59); intermediate keystrokes update local state only. Reminder `NumberField`s use `selectTextOnFocus` so typing replaces instead of appending. Shared `NumberField` gains an opt-in prop (default off — no other screen changes behavior).
+
+**Consequences.**
+
+- Out-of-range intermediates can never corrupt saved prefs again; covered by regression tests.

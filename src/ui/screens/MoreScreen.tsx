@@ -86,6 +86,11 @@ export function MoreScreen() {
       const m = minute ?? reminderMinute;
       setReminderHour(h);
       setReminderMinute(m);
+      // Persist only complete, in-range values. Intermediate keystrokes
+      // (e.g. "72" while replacing "7") must not be clamped to defaults
+      // in the DB — the user is still typing.
+      if (!Number.isInteger(h) || h < 0 || h > 23) return;
+      if (!Number.isInteger(m) || m < 0 || m > 59) return;
       void persistAndSync(remindersOn, h, m);
     },
     [persistAndSync, remindersOn, reminderHour, reminderMinute],
@@ -195,11 +200,13 @@ export function MoreScreen() {
                   label={strings.reminders.hourLabel}
                   value={reminderHour}
                   onChange={(v) => onReminderTime(v, null)}
+                  selectTextOnFocus
                 />
                 <NumberField
                   label={strings.reminders.minuteLabel}
                   value={reminderMinute}
                   onChange={(v) => onReminderTime(null, v)}
+                  selectTextOnFocus
                 />
               </View>
             ) : null}

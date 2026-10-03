@@ -155,11 +155,14 @@ export function NumberField({
   value,
   onChange,
   suffix,
+  selectTextOnFocus,
 }: {
   label: string;
   value: number | null;
   onChange: (v: number | null) => void;
   suffix?: string;
+  /** Select all text on focus so typing replaces (time fields). Off by default. */
+  selectTextOnFocus?: boolean;
 }) {
   return (
     <View className="flex-1">
@@ -167,6 +170,7 @@ export function NumberField({
       <View className="h-12 min-h-12 flex-row items-center rounded-lg border border-line bg-surface-2 px-3">
         <TextInput
           keyboardType="numeric"
+          selectTextOnFocus={selectTextOnFocus}
           value={value === null ? '' : String(value)}
           onChangeText={(t) => {
             const s = t.trim();
