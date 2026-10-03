@@ -36,3 +36,10 @@ Thumbs.db
 
 # Test artifacts
 coverage/
+
+# User-provided routine payloads (personal training data) — kept on disk,
+# never committed.
+assets/*.apexroutine
+
+# In-repo native module build outputs (rebuilt by Gradle, never committed).
+modules/apex-notifications/android/build/

@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- Required for setAlarmClock on API 31+ (enforced on API 34+; denied by
+    default for newly installed target-34+ apps until the user grants it in
+    Settings > Special app access > Alarms & reminders). -->
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  <application>
+    <receiver
+      android:name="expo.modules.apexnotifications.AlarmReceiver"
+      android:exported="false" />
+  </application>
+</manifest>

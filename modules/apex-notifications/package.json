@@ -1,0 +1,6 @@
+{
+  "name": "apex-notifications",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FOSS local notification backend for the F-Droid build (no Firebase)"
+}
