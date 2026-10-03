@@ -6,7 +6,7 @@ export const ROUTINE_FORMAT = 'apexfoss-routine' as const;
 export const BACKUP_FORMAT = 'apexfoss-backup' as const;
 export const ROUTINE_FORMAT_VERSION = 1 as const;
 export const BACKUP_FORMAT_VERSION = 1 as const;
-export const APP_VERSION = '1.1.0' as const;
+export const APP_VERSION = '1.1.1' as const;
 
 /** Package-local exercise identity (installation-independent). */
 export interface PortableExercise {

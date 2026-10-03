@@ -2,6 +2,12 @@
 
 Notable changes to ApexFOSS. Versions follow a simple pre-1.0 convention; a date appears only when a version is actually tagged and released. The project follows nothing beyond this file — planned work lives in `docs/DECISIONS.md` and `docs/DISTRIBUTION.md`, not here.
 
+## 1.1.1 — unreleased
+
+- **F-Droid Firebase-free notification flavor**: `-PapexFdroid=true` build excludes `expo-notifications` (no Firebase/GMS in APK); new local `apex-notifications` module schedules rest/reminder alerts via `AlarmManager` + manifest receiver. Root-caused on device: `setAlarmClock` requires `SCHEDULE_EXACT_ALARM` (denied by default on API 34) — declared in the module manifest, gated via `canScheduleExactAlarms()`, one-time system Settings redirect on reminder enable.
+- **Reminder time fix**: the hour field could never leave 7 — per-keystroke persistence clamped intermediates back to the default. Time fields now persist only complete in-range values and select-all-on-focus.
+- **Tests**: 1240 Jest tests across 95 suites plus a clean `tsc --noEmit`; rest + daily notifications validated physically on Galaxy A04 (API 34).
+
 ## 1.1.0 — 2026-09-30
 
 Training-loop maturity pass: honest execution records, explicit substitutions, execution notes, local training reminders, and programming metadata. Same architecture and ports; database **schema v13** (additive, nullable columns) with `.apexbackup` round-trip for every new field (legacy backups still restore).
