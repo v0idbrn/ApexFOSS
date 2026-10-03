@@ -3,7 +3,7 @@ import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native
 import { database } from '../../data';
 import { strings, type Locale } from '../../constants/strings';
 import { GITHUB_SPONSORS_URL, MERCADOPAGO_URL, PAYPAL_URL } from '../../constants/support';
-import { requestNotificationPermission } from '../../notifications';
+import { canScheduleExactAlarms, openExactAlarmSettings, requestNotificationPermission } from '../../notifications';
 import {
   DEFAULT_REMINDER_HOUR,
   DEFAULT_REMINDER_MINUTE,
@@ -71,6 +71,13 @@ export function MoreScreen() {
       // Permission is requested only here, on explicit enable — never on open.
       const granted = await requestNotificationPermission();
       if (!granted) {
+        setPermissionBlocked(true);
+        return;
+      }
+      // Exact alarms (API 31+, enforced 34+): without the grant, scheduling
+      // silently no-ops. Send the user to Settings once; they toggle again after.
+      if (!(await canScheduleExactAlarms())) {
+        await openExactAlarmSettings();
         setPermissionBlocked(true);
         return;
       }

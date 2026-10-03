@@ -1372,3 +1372,16 @@ code changed.
 **Consequences.**
 
 - Out-of-range intermediates can never corrupt saved prefs again; covered by regression tests.
+
+## D-059 - SCHEDULE_EXACT_ALARM for F-Droid local notifications (blocker resolution, 2026-10-03)
+
+**Status:** Accepted
+
+**Context.** The F-Droid flavour (`-PapexFdroid=true`, `modules/apex-notifications`, no Firebase) scheduled rest/reminder alerts via `AlarmManager.setAlarmClock()`, assuming no exact-alarm permission was needed. On the validation device (Galaxy A04, Android 14/API 34, targetSdk 36) every schedule call threw `SecurityException: needs SCHEDULE_EXACT_ALARM or USE_EXACT_ALARM` — zero alarms, zero channels, zero notifications. The JS bridge, adapter, module registration and receiver were all proven working; only the AlarmManager call failed. On API 34 the permission is denied by default for newly installed target-34+ apps.
+
+**Decision.** Declare `SCHEDULE_EXACT_ALARM` in the local module manifest; gate all scheduling on `canScheduleExactAlarms()` (in-app countdown stays authoritative when denied); on reminder enable, send the user once to the system Alarms & reminders screen (`ACTION_REQUEST_SCHEDULE_EXACT_ALARM`) and show the existing blocked UI until granted. Rest-timer alerts stay best-effort. No `USE_EXACT_ALARM` (reserved for clock apps), no `RECEIVE_BOOT_COMPLETED` (reboot still clears alarms — documented limitation, resync on next app open recreates reminders).
+
+**Consequences.**
+
+- First-run F-Droid installs need one user grant before any local alert fires; validated end-to-end on device (rest + daily reminder alarms armed, receiver posted, `NotificationRecord` observed).
+- `dumpsys`-level proof replaced speculation: the failure was never the bridge.

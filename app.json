@@ -28,6 +28,7 @@
       "./plugins/withApexSigning",
       "./plugins/withNetworkHardening",
       "./plugins/withFileIntentFilters",
+      "./plugins/withFdroidNotificationFlavor",
       [
         "expo-build-properties",
         {

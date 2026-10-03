@@ -3,6 +3,7 @@ import { strings } from '../constants/strings';
 import { loadNextUp } from '../data/scheduling';
 import { makeDbActions } from '../data/actions';
 import { getSetting, setSetting } from '../data/settings';
+import { upstreamNotifications, localNotifications, localNotificationAdapter } from './backend';
 
 /**
  * Local training reminders (D-056).
@@ -10,8 +11,8 @@ import { getSetting, setSetting } from '../data/settings';
  * Source of truth is the program rotation (`loadNextUp` — WHAT is next, never
  * a calendar date). One managed daily notification at the user's habitual
  * time names the next-up routine; nothing is scheduled when no program
- * suggests a routine. Fully offline: expo-notifications local scheduling
- * only, no tokens, no backend.
+ * suggests a routine. Fully offline: local scheduling only (expo-notifications
+ * or the local ApexNotifications module — see backend.ts), no tokens, no backend.
  *
  * Managed identity is the deterministic identifier below — resync cancels and
  * recreates ONLY it, never timer/recovery notifications (no cancelAll here).
@@ -125,15 +126,15 @@ export async function loadNextUpCommit(db: Database): Promise<NextUpCommit | nul
   };
 }
 
-function requireNotifications(): any | null {
+async function requireNotifications(): Promise<any | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const Notifications = require('expo-notifications');
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { Platform } = require('react-native');
     if (Platform.OS !== 'android' && Platform.OS !== 'ios') return null;
-    if (typeof Notifications.scheduleNotificationAsync !== 'function') return null;
-    return Notifications;
+    const upstream = await upstreamNotifications();
+    if (upstream && typeof upstream.scheduleNotificationAsync === 'function') return upstream;
+    const local = localNotifications();
+    return local ? localNotificationAdapter(local) : null;
   } catch {
     return null;
   }
@@ -157,7 +158,7 @@ async function ensureReminderChannel(Notifications: any, name: string): Promise<
 
 /** Cancel ONLY the managed training reminder (never timer notifications). */
 export async function cancelTrainingReminders(): Promise<void> {
-  const Notifications = requireNotifications();
+  const Notifications = await requireNotifications();
   if (!Notifications) return;
   try {
     await Notifications.cancelScheduledNotificationAsync(TRAINING_REMINDER_ID);
@@ -183,7 +184,7 @@ export function reminderLabels(): ReminderLabels {
  * notify about. Timer/recovery notifications are never touched.
  */
 export async function syncTrainingReminders(db: Database, labels: ReminderLabels): Promise<void> {
-  const Notifications = requireNotifications();
+  const Notifications = await requireNotifications();
   if (!Notifications) return;
   try {
     const prefs = await loadReminderPrefs(db);

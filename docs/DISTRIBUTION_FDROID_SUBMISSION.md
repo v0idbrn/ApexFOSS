@@ -99,3 +99,17 @@ Warnings to surface to users:
 - Signature continuity: the GitHub APK is developer-signed (`CN=ApexFOSS`). Do NOT mix with a future F-Droid build (different signer) — switching sources requires uninstall + reinstall (data loss without a prior `.apexbackup` export).
 - Obtainium performs no tracker scan and no review; users trust the developer directly (the repo is public and the release notes carry the SHA-256).
 - Version comparison works with `v1.1.0`-style tags; keep that tag convention for every release.
+
+## 5. F-Droid blocker — RESOLVED on device (2026-10-03)
+
+The §1 blocker ("flavour without Firebase **plus device validation that rest-timer alerts still fire**") is closed. History above is preserved; this section records the resolution.
+
+**Solution.** `-PapexFdroid=true` invocation-scoped flavour (no product flavors: autolinking evaluates once per Gradle invocation): `plugins/withFdroidNotificationFlavor.js` excludes `expo-notifications` from autolinking, so no Firebase/FCM enters the APK; new local module `modules/apex-notifications` (`ApexNotifications`) schedules via `AlarmManager.setAlarmClock` + manifest `AlarmReceiver`, runtime-selected by a sentinel probe (`src/notifications/backend.ts`). Normal build unchanged.
+
+**Root cause found on device (D-058).** Bridge, adapter, registration and receiver were all proven working; `setAlarmClock()` threw `SecurityException: needs SCHEDULE_EXACT_ALARM` because the permission was never declared and is denied by default on API 34 for newly installed target-34+ apps. Fix: `SCHEDULE_EXACT_ALARM` in the module manifest + `canScheduleExactAlarms()` gate (in-app countdown authoritative) + one-time redirect to system Alarms & reminders on reminder enable.
+
+**APK forensics (clean release build, `android/app/build/outputs/apk/release/app-release.apk`).** `apkanalyzer dex packages --defined-only`: `com.google.firebase` 0, `com.google.android.gms` 0, `com.google.android.c2dm` 0, `FirebaseMessaging` 0, `expo.modules.notifications` 0, `google.protobuf` 0; `expo.modules.apexnotifications` present. Manifest: only `expo.modules.apexnotifications.AlarmReceiver`, no `MESSAGING_EVENT`. Badging: `POST_NOTIFICATIONS`, `SCHEDULE_EXACT_ALARM`, `VIBRATE` present; `INTERNET`, `c2dm`, `RECEIVE_BOOT_COMPLETED` absent. `zipalign -c -P 16 4`: exit 0 (16 KB PASS).
+
+**Device validation (Galaxy A04 SM-A045M, Android 14/API 34, arm64-v8a).** After granting Alarms & reminders: one-shot scheduled from JS fired in 8 s (`AlarmReceiver.onReceive`, active `NotificationRecord` on `apex-notifications-default`); real workout rest (90 s, backgrounded) posted its expiry notification and the cursor recovered on foreground; daily reminder alarm armed for the configured 21:30 with channel created; cancel path verified. Jest + typecheck green at commit time (see commit message).
+
+**Limitations (carry into the MR notes).** (1) Local alerts need the one-time exact-alarm grant; without it the in-app countdown still runs but no system notification fires. (2) No `RECEIVE_BOOT_COMPLETED` by design — reboot clears alarms until the next app open (reminders resync then). (3) `com.google.android.finsky.permission.BIND_GET_INSTALL_REFERRER_SERVICE` + `installreferrer:2.2` come from `expo-application` (not Firebase/GMS); zero `expo-application` API usage in `src/`.

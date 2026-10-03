@@ -20,10 +20,12 @@ jest.mock('../../notifications/reminders', () => ({
 }));
 jest.mock('../../notifications', () => ({
   requestNotificationPermission: jest.fn(() => Promise.resolve(true)),
+  canScheduleExactAlarms: jest.fn(() => Promise.resolve(true)),
+  openExactAlarmSettings: jest.fn(() => Promise.resolve()),
 }));
 
 import { loadReminderPrefs, saveReminderPrefs, syncTrainingReminders } from '../../notifications/reminders';
-import { requestNotificationPermission } from '../../notifications';
+import { requestNotificationPermission, canScheduleExactAlarms, openExactAlarmSettings } from '../../notifications';
 
 /**
  * More screen: support entry (spec sections 30-32). Voluntary links open
@@ -165,6 +167,8 @@ describe('MoreScreen training reminders', () => {
   const mockSavePrefs = saveReminderPrefs as jest.Mock;
   const mockSync = syncTrainingReminders as jest.Mock;
   const mockPerm = requestNotificationPermission as jest.Mock;
+  const mockCanSchedule = canScheduleExactAlarms as jest.Mock;
+  const mockOpenSettings = openExactAlarmSettings as jest.Mock;
 
   function switchByTestID(renderer: ReactTestRenderer, testID: string) {
     return renderer.root
@@ -254,6 +258,19 @@ describe('MoreScreen training reminders', () => {
     await act(async () => {});
     expect(mockSavePrefs).not.toHaveBeenCalled();
     expect(mockSync).not.toHaveBeenCalled();
+  });
+
+  it('routes to system settings when exact alarms are unavailable instead of enabling', async () => {
+    mockLoadPrefs.mockResolvedValue({ enabled: false, hour: 7, minute: 0 });
+    mockCanSchedule.mockResolvedValue(false);
+    const renderer = await renderMore();
+    await act(async () => {
+      switchByTestID(renderer, 'more-reminders-toggle')?.props.onValueChange(true);
+    });
+    await act(async () => {});
+    expect(mockOpenSettings).toHaveBeenCalledTimes(1);
+    expect(mockSavePrefs).not.toHaveBeenCalled();
+    mockCanSchedule.mockResolvedValue(true);
   });
 
   it('renders reminder copy in Spanish with no raw keys', async () => {
