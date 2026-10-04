@@ -105,11 +105,10 @@ android {
             keyPassword 'android'
         }
     }
-    // Disable v2/v3 signing for F-Droid build to avoid "Dependency metadata" block
+    // Disable dependency metadata signing block for F-Droid build (AGP 8.2+)
     def apexFdroidFlavor = findProperty('apexFdroid')?.toBoolean() ?: false
     if (apexFdroidFlavor) {
-        signingConfigs.debug.v2SigningEnabled = false
-        signingConfigs.debug.v3SigningEnabled = false
+        disableDependencyMetadata = true
     }
     buildTypes {
         debug {
