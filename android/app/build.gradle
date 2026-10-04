@@ -124,7 +124,9 @@ android {
     // Disable dependency metadata signing block for F-Droid build
     def apexFdroidFlavor = findProperty('apexFdroid')?.toBoolean() ?: false
     if (apexFdroidFlavor) {
-        android.dependencyMetadata.enabled = false
+        dependencyMetadata {
+            enabled = false
+        }
     }
     packagingOptions {
         jniLibs {
