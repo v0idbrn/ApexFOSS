@@ -121,11 +121,11 @@ android {
             crunchPngs enablePngCrunchInRelease.toBoolean()
         }
     }
-    // Disable dependency metadata signing block for F-Droid build
+    // Disable dependency metadata signing block for F-Droid build (APK)
     def apexFdroidFlavor = findProperty('apexFdroid')?.toBoolean() ?: false
     if (apexFdroidFlavor) {
-        dependencyMetadata {
-            enabled = false
+        tasks.withType(com.android.build.gradle.tasks.PackageApplication).configureEach { task ->
+            task.dependencyMetadataEnabled = false
         }
     }
     packagingOptions {
