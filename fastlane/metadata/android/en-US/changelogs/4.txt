@@ -1,0 +1,1 @@
+v1.1.1: Firebase-free local notifications for F-Droid — rest timers and training reminders via AlarmManager with the exact-alarm permission properly handled; fixed the reminder time field that could not be edited; faster startup.

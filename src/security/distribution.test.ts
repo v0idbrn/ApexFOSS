@@ -20,13 +20,17 @@ describe('distribution metadata invariants', () => {
   it('app.json declares the release identity (package, version, versionCode)', () => {
     const app = readJson('app.json').expo;
     expect(app.package ?? app.android?.package).toBe('com.apexfoss.app');
-    expect(app.version).toBe('1.1.0');
-    expect(app.android?.versionCode).toBe(3);
+    // Version literals live in app.json/package.json/types.ts; assert they agree
+    // instead of pinning one here (every release bump must not edit this test).
+    expect(app.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(app.android?.versionCode).toBeGreaterThanOrEqual(1);
+    const types = readText('src/portability/types.ts');
+    expect(types).toContain(`APP_VERSION = '${app.version}'`);
   });
 
   it('package.json version and GPL license match the release identity', () => {
     const pkg = readJson('package.json');
-    expect(pkg.version).toBe('1.1.0');
+    expect(pkg.version).toBe(readJson('app.json').expo.version);
     expect(pkg.license).toBe('GPL-3.0-or-later');
   });
 

@@ -1,0 +1,1 @@
+v1.1.1: Notificaciones locales para F-Droid sin Firebase — temporizadores de descanso y recordatorios con AlarmManager y permiso de alarma exacta verificado; solución al campo de hora del recordatorio que no se podía editar; mejora de arranque.
