@@ -105,12 +105,6 @@ android {
             keyPassword 'android'
         }
     }
-    // Disable v2/v3 signing for F-Droid release build to avoid "Dependency metadata" block
-    def apexFdroidFlavor = findProperty('apexFdroid')?.toBoolean() ?: false
-    if (apexFdroidFlavor) {
-        buildTypes.release.v2SigningEnabled = false
-        buildTypes.release.v3SigningEnabled = false
-    }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
@@ -127,7 +121,6 @@ android {
             crunchPngs enablePngCrunchInRelease.toBoolean()
         }
     }
-    
     packagingOptions {
         jniLibs {
             def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
