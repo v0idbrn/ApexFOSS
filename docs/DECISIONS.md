@@ -1385,3 +1385,17 @@ code changed.
 
 - First-run F-Droid installs need one user grant before any local alert fires; validated end-to-end on device (rest + daily reminder alarms armed, receiver posted, `NotificationRecord` observed).
 - `dumpsys`-level proof replaced speculation: the failure was never the bridge.
+
+## D-060 - Timed-exercise timer shares the canonical timer state (1.1.x, 2026-10-08)
+
+**Status:** Accepted (tested)
+
+**Context.** Time-based prescriptions (plank, carries, tempo holds) had no in-app aid: the athlete logged the set manually. Adding a stopwatch UI as a second source of truth would violate the frozen rule that `cursor_json.timer.expiresAt` is canonical and that the engine owns every transition.
+
+**Decision.** Extend the existing timer instead of adding a system: `TimerState.kind` gains `'preparation' | 'exercise'`, and one new engine event `START_TIMED_EXERCISE` starts a fixed 5 s preparation countdown (`ENGINE_DEFAULTS.exercisePreparationMs`, no settings UI) anchored on the current position. `TIMER_EXPIRE` branches by kind: preparation starts the exercise countdown for the prescribed `targetDurationMs` — anchored at *now*, never chained to the prep expiry (backgrounding during prep must not borrow exercise time); exercise completes the set through the normal `COMPLETE_SET` path (auto-`LOG_SET` with the target payload, then rest/advance/`UNDO_LAST` semantics unchanged); rest/auto keep the frozen move-to-target behavior, and `SKIP_TIMER` still cancels either new kind back to the same position. Preparation schedules no local notification (it is consumed on-screen); exercise schedules "Exercise complete" through the shared `timerNotificationTitle`. UI shows whole-second countdowns and a Cancel button for the new kinds; pause/resume, persistence, recovery (`isTimerExpired` → `TIMER_EXPIRE`) and the visual mirror store are reused as-is.
+
+**Consequences.**
+
+- One timer authority, one event loop, no second reducer or component-owned countdown; simulator, interval and rest semantics untouched.
+- Cancel does not log a skipped set — it returns the athlete to the same position (time-based sets stay honest: performed or not, the engine never guesses).
+- The exercise set classifies as `normal` only because the payload mirrors the prescription; a future "actual duration" field would need its own decision entry.

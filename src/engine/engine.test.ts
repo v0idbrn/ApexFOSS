@@ -1,6 +1,7 @@
 import { dispatch, computeTarget } from './index';
 import { initialCursor } from './cursor';
 import { RoutineDefinition, StepDef, BlockDef, SetPayload, TransitionDef } from '../types/engine';
+import { classifySetExecution } from '../workout/execution';
 
 const NO_SET: SetPayload = { weightGrams: null, reps: null, durationMs: null, distanceMm: null, rir: null };
 const SET = (grams = 100000, reps = 5): SetPayload => ({ ...NO_SET, weightGrams: grams, reps });
@@ -391,5 +392,119 @@ describe('computeTarget — explicit edges', () => {
     ]);
     const t = computeTarget(def, 0, 0, 2);
     expect(t).toMatchObject({ stepIndex: 2, round: 2, sessionComplete: false });
+  });
+});
+
+describe('Workout Execution Engine — timed exercise (Start → prep → exercise)', () => {
+  const timedRoutine = (sets = 2, durationMs = 30_000): RoutineDefinition => {
+    const base = step('s1', 'Plank', sets);
+    return routine([
+      block('b1', 'Main', 'normal', 1, [
+        {
+          ...base,
+          prescription: { ...base.prescription, targetDurationMs: durationMs, targetWeightGrams: 40_000 },
+        },
+      ]),
+    ]);
+  };
+
+  it('starts a 5s preparation countdown on the current position without a notification', () => {
+    const def = timedRoutine();
+    const cursor = initialCursor(def, T0);
+    const { cursor: c, effects } = dispatch(def, cursor, { type: 'START_TIMED_EXERCISE', now: T0 });
+    expect(c.timer).toMatchObject({
+      kind: 'preparation',
+      durationMs: 5_000,
+      expiresAt: T0 + 5_000,
+      target: { blockIndex: 0, stepIndex: 0, round: 1, setIndex: 1 },
+    });
+    expect(effects).toMatchObject([
+      { kind: 'START_TIMER', timerKind: 'preparation', durationMs: 5_000, expiresAt: T0 + 5_000 },
+    ]);
+    expect(effects.some((e) => e.kind === 'SCHEDULE_NOTIFICATION')).toBe(false);
+  });
+
+  it('is a no-op while a timer runs, without a duration, or off a work step', () => {
+    const def = timedRoutine();
+    const cursor = initialCursor(def, T0);
+    const running = dispatch(def, cursor, { type: 'START_TIMED_EXERCISE', now: T0 }).cursor;
+    const again = dispatch(def, running, { type: 'START_TIMED_EXERCISE', now: T0 + 1_000 });
+    expect(again.cursor.timer).toMatchObject({ kind: 'preparation', expiresAt: T0 + 5_000 });
+    expect(again.effects).toEqual([]);
+
+    const noDuration = routine([block('b1', 'Main', 'normal', 1, [step('s1', 'Squat', 1)])]);
+    const r1 = dispatch(noDuration, initialCursor(noDuration, T0), { type: 'START_TIMED_EXERCISE', now: T0 });
+    expect(r1.cursor.timer).toBeNull();
+    expect(r1.effects).toEqual([]);
+
+    const onRest = routine([block('b1', 'Main', 'normal', 1, [restStep('r1', 60_000)])]);
+    const r2 = dispatch(onRest, initialCursor(onRest, T0), { type: 'START_TIMED_EXERCISE', now: T0 });
+    expect(r2.cursor.timer).toBeNull();
+    expect(r2.effects).toEqual([]);
+  });
+
+  it('preparation expiry starts the exercise countdown anchored at now (never chained to prep)', () => {
+    const def = timedRoutine();
+    const cursor = initialCursor(def, T0);
+    const prep = dispatch(def, cursor, { type: 'START_TIMED_EXERCISE', now: T0 }).cursor;
+    const { cursor: exercise, effects } = dispatch(def, prep, { type: 'TIMER_EXPIRE', now: T0 + 5_000 });
+    expect(exercise.timer).toMatchObject({ kind: 'exercise', durationMs: 30_000, expiresAt: T0 + 35_000 });
+    expect(effects).toMatchObject([
+      { kind: 'START_TIMER', timerKind: 'exercise', durationMs: 30_000, expiresAt: T0 + 35_000 },
+      { kind: 'SCHEDULE_NOTIFICATION', expiresAt: T0 + 35_000, title: 'Exercise complete' },
+    ]);
+
+    // Backgrounded past the prep expiry: the exercise still gets its full duration.
+    const late = dispatch(def, prep, { type: 'TIMER_EXPIRE', now: T0 + 25_000 });
+    expect(late.cursor.timer).toMatchObject({ kind: 'exercise', expiresAt: T0 + 55_000 });
+  });
+
+  it('exercise expiry logs the timed set through the normal completion path', () => {
+    const def = timedRoutine();
+    const cursor = initialCursor(def, T0);
+    const prep = dispatch(def, cursor, { type: 'START_TIMED_EXERCISE', now: T0 }).cursor;
+    const exercise = dispatch(def, prep, { type: 'TIMER_EXPIRE', now: T0 + 5_000 }).cursor;
+    const { cursor: after, effects } = dispatch(def, exercise, { type: 'TIMER_EXPIRE', now: T0 + 35_000 });
+    const log = effects.find((e) => e.kind === 'LOG_SET');
+    expect(log).toMatchObject({
+      blockIndex: 0,
+      stepIndex: 0,
+      round: 1,
+      setIndex: 1,
+      set: { weightGrams: 40_000, reps: null, durationMs: 30_000, distanceMm: null, rir: null },
+    });
+    if (log && log.kind === 'LOG_SET') {
+      expect(classifySetExecution(def.blocks[0].steps[0].prescription, log.set)).toBe('normal');
+    }
+    expect(after).toMatchObject({ setIndex: 2 });
+    expect(after.timer).toMatchObject({ kind: 'rest', durationMs: 90_000 });
+    expect(after.lastReversible).toMatchObject({ setIndex: 1 });
+
+    const undo = dispatch(def, after, { type: 'UNDO_LAST', now: T0 + 36_000 });
+    expect(undo.effects[0]).toMatchObject({ kind: 'VOID_LAST_SET' });
+    expect(undo.cursor).toMatchObject({ setIndex: 1, status: 'active' });
+    expect(undo.cursor.timer).toBeNull();
+  });
+
+  it('skip during preparation or exercise cancels back to the same position', () => {
+    const def = timedRoutine();
+    const cursor = initialCursor(def, T0);
+    const prep = dispatch(def, cursor, { type: 'START_TIMED_EXERCISE', now: T0 }).cursor;
+    const cancelPrep = dispatch(def, prep, { type: 'SKIP_TIMER', now: T0 + 2_000 });
+    expect(cancelPrep.cursor).toMatchObject({ blockIndex: 0, stepIndex: 0, round: 1, setIndex: 1 });
+    expect(cancelPrep.cursor.timer).toBeNull();
+    expect(cancelPrep.effects).toMatchObject([
+      { kind: 'CANCEL_TIMER' },
+      { kind: 'CANCEL_NOTIFICATION' },
+    ]);
+    expect(
+      cancelPrep.effects.some((e) => e.kind === 'ADVANCE_STEP' || e.kind === 'ADVANCE_ROUND'),
+    ).toBe(false);
+
+    const exercise = dispatch(def, prep, { type: 'TIMER_EXPIRE', now: T0 + 5_000 }).cursor;
+    const cancelExercise = dispatch(def, exercise, { type: 'SKIP_TIMER', now: T0 + 10_000 });
+    expect(cancelExercise.cursor).toMatchObject({ stepIndex: 0, setIndex: 1 });
+    expect(cancelExercise.cursor.timer).toBeNull();
+    expect(cancelExercise.effects.some((e) => e.kind === 'LOG_SET')).toBe(false);
   });
 });

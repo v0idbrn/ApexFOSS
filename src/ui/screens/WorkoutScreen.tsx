@@ -1038,6 +1038,13 @@ export function WorkoutScreen() {
   const canUndo = cursor.status === 'active' && cursor.lastReversible?.kind === 'set';
   const hasTimer = cursor.status === 'active' && cursor.timer !== null;
   const showNumpad = cursor.status === 'active' && !!currentStep && !hasTimer && block?.kind !== 'interval';
+  const showTimedExerciseStart =
+    cursor.status === 'active' &&
+    !!currentStep &&
+    !hasTimer &&
+    block?.kind !== 'interval' &&
+    currentStep.role === 'work' &&
+    (currentStep.prescription.targetDurationMs ?? 0) > 0;
   const showTempo =
     cursor.status === 'active' &&
     !!currentStep &&
@@ -1053,14 +1060,23 @@ export function WorkoutScreen() {
       ? Math.max(0, cursor.timer.expiresAt - cursor.timer.pausedAt)
       : timer.remainingMs || Math.max(0, cursor.timer.expiresAt - Date.now())
     : 0;
+  // Timed-exercise states show whole seconds; rest keeps the mm:ss countdown.
+  const timedExercise =
+    hasTimer && (cursor.timer?.kind === 'preparation' || cursor.timer?.kind === 'exercise');
   // Rest-state presentation: kind + paused are always spelled out (never color-only).
   const restKind = hasTimer && cursor.timer
     ? cursor.timer.kind === 'rest'
       ? strings.timer.rest
-      : strings.timer.autoAdvance
+      : cursor.timer.kind === 'preparation'
+        ? strings.timer.preparation
+        : cursor.timer.kind === 'exercise'
+          ? strings.timer.exercise
+          : strings.timer.autoAdvance
     : '';
   const restPaused = !!(hasTimer && cursor.timer && cursor.timer.pausedAt != null);
-  const restCountdown = formatCountdown(timerRemainingMs);
+  const restCountdown = timedExercise
+    ? String(Math.ceil(timerRemainingMs / 1000))
+    : formatCountdown(timerRemainingMs);
   const restTargetStep =
     hasTimer && cursor.timer
       ? definition.blocks[cursor.timer.target.blockIndex]?.steps[cursor.timer.target.stepIndex]
@@ -1260,7 +1276,7 @@ export function WorkoutScreen() {
                   testID="rest-progress"
                 />
               </View>
-              {restTargetStep ? (
+              {timedExercise ? null : restTargetStep ? (
                 <View className="mt-3 rounded-lg border border-line bg-bg px-3 py-2">
                   <Text className="text-overline uppercase text-dim" numberOfLines={1}>
                     {strings.workout.nextUp}: {restTargetStep.exerciseName}
@@ -1280,7 +1296,13 @@ export function WorkoutScreen() {
                   disabled={busy}
                   className="flex-1"
                 />
-                <Button label={strings.workout.skipRest} variant="secondary" onPress={onSkip} disabled={busy} className="flex-1" />
+                <Button
+                  label={timedExercise ? strings.common.cancel : strings.workout.skipRest}
+                  variant="secondary"
+                  onPress={onSkip}
+                  disabled={busy}
+                  className="flex-1"
+                />
               </View>
             </Card>
           </Enter>
@@ -1415,6 +1437,17 @@ export function WorkoutScreen() {
                       busy={busy}
                     />
                   )}
+                </View>
+              ) : null}
+
+              {showTimedExerciseStart ? (
+                <View className="mt-4">
+                  <Button
+                    label={strings.workout.startTimedExercise}
+                    testID="start-timed-exercise"
+                    onPress={() => void apply({ type: 'START_TIMED_EXERCISE', now: Date.now() })}
+                    disabled={busy}
+                  />
                 </View>
               ) : null}
 

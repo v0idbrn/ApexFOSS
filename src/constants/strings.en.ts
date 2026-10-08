@@ -306,6 +306,7 @@ more: {
     next: 'NEXT',
     rest: 'REST',
     skipRest: 'Skip rest',
+    startTimedExercise: 'Start timer',
     previous: 'Previous',
     noPrevious: 'First time',
     weight: 'kg',
@@ -360,6 +361,8 @@ more: {
   timer: {
     rest: 'REST',
     autoAdvance: 'AUTO',
+    preparation: 'GET READY',
+    exercise: 'EXERCISE',
   },
   history: {
     title: 'History',

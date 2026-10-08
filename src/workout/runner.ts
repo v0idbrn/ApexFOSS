@@ -4,6 +4,7 @@ import { makeDbActions } from '../data/actions';
 import { definitionOf, cursorOf, serializeRoutine } from '../data/serialize';
 import { Routine, WorkoutSession } from '../data/models';
 import type { EngineEvent, ExecutionCursor, RoutineDefinition, TimerState } from '../types/engine';
+import { timerNotificationTitle } from '../types/engine';
 import { scheduleTimerNotification, cancelTimerNotification } from '../notifications';
 
 /**
@@ -36,17 +37,15 @@ export async function reconcileTimerNotification(
   timer: TimerState | null,
   now: number,
 ): Promise<void> {
-  if (!timer || timer.pausedAt != null || timer.expiresAt <= now) {
+  const title = timer ? timerNotificationTitle(timer.kind) : null;
+  if (!timer || title === null || timer.pausedAt != null || timer.expiresAt <= now) {
     await clearSessionNotification(sessionId);
     return;
   }
   // Fresh schedule on every reconcile: process death loses the in-memory id map,
   // and a stale notification for a past expiry must not survive recovery.
   await cancelTimerNotification(notificationIds.get(sessionId) ?? null);
-  const id = await scheduleTimerNotification(
-    timer.expiresAt,
-    timer.kind === 'rest' ? 'Rest complete' : 'Next',
-  );
+  const id = await scheduleTimerNotification(timer.expiresAt, title);
   notificationIds.set(sessionId, id);
 }
 

@@ -1090,3 +1090,160 @@ describe('WorkoutScreen stop-early and substitution (1.1.0)', () => {
     await unmountWorkout(renderer);
   });
 });
+
+describe('WorkoutScreen timed exercise timer', () => {
+  const timedDefinition: RoutineDefinition = {
+    id: 'r-timed',
+    name: 'Timed Day',
+    blocks: [
+      {
+        id: 'b1',
+        name: 'Main',
+        kind: 'normal',
+        rounds: 1,
+        steps: [
+          {
+            id: 's1',
+            role: 'work',
+            exerciseId: null,
+            exerciseName: 'Plank',
+            prescription: { ...prescription, targetSets: 2, targetDurationMs: 30_000 },
+          },
+        ],
+        transitions: [],
+      },
+    ],
+  };
+
+  const intervalDefinition: RoutineDefinition = {
+    id: 'r-interval',
+    name: 'Interval Day',
+    blocks: [
+      {
+        id: 'b1',
+        name: 'Intervals',
+        kind: 'interval',
+        rounds: 1,
+        steps: [
+          {
+            id: 's1',
+            role: 'work',
+            exerciseId: null,
+            exerciseName: 'Bike',
+            prescription: { ...prescription, targetDurationMs: 30_000 },
+          },
+        ],
+        transitions: [],
+        interval: { mode: 'hiit', workMs: 20_000, restMs: 10_000, rounds: 5, periodMs: null, preparationMs: 0 },
+      },
+    ],
+  };
+
+  const timedRuntime = (over: Partial<ExecutionCursor> = {}, definitionOverride?: RoutineDefinition) =>
+    makeRuntime({ definition: definitionOverride ?? timedDefinition, cursor: activeCursor(over) });
+
+  const prepTimer = (expiresAt: number): TimerState =>
+    restTimer(expiresAt, {
+      kind: 'preparation',
+      durationMs: 5_000,
+      target: { blockIndex: 0, stepIndex: 0, round: 1, setIndex: 1 },
+    });
+
+  const exerciseTimer = (expiresAt: number): TimerState =>
+    restTimer(expiresAt, {
+      kind: 'exercise',
+      durationMs: 30_000,
+      target: { blockIndex: 0, stepIndex: 0, round: 1, setIndex: 1 },
+    });
+
+  const findStart = (renderer: ReactTestRenderer) =>
+    nodesWith(renderer, { testID: 'start-timed-exercise' });
+
+  it('shows Start for a timed step when no timer is running', async () => {
+    mockedLoad.mockResolvedValue(timedRuntime());
+    const renderer = await renderWorkout();
+    expect(findStart(renderer)).toHaveLength(1);
+    await unmountWorkout(renderer);
+  });
+
+  it('hides Start without a target duration, while a timer runs, or on interval blocks', async () => {
+    // Default fixture prescription has targetDurationMs: null.
+    mockedLoad.mockResolvedValue(makeRuntime());
+    let renderer = await renderWorkout();
+    expect(findStart(renderer)).toHaveLength(0);
+    await unmountWorkout(renderer);
+
+    mockedLoad.mockResolvedValue(timedRuntime({ timer: restTimer(Date.now() + 90_000) }));
+    renderer = await renderWorkout();
+    expect(findStart(renderer)).toHaveLength(0);
+    await unmountWorkout(renderer);
+
+    mockedLoad.mockResolvedValue(timedRuntime({}, intervalDefinition));
+    renderer = await renderWorkout();
+    expect(findStart(renderer)).toHaveLength(0);
+    await unmountWorkout(renderer);
+  });
+
+  it('pressing Start dispatches START_TIMED_EXERCISE and shows the preparation countdown', async () => {
+    jest.useFakeTimers();
+    const now = Date.now();
+    mockedLoad.mockResolvedValue(timedRuntime());
+    const renderer = await renderWorkout();
+    mockedApply.mockResolvedValue(timedRuntime({ timer: prepTimer(now + 5_000) }));
+
+    await act(async () => {
+      pressByTestID(renderer, 'start-timed-exercise').props.onPress();
+    });
+
+    const call = mockedApply.mock.calls[mockedApply.mock.calls.length - 1];
+    expect(call[2]).toMatchObject({ type: 'START_TIMED_EXERCISE' });
+    expect(typeof call[2].now).toBe('number');
+
+    expect(findStart(renderer)).toHaveLength(0);
+    expect(textsOf(renderer)).toContain(strings.timer.preparation);
+    expect(textOf(renderer, 'rest-countdown')).toBe('5');
+    const countdown = nodeWith(renderer, { testID: 'rest-countdown' });
+    expect(countdown.props.accessibilityRole).toBe('timer');
+    expect(countdown.props.accessibilityLabel).toBe(`${strings.timer.preparation} 5`);
+    // The next-up box never shows for the current timed position.
+    expect(textsOf(renderer).some((t) => t.startsWith(`${strings.workout.nextUp}:`))).toBe(false);
+    expect(buttonByLabel(renderer, strings.common.cancel)).toBeDefined();
+    expect(buttonByLabel(renderer, strings.workout.pause)).toBeDefined();
+    await unmountWorkout(renderer);
+  });
+
+  it('shows the exercise countdown in whole seconds without the next-up box', async () => {
+    jest.useFakeTimers();
+    mockedLoad.mockResolvedValue(timedRuntime({ timer: exerciseTimer(Date.now() + 30_000) }));
+    const renderer = await renderWorkout();
+
+    expect(findStart(renderer)).toHaveLength(0);
+    expect(textsOf(renderer)).toContain(strings.timer.exercise);
+    expect(textOf(renderer, 'rest-countdown')).toBe('30');
+    expect(textsOf(renderer).some((t) => t.startsWith(`${strings.workout.nextUp}:`))).toBe(false);
+    expect(buttonByLabel(renderer, strings.common.cancel)).toBeDefined();
+    expect(
+      renderer.root.findAll(
+        (n) =>
+          n.props?.accessibilityLabel === strings.workout.skipRest &&
+          typeof n.props?.onPress === 'function',
+      ),
+    ).toHaveLength(0);
+    await unmountWorkout(renderer);
+  });
+
+  it('Cancel dispatches SKIP_TIMER and returns to the step card', async () => {
+    jest.useFakeTimers();
+    mockedLoad.mockResolvedValue(timedRuntime({ timer: prepTimer(Date.now() + 5_000) }));
+    const renderer = await renderWorkout();
+    mockedApply.mockResolvedValue(timedRuntime());
+
+    await pressButton(renderer, strings.common.cancel);
+
+    const call = mockedApply.mock.calls[mockedApply.mock.calls.length - 1];
+    expect(call[2]).toMatchObject({ type: 'SKIP_TIMER' });
+    expect(nodesWith(renderer, { testID: 'step-card' })).toHaveLength(1);
+    expect(findStart(renderer)).toHaveLength(1);
+    await unmountWorkout(renderer);
+  });
+});

@@ -3,6 +3,8 @@ module.exports = {
   testEnvironment: 'jsdom',
   testTimeout: 30_000,
   setupFiles: ['./jest.setup.ts'],
+  // `.tooling/` holds ad-hoc kept copies outside src; they must not run as suites.
+  testPathIgnorePatterns: ['/node_modules/', '/\\.tooling/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },

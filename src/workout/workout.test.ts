@@ -58,14 +58,14 @@ async function buildRoutine(
 function simpleDraft(name: string, opts?: {
   kind?: BlockKind;
   rounds?: number;
-  steps?: Array<{ sets: number; transition: { type: TransitionType; delayMs: number } }>;
+  steps?: Array<{ sets: number; transition: { type: TransitionType; delayMs: number }; durationMs?: number }>;
 }): RoutineDraft {
   const steps = (opts?.steps ?? [{ sets: 2, transition: { type: 'immediate' as TransitionType, delayMs: 0 } }]).map(
     (s, i) => ({
       localId: `s${i}`,
       exerciseId: null,
       exerciseName: `Ex${i + 1}`,
-      prescription: { ...emptyPrescription(), targetSets: s.sets },
+      prescription: { ...emptyPrescription(), targetSets: s.sets, targetDurationMs: s.durationMs ?? null },
       transition: s.transition,
     }),
   );
@@ -491,6 +491,38 @@ describe('Day 3 — cursor persistence, reload and timer recovery', () => {
     const reloaded = await loadWorkoutRuntime(db, rt.sessionId);
     expect(reloaded!.cursor.timer).toBeNull();
     expect(reloaded!.session.timerExpiresAt).toBeNull();
+  });
+
+  it('timed exercise recovery: expired prep switches to exercise, expired exercise completes the set', async () => {
+    const db = makeDb();
+    const { rt } = await startRuntime(
+      db,
+      simpleDraft('Timed', { steps: [{ sets: 2, transition: { type: 'immediate', delayMs: 0 }, durationMs: 30_000 }] }),
+    );
+    const started = await applyWorkoutEvent(db, rt, { type: 'START_TIMED_EXERCISE', now: T0 });
+    expect(started.cursor.timer).toMatchObject({ kind: 'preparation', durationMs: 5_000, expiresAt: T0 + 5_000 });
+
+    // Killed during preparation → canonical timer reloads untouched.
+    const recovered = await loadWorkoutRuntime(db, rt.sessionId);
+    expect(recovered!.cursor.timer).toMatchObject({ kind: 'preparation', expiresAt: T0 + 5_000 });
+    expect(recovered!.session.timerExpiresAt).toBe(T0 + 5_000);
+    expect(isTimerExpired(recovered!.cursor, T0 + 4_000)).toBe(false);
+    expect(isTimerExpired(recovered!.cursor, T0 + 5_000)).toBe(true);
+
+    // Expiry while backgrounded: prep → exercise, persisted with a fresh anchor.
+    const exercise = await applyWorkoutEvent(db, recovered!, { type: 'TIMER_EXPIRE', now: T0 + 5_000 });
+    expect(exercise.cursor.timer).toMatchObject({ kind: 'exercise', durationMs: 30_000, expiresAt: T0 + 35_000 });
+    const reloaded1 = await loadWorkoutRuntime(db, rt.sessionId);
+    expect(reloaded1!.cursor.timer).toMatchObject({ kind: 'exercise', expiresAt: T0 + 35_000 });
+    expect(reloaded1!.session.timerExpiresAt).toBe(T0 + 35_000);
+
+    // Past exercise expiry: the set auto-completes with the normal rest after it.
+    const after = await applyWorkoutEvent(db, reloaded1!, { type: 'TIMER_EXPIRE', now: T0 + 40_000 });
+    expect(after.cursor).toMatchObject({ setIndex: 2, status: 'active' });
+    expect(after.cursor.timer).toMatchObject({ kind: 'rest' });
+    const reloaded2 = await loadWorkoutRuntime(db, rt.sessionId);
+    expect(reloaded2!.cursor.setIndex).toBe(2);
+    expect(reloaded2!.cursor.timer).toMatchObject({ kind: 'rest' });
   });
 
   it('persistCursor writes derived caches that mirror the canonical cursor', async () => {

@@ -102,8 +102,25 @@ export interface CursorPosition {
   setIndex: number;
 }
 
+/**
+ * Timer flavors: rest/auto are transition timing; preparation/exercise drive
+ * the timed-exercise countdown (Start → 5s prep → prescribed duration).
+ */
+export type TimerKind = 'rest' | 'auto' | 'preparation' | 'exercise';
+
+/**
+ * Local notification title for a timer kind; null = no notification
+ * (preparation is always consumed on-screen within seconds).
+ */
+export function timerNotificationTitle(kind: TimerKind): string | null {
+  if (kind === 'preparation') return null;
+  if (kind === 'rest') return 'Rest complete';
+  if (kind === 'exercise') return 'Exercise complete';
+  return 'Next';
+}
+
 export interface TimerState {
-  kind: 'rest' | 'auto';
+  kind: TimerKind;
   durationMs: number;
   expiresAt: number;
   /** Position the cursor jumps to when the timer expires / is skipped. */
@@ -245,6 +262,7 @@ export type EngineEvent =
   | { type: 'SKIP_STEP'; now: number }
   | { type: 'SKIP_TIMER'; now: number }
   | { type: 'TIMER_EXPIRE'; now: number }
+  | { type: 'START_TIMED_EXERCISE'; now: number }
   | { type: 'UNDO_LAST'; now: number }
   | { type: 'COMPLETE_SESSION'; now: number; incompleteReason?: SessionEndReason | null }
   | { type: 'LOG_EXTRA_SET'; now: number; set: SetPayload; executionType: 'extra' | 'drop' };
@@ -262,7 +280,7 @@ export type Effect =
     }
   | { kind: 'LOG_SKIPPED_SET'; blockIndex: number; stepIndex: number; round: number; setIndex: number }
   | { kind: 'VOID_LAST_SET'; setLogId: string | null }
-  | { kind: 'START_TIMER'; timerKind: 'rest' | 'auto'; durationMs: number; expiresAt: number }
+  | { kind: 'START_TIMER'; timerKind: TimerKind; durationMs: number; expiresAt: number }
   | { kind: 'CANCEL_TIMER' }
   | { kind: 'ADVANCE_STEP'; blockIndex: number; stepIndex: number; round: number }
   | { kind: 'ADVANCE_ROUND'; blockIndex: number; round: number }
@@ -282,4 +300,6 @@ export const ENGINE_DEFAULTS = {
   restLoopMs: 90_000,
   restBlockMs: 120_000,
   restStepFallbackMs: 60_000,
+  /** Fixed pre-exercise countdown for timed prescriptions (1.1.x). No settings UI. */
+  exercisePreparationMs: 5_000,
 } as const;

@@ -308,6 +308,7 @@ more: {
     next: 'SIGUIENTE',
     rest: 'DESCANSO',
     skipRest: 'Omitir descanso',
+    startTimedExercise: 'Iniciar temporizador',
     previous: 'Anterior',
     noPrevious: 'Primera vez',
     weight: 'kg',
@@ -362,6 +363,8 @@ more: {
   timer: {
     rest: 'DESCANSO',
     autoAdvance: 'AUTO',
+    preparation: 'PREPÁRATE',
+    exercise: 'EJERCICIO',
   },
   history: {
     title: 'Historial',

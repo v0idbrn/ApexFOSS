@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { TimerKind } from '../types/engine';
 
 /**
  * Visual mirror only (frozen rule): truth lives in cursor_json.timer.expiresAt.
@@ -8,11 +9,11 @@ import { create } from 'zustand';
 interface TimerStore {
   expiresAt: number | null;
   durationMs: number | null;
-  kind: 'rest' | 'auto' | null;
+  kind: TimerKind | null;
   pausedAt: number | null;
   remainingMs: number;
   paused: boolean;
-  setFromCursor: (timer: { kind: 'rest' | 'auto'; durationMs: number; expiresAt: number; pausedAt?: number | null } | null) => void;
+  setFromCursor: (timer: { kind: TimerKind; durationMs: number; expiresAt: number; pausedAt?: number | null } | null) => void;
   tick: () => void;
   clear: () => void;
 }

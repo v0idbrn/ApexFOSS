@@ -8,6 +8,8 @@ import {
   RoutineDefinition,
   CursorPosition,
   ENGINE_DEFAULTS,
+  TimerKind,
+  timerNotificationTitle,
 } from '../types/engine';
 
 /** Extra/drop-set counter key inside cursor.extraCounts (position-scoped). */
@@ -153,18 +155,20 @@ function moveTo(cursor: ExecutionCursor, target: CursorPosition): ExecutionCurso
 
 function startTimer(
   cursor: ExecutionCursor,
-  timerKind: 'rest' | 'auto',
+  timerKind: TimerKind,
   durationMs: number,
   now: number,
   target: CursorPosition,
 ): { cursor: ExecutionCursor; effects: Effect[] } {
   const expiresAt = now + durationMs;
+  const effects: Effect[] = [{ kind: 'START_TIMER', timerKind, durationMs, expiresAt }];
+  const title = timerNotificationTitle(timerKind);
+  if (title !== null) {
+    effects.push({ kind: 'SCHEDULE_NOTIFICATION', expiresAt, title });
+  }
   return {
     cursor: { ...cursor, timer: { kind: timerKind, durationMs, expiresAt, target } },
-    effects: [
-      { kind: 'START_TIMER', timerKind, durationMs, expiresAt },
-      { kind: 'SCHEDULE_NOTIFICATION', expiresAt, title: timerKind === 'rest' ? 'Rest complete' : 'Next' },
-    ],
+    effects,
   };
 }
 
@@ -193,8 +197,11 @@ export function dispatch(
     case 'SKIP_STEP':
       return onSkipStep(definition, cursor, event.now);
     case 'SKIP_TIMER':
-    case 'TIMER_EXPIRE':
       return onTimerDone(definition, cursor);
+    case 'TIMER_EXPIRE':
+      return onTimerExpire(definition, cursor, event.now);
+    case 'START_TIMED_EXERCISE':
+      return onStartTimedExercise(definition, cursor, event.now);
     case 'UNDO_LAST':
       return onUndo(cursor);
     case 'COMPLETE_SESSION': {
@@ -415,6 +422,64 @@ function onTimerDone(def: RoutineDefinition, cursor: ExecutionCursor): DispatchR
   }
   const next = moveTo(base, target);
   return { cursor: next, effects: [...effects, ...navigationEffects(cursor, target)] };
+}
+
+/**
+ * Start the timed-exercise flow: a fixed preparation countdown on the current
+ * position, then the prescribed duration as an exercise countdown. No-op while
+ * any timer runs, off work steps, or without a positive target duration.
+ */
+function onStartTimedExercise(
+  def: RoutineDefinition,
+  cursor: ExecutionCursor,
+  now: number,
+): DispatchResult {
+  if (cursor.timer) return { cursor, effects: [] };
+  const step = def.blocks[cursor.blockIndex]?.steps[cursor.stepIndex];
+  if (!step || step.role !== 'work') return { cursor, effects: [] };
+  if ((step.prescription.targetDurationMs ?? 0) <= 0) return { cursor, effects: [] };
+  const target: CursorPosition = {
+    blockIndex: cursor.blockIndex,
+    stepIndex: cursor.stepIndex,
+    round: cursor.round,
+    setIndex: cursor.setIndex,
+  };
+  return startTimer(cursor, 'preparation', ENGINE_DEFAULTS.exercisePreparationMs, now, target);
+}
+
+/**
+ * TIMER_EXPIRE branches by kind: preparation starts the exercise countdown,
+ * exercise completes the set through the normal COMPLETE_SET path (undo and
+ * transitions included), rest/auto keep the frozen move-to-target semantics.
+ * The exercise countdown anchors at `now`, never at the prep expiry — time
+ * spent backgrounded during preparation must not shrink the exercise.
+ */
+function onTimerExpire(
+  def: RoutineDefinition,
+  cursor: ExecutionCursor,
+  now: number,
+): DispatchResult {
+  const timer = cursor.timer;
+  if (!timer) return { cursor, effects: [] };
+  if (timer.kind === 'preparation') {
+    const step = def.blocks[timer.target.blockIndex]?.steps[timer.target.stepIndex];
+    const durationMs = step?.prescription.targetDurationMs ?? 0;
+    if (durationMs <= 0) return onTimerDone(def, cursor);
+    return startTimer(cursor, 'exercise', durationMs, now, timer.target);
+  }
+  if (timer.kind === 'exercise') {
+    const step = def.blocks[cursor.blockIndex]?.steps[cursor.stepIndex];
+    if (!step) return onTimerDone(def, cursor);
+    const set: import('../types/engine').SetPayload = {
+      weightGrams: step.prescription.targetWeightGrams,
+      reps: null,
+      durationMs: step.prescription.targetDurationMs,
+      distanceMm: null,
+      rir: null,
+    };
+    return onCompleteSet(def, cursor, now, set);
+  }
+  return onTimerDone(def, cursor);
 }
 
 function onUndo(cursor: ExecutionCursor): DispatchResult {
