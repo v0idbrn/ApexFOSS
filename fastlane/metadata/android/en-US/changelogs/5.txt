@@ -1,0 +1,1 @@
+v1.1.2: Timed exercises run in-app: press Start timer and the app handles the 5-second preparation, counts down the programmed duration and completes the set automatically — same engine as the rest of the workout, with notifications keeping you informed when the app is in the background.

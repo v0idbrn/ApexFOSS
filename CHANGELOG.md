@@ -2,7 +2,17 @@
 
 Notable changes to ApexFOSS. Versions follow a simple pre-1.0 convention; a date appears only when a version is actually tagged and released. The project follows nothing beyond this file — planned work lives in `docs/DECISIONS.md` and `docs/DISTRIBUTION.md`, not here.
 
-## 1.1.1 — unreleased
+## 1.1.2 — unreleased
+
+Timed exercises — exercises prescribed by a duration now run fully in-app with an explicit, deterministic timer instead of being left to a wall clock. Version **1.1.2** (versionCode 5); no database schema changes.
+
+- **In-app timed exercise timer**: when a step prescribes a duration, the workout screen shows a **Start timer** button; a 5-second **GET READY** preparation phase anchors the full programmed duration that follows (anchored at activation, never chained), and when the time expires the set completes automatically and the engine advances — the same deterministic transition path as any execution step (D-060).
+- **Cancel instead of Skip**: while a preparation, rest or timed-exercise countdown is running, the secondary control is **Cancel** — it stops the countdown in place, without logging a set or advancing the position.
+- **Notifications**: rest, preparation and exercise timers announce their expiration; with the app in the background the expiry is maintained from the canonical absolute timestamp, so the notification and the screen never disagree.
+- **Background recovery**: if the app relaunches after a timer expired, the engine reconciles from the recorded expiry (preparation switches to exercise, expired exercise completes the set) — no lost or duplicated work.
+- **Tests**: 1251 Jest tests across 95 suites plus a clean `tsc --noEmit`; EN/ES i18n parity for the new timer strings.
+
+## 1.1.1 — 2026-10-03
 
 - **F-Droid Firebase-free notification flavor**: `-PapexFdroid=true` build excludes `expo-notifications` (no Firebase/GMS in APK); new local `apex-notifications` module schedules rest/reminder alerts via `AlarmManager` + manifest receiver. Root-caused on device: `setAlarmClock` requires `SCHEDULE_EXACT_ALARM` (denied by default on API 34) — declared in the module manifest, gated via `canScheduleExactAlarms()`, one-time system Settings redirect on reminder enable.
 - **Reminder time fix**: the hour field could never leave 7 — per-keystroke persistence clamped intermediates back to the default. Time fields now persist only complete in-range values and select-all-on-focus.

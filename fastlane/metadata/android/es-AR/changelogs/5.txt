@@ -1,0 +1,1 @@
+v1.1.2: Los ejercicios por tiempo ahora corren dentro de la app: presiona Iniciar temporizador y la app maneja la preparación de 5 segundos, cuenta atrás la duración programada y completa la serie automáticamente — el mismo motor que el resto del entrenamiento, con notificaciones para informarte con la app en segundo plano.
