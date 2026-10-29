@@ -105,7 +105,8 @@ export type PortabilityErrorCode =
   | 'unsupported_backup_version'
   | 'schema_mismatch'
   | 'invalid_session'
-  | 'invalid_reference';
+  | 'invalid_reference'
+  | 'routine_not_found';
 
 export class PortabilityError extends Error {
   readonly code: PortabilityErrorCode;

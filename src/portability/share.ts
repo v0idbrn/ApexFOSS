@@ -10,6 +10,7 @@ import { PortabilityError } from './types';
 export function portabilityErrorMessage(e: unknown): string {
   if (e instanceof PortabilityError) {
     if (e.code === 'checksum_mismatch') return strings.portability.checksumMismatch;
+    if (e.code === 'routine_not_found') return strings.portability.routineNotFound;
     if (
       e.code === 'schema_mismatch' ||
       e.code === 'unsupported_version' ||

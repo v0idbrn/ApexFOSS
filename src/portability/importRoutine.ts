@@ -1,4 +1,4 @@
-import { Database } from '@nozbe/watermelondb';
+import { Database, Q } from '@nozbe/watermelondb';
 import type { ApexRoutinePackage, ImportPreview, PortableExercise, PortableRoutine } from './types';
 import { PortabilityError } from './types';
 import { parseRoutinePackage } from './routinePackage';
@@ -139,32 +139,12 @@ export async function importRoutinePackage(
     typeof raw === 'string' ? parseRoutinePackage(raw) : parseRoutinePackage(JSON.stringify(raw));
 
   // --- reads only ---
-  const allExercises = (await db.get('exercises').query().fetch()) as unknown as Array<{
-    id: string;
-    name: string;
-    category: string;
-    equipment: string;
-    metricFlags: number;
-  }>;
-  const byMatch = new Map<string, string>();
-  for (const e of allExercises) {
-    const k = exerciseMatchKey(e.name, e.category, e.equipment, e.metricFlags);
-    if (!byMatch.has(k)) byMatch.set(k, e.id);
-  }
+  const { reuse: reuseIdByKey, create: createByKey } = await resolvePackageExercises(db, pkg);
 
   const existingRoutineNames = new Set(
     ((await db.get('routines').query().fetch()) as unknown as Array<{ name: string }>).map((r) => r.name),
   );
   const routineName = uniqueRoutineName(pkg.routine.name, existingRoutineNames);
-
-  const reuseIdByKey = new Map<string, string>();
-  const createByKey = new Map<string, PortableExercise>();
-  for (const ex of pkg.exercises) {
-    const k = exerciseMatchKey(ex.name, ex.category, ex.equipment, ex.metricFlags);
-    const hit = byMatch.get(k);
-    if (hit) reuseIdByKey.set(ex.key, hit);
-    else createByKey.set(ex.key, ex);
-  }
 
   const created: CreatedIds = { exercises: [], routines: [], blocks: [], steps: [], prescriptions: [], transitions: [] };
 
@@ -185,9 +165,6 @@ export async function importRoutinePackage(
         hooks.onRowCreated?.('exercises', created.exercises.length);
       }
 
-      const resolveExerciseId = (key: string | null): string | null =>
-        key ? keyToId.get(key) ?? null : null;
-
       const r = await db.get('routines').create((rec: any) => {
         rec.name = routineName;
         rec.createdAt = Date.now();
@@ -196,62 +173,7 @@ export async function importRoutinePackage(
       created.routines.push(r.id);
       hooks.onRowCreated?.('routines', created.routines.length);
 
-      for (const [bi, b] of pkg.routine.blocks.entries()) {
-        const block = await db.get('routine_blocks').create((rec: any) => {
-          rec.routineId = r.id;
-          rec.name = b.name.trim() || `Block ${bi + 1}`;
-          rec.blockKind = b.kind;
-          rec.blockRole = (b as { role?: unknown }).role ?? null;
-          rec.sortOrder = bi;
-          rec.rounds = b.kind === 'interval' ? 1 : Math.max(1, Math.round(b.rounds || 1));
-          rec.intervalJson = b.kind === 'interval' && b.interval ? JSON.stringify(b.interval) : null;
-          rec.createdAt = Date.now();
-          rec.updatedAt = Date.now();
-        });
-        created.blocks.push(block.id);
-        hooks.onRowCreated?.('routine_blocks', created.blocks.length);
-
-        for (const [si, s] of b.steps.entries()) {
-          const step = await db.get('routine_block_steps').create((rec: any) => {
-            rec.blockId = block.id;
-            rec.sortOrder = si;
-            rec.stepRole = s.role;
-            rec.exerciseId = resolveExerciseId(s.exerciseKey);
-            rec.createdAt = Date.now();
-            rec.updatedAt = Date.now();
-          });
-          created.steps.push(step.id);
-          hooks.onRowCreated?.('routine_block_steps', created.steps.length);
-          const presc = await db.get('routine_exercise_prescriptions').create((rec: any) => {
-            rec.stepId = step.id;
-            rec.targetSets = s.prescription.targetSets;
-            rec.targetRepsMin = s.prescription.targetRepsMin;
-            rec.targetRepsMax = s.prescription.targetRepsMax;
-            rec.targetDurationMs = s.prescription.targetDurationMs;
-            rec.targetWeightGrams = s.prescription.targetWeightGrams;
-            rec.targetRir = s.prescription.targetRir;
-            rec.tempoEccentricMs = s.prescription.tempo.eccentricMs;
-            rec.tempoPauseBottomMs = s.prescription.tempo.pauseBottomMs;
-            rec.tempoConcentricMs = s.prescription.tempo.concentricMs;
-            rec.tempoPauseTopMs = s.prescription.tempo.pauseTopMs;
-            rec.createdAt = Date.now();
-            rec.updatedAt = Date.now();
-          });
-          created.prescriptions.push(presc.id);
-          hooks.onRowCreated?.('routine_exercise_prescriptions', created.prescriptions.length);
-          const tr = await db.get('block_transitions').create((rec: any) => {
-            rec.blockId = block.id;
-            rec.fromStepId = step.id;
-            rec.toStepId = null;
-            rec.delayMs = s.transition.type === 'immediate' ? 0 : Math.max(0, Math.round(s.transition.delayMs));
-            rec.transitionType = s.transition.type;
-            rec.createdAt = Date.now();
-            rec.updatedAt = Date.now();
-          });
-          created.transitions.push(tr.id);
-          hooks.onRowCreated?.('block_transitions', created.transitions.length);
-        }
-      }
+      await writePackageChildren(db, pkg, keyToId, r.id, hooks, created);
       return r.id as string;
     });
 
@@ -266,6 +188,202 @@ export async function importRoutinePackage(
     await compensateImport(db, created);
     throw e;
   }
+}
+
+async function resolvePackageExercises(
+  db: Database,
+  pkg: ApexRoutinePackage,
+): Promise<{ reuse: Map<string, string>; create: Map<string, PortableExercise> }> {
+  const allExercises = (await db.get('exercises').query().fetch()) as unknown as Array<{
+    id: string;
+    name: string;
+    category: string;
+    equipment: string;
+    metricFlags: number;
+  }>;
+  const byMatch = new Map<string, string>();
+  for (const e of allExercises) {
+    const k = exerciseMatchKey(e.name, e.category, e.equipment, e.metricFlags);
+    if (!byMatch.has(k)) byMatch.set(k, e.id);
+  }
+  const reuse = new Map<string, string>();
+  const create = new Map<string, PortableExercise>();
+  for (const ex of pkg.exercises) {
+    const k = exerciseMatchKey(ex.name, ex.category, ex.equipment, ex.metricFlags);
+    const hit = byMatch.get(k);
+    if (hit) reuse.set(ex.key, hit);
+    else create.set(ex.key, ex);
+  }
+  return { reuse, create };
+}
+
+/** Creates blocks/steps/prescriptions/transitions for a resolved package under an existing routine id. */
+async function writePackageChildren(
+  db: Database,
+  pkg: ApexRoutinePackage,
+  keyToId: Map<string, string>,
+  routineId: string,
+  hooks: ImportHooks,
+  created: CreatedIds,
+): Promise<void> {
+  const resolveExerciseId = (key: string | null): string | null =>
+    key ? keyToId.get(key) ?? null : null;
+
+  for (const [bi, b] of pkg.routine.blocks.entries()) {
+    const block = await db.get('routine_blocks').create((rec: any) => {
+      rec.routineId = routineId;
+      rec.name = b.name.trim() || `Block ${bi + 1}`;
+      rec.blockKind = b.kind;
+      rec.blockRole = (b as { role?: unknown }).role ?? null;
+      rec.sortOrder = bi;
+      rec.rounds = b.kind === 'interval' ? 1 : Math.max(1, Math.round(b.rounds || 1));
+      rec.intervalJson = b.kind === 'interval' && b.interval ? JSON.stringify(b.interval) : null;
+      rec.createdAt = Date.now();
+      rec.updatedAt = Date.now();
+    });
+    created.blocks.push(block.id);
+    hooks.onRowCreated?.('routine_blocks', created.blocks.length);
+
+    for (const [si, s] of b.steps.entries()) {
+      const step = await db.get('routine_block_steps').create((rec: any) => {
+        rec.blockId = block.id;
+        rec.sortOrder = si;
+        rec.stepRole = s.role;
+        rec.exerciseId = resolveExerciseId(s.exerciseKey);
+        rec.createdAt = Date.now();
+        rec.updatedAt = Date.now();
+      });
+      created.steps.push(step.id);
+      hooks.onRowCreated?.('routine_block_steps', created.steps.length);
+      const presc = await db.get('routine_exercise_prescriptions').create((rec: any) => {
+        rec.stepId = step.id;
+        rec.targetSets = s.prescription.targetSets;
+        rec.targetRepsMin = s.prescription.targetRepsMin;
+        rec.targetRepsMax = s.prescription.targetRepsMax;
+        rec.targetDurationMs = s.prescription.targetDurationMs;
+        rec.targetWeightGrams = s.prescription.targetWeightGrams;
+        rec.targetRir = s.prescription.targetRir;
+        rec.tempoEccentricMs = s.prescription.tempo.eccentricMs;
+        rec.tempoPauseBottomMs = s.prescription.tempo.pauseBottomMs;
+        rec.tempoConcentricMs = s.prescription.tempo.concentricMs;
+        rec.tempoPauseTopMs = s.prescription.tempo.pauseTopMs;
+        rec.createdAt = Date.now();
+        rec.updatedAt = Date.now();
+      });
+      created.prescriptions.push(presc.id);
+      hooks.onRowCreated?.('routine_exercise_prescriptions', created.prescriptions.length);
+      const tr = await db.get('block_transitions').create((rec: any) => {
+        rec.blockId = block.id;
+        rec.fromStepId = step.id;
+        rec.toStepId = null;
+        rec.delayMs = s.transition.type === 'immediate' ? 0 : Math.max(0, Math.round(s.transition.delayMs));
+        rec.transitionType = s.transition.type;
+        rec.createdAt = Date.now();
+        rec.updatedAt = Date.now();
+      });
+      created.transitions.push(tr.id);
+      hooks.onRowCreated?.('block_transitions', created.transitions.length);
+    }
+  }
+}
+
+/**
+ * Update an existing routine in place from a portable package (same validation
+ * and exercise-reuse semantics as importRoutinePackage). The target routine's
+ * id and name are kept; its blocks, steps, prescriptions and transitions are
+ * replaced by the package content in a single atomic db.write. Sessions are
+ * unaffected (immutable definition snapshots); old library exercises stay.
+ * Export of the updated routine round-trips (package → update → package).
+ */
+export async function updateRoutinePackage(
+  db: Database,
+  raw: unknown | string,
+  targetRoutineId: string,
+): Promise<ImportResult> {
+  const pkg: ApexRoutinePackage =
+    typeof raw === 'string' ? parseRoutinePackage(raw) : parseRoutinePackage(JSON.stringify(raw));
+
+  let targetName: string;
+  try {
+    const target = (await db.get('routines').find(targetRoutineId)) as unknown as { id: string; name: string };
+    targetName = target.name;
+  } catch {
+    throw new PortabilityError('routine_not_found', targetRoutineId);
+  }
+
+  const { reuse: reuseIdByKey, create: createByKey } = await resolvePackageExercises(db, pkg);
+
+  await db.write(async () => {
+    const keyToId = new Map<string, string>(reuseIdByKey);
+    for (const [key, ex] of createByKey) {
+      const row = await db.get('exercises').create((rec: any) => {
+        rec.name = ex.name;
+        rec.category = ex.category;
+        rec.equipment = ex.equipment;
+        rec.metricFlags = ex.metricFlags;
+        rec.createdAt = Date.now();
+        rec.updatedAt = Date.now();
+      });
+      keyToId.set(key, row.id);
+    }
+
+    // Replace-children strategy (same as the routine editor): sessions only
+    // reference routine_id and frozen definition snapshots, so recreating the
+    // child rows is safe and keeps ordering trivial.
+    const targetRoutine = (await db.get('routines').find(targetRoutineId)) as unknown as { id: string };
+    const oldBlocks = (await db
+      .get('routine_blocks')
+      .query(Q.where('routine_id', targetRoutineId))
+      .fetch()) as unknown as Array<{ id: string }>;
+    for (const block of oldBlocks) {
+      const oldSteps = (await db
+        .get('routine_block_steps')
+        .query(Q.where('block_id', block.id))
+        .fetch()) as unknown as Array<{ id: string }>;
+      for (const step of oldSteps) {
+        const oldPresc = (await db
+          .get('routine_exercise_prescriptions')
+          .query(Q.where('step_id', step.id))
+          .fetch()) as unknown as Array<{ id: string }>;
+        for (const p of oldPresc) {
+          const row = await db.get('routine_exercise_prescriptions').find(p.id);
+          await (row as { markAsDeleted(): Promise<void> }).markAsDeleted();
+        }
+        const sRow = await db.get('routine_block_steps').find(step.id);
+        await (sRow as { markAsDeleted(): Promise<void> }).markAsDeleted();
+      }
+      const oldTrans = (await db
+        .get('block_transitions')
+        .query(Q.where('block_id', block.id))
+        .fetch()) as unknown as Array<{ id: string }>;
+      for (const t of oldTrans) {
+        const row = await db.get('block_transitions').find(t.id);
+        await (row as { markAsDeleted(): Promise<void> }).markAsDeleted();
+      }
+      const bRow = await db.get('routine_blocks').find(block.id);
+      await (bRow as { markAsDeleted(): Promise<void> }).markAsDeleted();
+    }
+
+    await writePackageChildren(db, pkg, keyToId, targetRoutineId, {}, {
+      exercises: [],
+      routines: [],
+      blocks: [],
+      steps: [],
+      prescriptions: [],
+      transitions: [],
+    });
+    await (targetRoutine as unknown as { update: (cb: (rec: any) => void) => Promise<unknown> }).update((rec: any) => {
+      rec.updatedAt = Date.now();
+    });
+    void targetRoutine;
+  });
+
+  return {
+    routineId: targetRoutineId,
+    routineName: targetName,
+    createdExercises: createByKey.size,
+    reusedExercises: reuseIdByKey.size,
+  };
 }
 
 export function uniqueRoutineName(base: string, existing: Set<string>): string {

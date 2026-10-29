@@ -21,7 +21,7 @@ import {
   encodeRoutineTransport,
   fitsSingleTransport,
 } from './encoding';
-import { uniqueRoutineName, exerciseMatchKey, importRoutinePackage } from './importRoutine';
+import { uniqueRoutineName, exerciseMatchKey, importRoutinePackage, updateRoutinePackage } from './importRoutine';
 import { fitsQr, encodeQr } from './qr';
 
 function makeDb(): Database {
@@ -523,5 +523,125 @@ describe('portable routine block role (1.1.0)', () => {
     raw.routine.blocks[0].role = 'boss-mode';
     // No checksum recompute needed: structural validation rejects first.
     expect(() => parseRoutinePackage(JSON.stringify(raw))).toThrow(PortabilityError);
+  });
+});
+
+describe('updateRoutinePackage (in-place update)', () => {
+  function updatedDraft(): RoutineDraft {
+    return {
+      id: 'local_u',
+      name: 'Push Day',
+      blocks: [
+        {
+          localId: 'b1',
+          name: 'Secondary',
+          kind: 'normal',
+          rounds: 2,
+          steps: [
+            {
+              localId: 'u1',
+              exerciseId: 'ex1',
+              exerciseName: 'Bench Press',
+              prescription: {
+                ...emptyPrescription(),
+                targetSets: 5,
+                targetRepsMin: 8,
+                targetRepsMax: 12,
+              },
+              transition: { type: 'rest', delayMs: 60_000 },
+            },
+            {
+              localId: 'u2',
+              exerciseId: 'ex3',
+              exerciseName: 'Row',
+              prescription: emptyPrescription(),
+              transition: { type: 'immediate', delayMs: 0 },
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('replaces children in place: keeps routine id and name, exercises reused/created, old steps gone', async () => {
+    const db = makeDb();
+    const metaMap = new Map([
+      ['ex1', { name: 'Bench Press', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+      ['ex2', { name: 'OHP', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+    ]);
+    const created = await importRoutinePackage(db, serializeRoutinePackage(buildRoutinePackageFromDraft(sampleDraft(), metaMap, 1)));
+    await importRoutinePackage(db, serializeRoutinePackage(
+      buildRoutinePackageFromDraft(updatedDraft(), new Map([...metaMap, ['ex3', { name: 'Row', category: 'pull', equipment: 'barbell', metricFlags: 3 }]]), 1)),
+    ); // one colliding import to prove update does not create copies
+
+    const result = await updateRoutinePackage(
+      db,
+      serializeRoutinePackage(buildRoutinePackageFromDraft(updatedDraft(), new Map([
+        ['ex1', { name: 'Bench Press', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+        ['ex3', { name: 'Row', category: 'pull', equipment: 'barbell', metricFlags: 3 }],
+      ]), 1)),
+      created.routineId,
+    );
+    expect(result.routineId).toBe(created.routineId);
+    expect(result.routineName).toBe('Push Day'); // name preserved, no "(imported)"
+    expect(result.reusedExercises).toBe(2); // Bench + Row both match by identity
+    expect(result.createdExercises).toBe(0);
+
+    const routines = (await db.get('routines').query().fetch()) as unknown as Array<{ id: string; name: string }>;
+    expect(routines).toHaveLength(2);
+    expect(routines.map((r) => r.name).sort()).toEqual(['Push Day', 'Push Day (imported)']);
+
+    const exercises = (await db.get('exercises').query().fetch()) as unknown as Array<{ name: string }>;
+    expect(exercises.map((e) => e.name).sort()).toEqual(['Bench Press', 'OHP', 'Row']);
+
+    const blocks = (await db.get('routine_blocks').query().fetch()) as unknown as Array<{ name: string; rounds: number }>;
+    expect(blocks).toHaveLength(2);
+
+    const prescs = (await db
+      .get('routine_exercise_prescriptions')
+      .query()
+      .fetch()) as unknown as Array<{ targetSets: number; targetWeightGrams: number | null }>;
+    const updatedPresc = prescs.find((p) => p.targetSets === 5);
+    expect(updatedPresc).toBeDefined();
+    expect(updatedPresc?.targetWeightGrams).toBeNull();
+    // Old children (2 rows from original + 2 from colliding import) fully replaced by 2.
+    expect(prescs).toHaveLength(4);
+  });
+
+  it('rejects an unknown target routine and leaves the database untouched', async () => {
+    const db = makeDb();
+    const metaMap = new Map([
+      ['ex1', { name: 'Bench Press', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+      ['ex2', { name: 'OHP', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+    ]);
+    const json = serializeRoutinePackage(buildRoutinePackageFromDraft(sampleDraft(), metaMap, 1));
+    await importRoutinePackage(db, json);
+    await expect(updateRoutinePackage(db, json, 'no-such-routine')).rejects.toMatchObject({
+      code: 'routine_not_found',
+    });
+    const routines = (await db.get('routines').query().fetch()) as unknown as Array<{ id: string }>;
+    expect(routines).toHaveLength(1);
+    const exercises = (await db.get('exercises').query().fetch()) as unknown as Array<{ id: string }>;
+    expect(exercises).toHaveLength(2); // article: reuse-map runs after target check
+  });
+
+  it('updates with the same package round-trip (export → update → export equal children counts)', async () => {
+    const db = makeDb();
+    const metaMap = new Map([
+      ['ex1', { name: 'Bench Press', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+      ['ex2', { name: 'OHP', category: 'push', equipment: 'barbell', metricFlags: 3 }],
+    ]);
+    const json = serializeRoutinePackage(buildRoutinePackageFromDraft(sampleDraft(), metaMap, 1));
+    const created = await importRoutinePackage(db, json);
+    const result = await updateRoutinePackage(db, json, created.routineId);
+    expect(result.routineId).toBe(created.routineId);
+    expect(result.createdExercises).toBe(0);
+    expect(result.reusedExercises).toBe(2);
+    const blocks = (await db.get('routine_blocks').query().fetch()) as unknown as Array<{ id: string }>;
+    expect(blocks).toHaveLength(1);
+    const steps = (await db.get('routine_block_steps').query().fetch()) as unknown as Array<{ id: string }>;
+    expect(steps).toHaveLength(2);
+    const transitions = (await db.get('block_transitions').query().fetch()) as unknown as Array<{ id: string }>;
+    expect(transitions).toHaveLength(2);
   });
 });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, Text, View } from 'react-native';
+import { Alert, Modal, ScrollView, Text, View } from 'react-native';
 import { database } from '../../data';
 import { strings } from '../../constants/strings';
 import { useNav } from '../navigation';
@@ -10,7 +10,7 @@ import {
   buildRoutinePackage,
   serializeRoutinePackage,
 } from '../../portability/routinePackage';
-import { previewRoutineImport, importRoutinePackage } from '../../portability/importRoutine';
+import { previewRoutineImport, importRoutinePackage, updateRoutinePackage } from '../../portability/importRoutine';
 import { createBackup, restoreBackup, parseBackup, backupSummary } from '../../portability/backup';
 import { buildImportDeepLink, decodeRoutineTransport, parseImportDeepLink } from '../../portability/encoding';
 import { fitsQr, encodeQr } from '../../portability/qr';
@@ -35,6 +35,9 @@ export function PortabilityScreen() {
   const [qrError, setQrError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [updateSelect, setUpdateSelect] = useState(false);
+  const [updateJson, setUpdateJson] = useState<string | null>(null);
+  const [updateRoutineId, setUpdateRoutineId] = useState<string | null>(null);
 
   const selectRoutine = useCallback((id: string, name: string) => {
     setRoutineId(id);
@@ -141,12 +144,24 @@ export function PortabilityScreen() {
               })();
             },
           },
+          {
+            text: strings.portability.importChoiceUpdate,
+            onPress: () => {
+              if (routines.length === 0) {
+                Alert.alert(strings.portability.updateRoutineTitle, strings.portability.noRoutinesToUpdate);
+                return;
+              }
+              setUpdateJson(json);
+              setUpdateRoutineId(null);
+              setUpdateSelect(true);
+            },
+          },
         ],
       );
     } catch (e) {
       Alert.alert(strings.portability.importFailed, portabilityErrorMessage(e));
     }
-  }, []);
+  }, [routines]);
 
   const onImportPreview = useCallback(async () => {
     setBusy(true);
@@ -263,6 +278,27 @@ export function PortabilityScreen() {
       setBusy(false);
     }
   }, [runRestorePreview]);
+
+  const closeUpdateSelect = useCallback(() => {
+    setUpdateSelect(false);
+    setUpdateJson(null);
+    setUpdateRoutineId(null);
+  }, []);
+
+  const onUpdateConfirm = useCallback(async () => {
+    if (!updateJson || !updateRoutineId) return;
+    setBusy(true);
+    closeUpdateSelect();
+    try {
+      await updateRoutinePackage(database, updateJson, updateRoutineId);
+      setStatus(strings.portability.updateDone);
+      setImportText('');
+    } catch (e) {
+      Alert.alert(strings.portability.importFailed, portabilityErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [updateJson, updateRoutineId, closeUpdateSelect]);
 
   return (
     <Screen>
@@ -398,6 +434,51 @@ export function PortabilityScreen() {
         <Text className="mt-4 text-xs text-dim">{strings.portability.schemeNote}</Text>
         <Button label={strings.common.back} variant="ghost" onPress={pop} className="mt-4" />
       </ScrollView>
+
+      <Modal
+        visible={updateSelect}
+        transparent
+        animationType="fade"
+        onRequestClose={closeUpdateSelect}
+        accessibilityViewIsModal
+      >
+          <View className="flex-1 items-center justify-center bg-black/60 px-6">
+            <View className="w-full rounded-xl border border-line bg-surface p-4" testID="update-routine-modal">
+              <Text accessibilityRole="header" className="text-heading text-fg">
+                {strings.portability.updateRoutineTitle}
+              </Text>
+              <Text accessibilityLiveRegion="polite" className="mt-1 text-sm text-danger">
+                {strings.portability.updateRoutineHint}
+              </Text>
+              <View className="mb-3 mt-3 flex-row flex-wrap gap-2">
+                {routines.map((routine) => (
+                  <Chip
+                    key={routine.id}
+                    label={routine.name}
+                    active={routine.id === updateRoutineId}
+                    onPress={() => setUpdateRoutineId(routine.id)}
+                  />
+                ))}
+              </View>
+              <View className="mt-2 flex-row gap-2">
+                <Button
+                  label={strings.portability.updateRoutineConfirm}
+                  variant="danger"
+                  disabled={!updateRoutineId || busy}
+                  onPress={() => void onUpdateConfirm()}
+                  className="flex-1"
+                />
+                <Button
+                  label={strings.common.cancel}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={closeUpdateSelect}
+                  className="flex-1"
+                />
+              </View>
+            </View>
+          </View>
+      </Modal>
     </Screen>
   );
 }
