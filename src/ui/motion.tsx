@@ -40,7 +40,9 @@ export function useEnterStyle(delayMs = 0): Animated.WithAnimatedValue<ViewStyle
       duration: 200,
       delay: delayMs,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
+      // JS driver: native-driver fades inside FlatLists on Android stay at 0
+      // until the first scroll (Galaxy A04/evidence), so animate in JS instead.
+      useNativeDriver: false,
     });
     timing.start();
     return () => timing.stop();

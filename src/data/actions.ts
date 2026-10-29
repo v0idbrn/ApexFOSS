@@ -340,13 +340,14 @@ export function makeDbActions(db: Database): DbActions {
         blockIdsByRoutine.get(b.routineId)!.add(b.id);
       }
       const stepCountByRoutine = new Map<string, number>();
+      // block id -> routine id, so each step is one Map lookup (no n*m scan).
+      const blockToRoutine = new Map<string, string>();
+      blockIdsByRoutine.forEach((blockIds, routineId) => {
+        for (const blockId of blockIds) blockToRoutine.set(blockId, routineId);
+      });
       for (const s of steps) {
-        for (const [routineId, blockIds] of blockIdsByRoutine) {
-          if (blockIds.has(s.blockId)) {
-            stepCountByRoutine.set(routineId, (stepCountByRoutine.get(routineId) ?? 0) + 1);
-            break;
-          }
-        }
+        const routineId = blockToRoutine.get(s.blockId);
+        if (routineId) stepCountByRoutine.set(routineId, (stepCountByRoutine.get(routineId) ?? 0) + 1);
       }
       return routines.map((r) => ({
         id: r.id,
