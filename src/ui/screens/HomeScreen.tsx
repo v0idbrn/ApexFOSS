@@ -4,12 +4,14 @@ import { database } from '../../data';
 import { loadDashboard, type DashboardData } from '../../data/dashboard';
 import { strings } from '../../constants/strings';
 import { loadActiveWorkout } from '../../workout/runner';
+import { loadLearnProgress, saveLearnProgress } from '../../learn/progress';
 import { gramRepsToKgReps } from '../../analytics/load';
 import { formatCount } from '../../utils/units';
 import { useNav, type Route } from '../navigation';
 import { BarChart } from '../Charts';
 import { Enter } from '../motion';
 import { Card, EmptyState, MetricCard, Screen } from '../components';
+import { WelcomeScreen } from './WelcomeScreen';
 
 interface ActiveRow {
   id: string;
@@ -143,9 +145,10 @@ function ToolGroup({
  * and every former quick tool condensed into three grouped row blocks.
  */
 export function HomeScreen() {
-  const { push, selectTab, startWorkout } = useNav();
+  const { push, selectTab, startWorkout, setBackInterceptor } = useNav();
   const [active, setActive] = useState<ActiveRow | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [welcome, setWelcome] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -167,11 +170,45 @@ export function HomeScreen() {
     } catch {
       setDashboard(emptyDashboard());
     }
+    try {
+      // Welcome is shown once, only after the persisted flag is known; a read
+      // failure never traps the athlete behind onboarding.
+      setWelcome(!(await loadLearnProgress(database)).welcomeDone);
+    } catch {
+      setWelcome(false);
+    }
   }, []);
 
   useEffect(() => {
     reload();
   }, [reload]);
+
+  const finishWelcome = useCallback(
+    (openLearn: boolean) => {
+      setWelcome(false);
+      void (async () => {
+        try {
+          const progress = await loadLearnProgress(database);
+          await saveLearnProgress(database, { ...progress, welcomeDone: true });
+        } catch {
+          // Device-local educational state only: a failed write may re-show the
+          // welcome next launch and never blocks the app.
+        }
+      })();
+      if (openLearn) push({ name: 'learn' });
+    },
+    [push],
+  );
+
+  // Hardware back leaves onboarding immediately, exactly like either path.
+  useEffect(() => {
+    if (!welcome) return;
+    setBackInterceptor(() => {
+      finishWelcome(false);
+      return true;
+    });
+    return () => setBackInterceptor(null);
+  }, [welcome, finishWelcome, setBackInterceptor]);
 
   const week = dashboard?.week;
   const daily = dashboard?.daily ?? [];
@@ -215,11 +252,20 @@ export function HomeScreen() {
       testID: 'home-group-app',
       label: strings.home.appSection,
       items: [
+        { label: strings.learn.title, route: { name: 'learn' }, testID: 'home-tool-learn' },
         { label: strings.portability.title, route: { name: 'portability' }, testID: 'home-tool-portability' },
         { label: strings.trust.title, route: { name: 'trust' }, testID: 'home-trust' },
       ],
     },
   ];
+
+  if (welcome) {
+    return (
+      <Screen>
+        <WelcomeScreen onLearn={() => finishWelcome(true)} onKnown={() => finishWelcome(false)} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen>

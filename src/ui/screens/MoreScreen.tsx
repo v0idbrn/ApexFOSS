@@ -110,6 +110,7 @@ export function MoreScreen() {
   }, []);
 
   const toolRows = [
+    { title: strings.learn.title, subtitle: strings.learn.centerSub, route: 'learn' as const, testID: 'more-learn' },
     { title: strings.exercises.title, subtitle: strings.more.exerciseSub, route: 'exercises' as const, testID: 'more-exercises' },
     { title: strings.inventory.title, subtitle: strings.more.equipmentSub, route: 'inventory' as const, testID: 'more-inventory' },
     { title: strings.athleteTools.readiness, subtitle: strings.more.readinessSub, route: 'readiness' as const, testID: 'more-readiness' },

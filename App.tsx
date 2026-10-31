@@ -34,6 +34,8 @@ import { InventoryScreen } from './src/ui/screens/InventoryScreen';
 import { ReadinessScreen } from './src/ui/screens/ReadinessScreen';
 import { TrustScreen } from './src/ui/screens/TrustScreen';
 import { ReportScreen } from './src/ui/screens/ReportScreen';
+import { LearnScreen } from './src/ui/screens/LearnScreen';
+import { LessonScreen } from './src/ui/screens/LessonScreen';
 import { parseImportDeepLink } from './src/portability/encoding';
 import { setPendingDeepLink } from './src/portability/pendingDeepLink';
 import { ingestIncomingUrl } from './src/portability/pendingFileImport';
@@ -89,6 +91,10 @@ function renderRoute(route: Route) {
       return <TrustScreen />;
     case 'report':
       return <ReportScreen />;
+    case 'learn':
+      return <LearnScreen />;
+    case 'lesson':
+      return <LessonScreen lessonId={route.lessonId} />;
     default:
       return <HomeScreen />;
   }

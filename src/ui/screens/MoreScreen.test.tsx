@@ -3,7 +3,7 @@ import path from 'path';
 import React from 'react';
 import { Linking, Text, TextInput } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
-import { Navigator, useNav } from '../navigation';
+import { Navigator, useNav, type Route } from '../navigation';
 import { MoreScreen } from './MoreScreen';
 import { strings } from '../../constants/strings';
 import { getStrings, setStringsLocale } from '../../constants/strings';
@@ -159,6 +159,29 @@ describe('MoreScreen support section', () => {
     const renderer = await renderMore();
     expect(pressableByTestID(renderer, 'more-trust')).toBeDefined();
     expect(pressableByTestID(renderer, 'more-portability')).toBeDefined();
+  });
+
+  it('opens the permanent learn center from More', async () => {
+    const routes: Route[] = [];
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(
+        <Navigator>
+          {(route) => {
+            routes.push(route);
+            return route.name === 'more' ? <MoreScreen /> : <GoToMore />;
+          }}
+        </Navigator>,
+      );
+    });
+    await act(async () => {});
+
+    const row = pressableByTestID(renderer, 'more-learn');
+    expect(row).toBeDefined();
+    await act(async () => {
+      row!.props.onPress();
+    });
+    expect(routes).toContainEqual(expect.objectContaining({ name: 'learn' }));
   });
 });
 

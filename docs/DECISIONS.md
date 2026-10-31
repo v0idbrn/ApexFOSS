@@ -1399,3 +1399,73 @@ code changed.
 - One timer authority, one event loop, no second reducer or component-owned countdown; simulator, interval and rest semantics untouched.
 - Cancel does not log a skipped set — it returns the athlete to the same position (time-based sets stay honest: performed or not, the engine never guesses).
 - The exercise set classifies as `normal` only because the payload mirrors the prescription; a future "actual duration" field would need its own decision entry.
+
+## D-061 - Learning system as pure educational layer over `app_settings` (Checkpoint 2, 2026-10-31)
+
+**Status:** Accepted
+
+**Context.** The product had zero onboarding: a first-run user had no path from "empty install" to "autonomous athlete" (create routine → run session → recover → export), and every advanced concept (RIR, tempo, supersets, EMOM, transition semantics) was only discoverable by already knowing it. Requirements: teach autonomy (not screens), verify actions where the data allows, never gate app functionality behind completion, keep EN/ES parity, keep training data untouched.
+
+**Decision.**
+1. **Separate educational layer, zero schema change.** `src/learn/progress.ts` persists one versioned JSON document (`learn_progress_v1`) in the existing `app_settings` key/value table (schema v13 untouched). Settings are deliberately excluded from backups (D-037 precedent) — learn progress follows the same rule: it is device-local educational state, never training data, never backed up. Welcome state and per-lesson completion live in this document only.
+2. **Content is data, not screens.** A pure lesson registry (`src/learn/content.ts`) defines groups and lesson ids (locale-independent); ALL prose lives in the centralized EN/ES dictionaries (`strings.learn`), so the existing recursive parity test enforces structural parity automatically. Lessons cannot contain logic.
+3. **Completion is evidence-based where the data allows.** The lesson screen verifies practice actions against database counts (exercises created, routines exist, sessions with logs, completed sessions) reusing the same count semantics as `countLocalData` / history loading; non-verifiable lessons require an explicit user confirmation that they performed the practice step. Reading alone never marks a lesson complete.
+4. **Non-blocking onboarding.** The welcome screen is shown once (first Home mount with no `welcomeDone` in the progress doc) and both its paths ("learn" / "already know it") record `welcomeDone` — back hardware and skip both immediately release the user to the app. Re-entry is permanent: Home app-tools row + More screen row.
+5. **No functional coupling.** Learn screens read/write ONLY the progress document and read-only counts. No writes to exercises/routines/demos, no migration, no new dependency, no gate: full app remains usable with zero lessons completed.
+
+**Consequences.**
+
+- Wiping local data (Trust Center) also resets learn progress (settings rows are wiped with everything else) — educational state is disposable by design; the tutorial can be retaken. Explicit reset button also exists in the Learn center.
+- Adding a lesson = one content entry + strings keys; screens and progress logic are agnostic to lesson count.
+- Contextual help ships as permanent concept explanations reachable from the Learn center plus entry links from the routine editor; deeper per-field inline help stays deferred until it can live in shared components without duplicating prose.
+
+## D-062 - Lesson verification reads only aggregate counts (Checkpoint 2, 2026-10-31)
+
+**Status:** Accepted
+
+**Context.** Lesson completion must reflect performed actions, and the honest bounds of that check are exactly what the database can prove.
+
+**Decision.** `loadLessonCounts(db)` executes four scalar queries (exercises count, routines count, set_logs count, completed sessions count) and lessons declare a predicate over these counts only. No timestamps, no identity joins, no heuristic session scanning. A device restored from backup can therefore satisfy verifiable lessons by genuinely having the data — which is acceptable: the user can freely re-verify and re-mark any lesson, and progress is discoverability state, not an achievement system.
+
+**Consequences.**
+
+- Verification is O(1) queries, pure-testable, and cannot accidentally mutate training data.
+- Lesson ids that add predicates later must stay backward compatible with the same progress document (only ids are persisted).
+
+## D-063 - Learn evidence audit: prove the taught action, not adjacent data (Checkpoint 1, 2026-10-31)
+
+**Status:** Accepted
+
+**Context.** The closing audit of the Learn layer (D-061/D-062) found two completion criteria whose evidence did not match the action the lesson teaches: `library` completed at a hard-coded `exercises > 20` (the seed count), so seeded content could satisfy it after any deletion, and `history` completed from `completedSessions > 0`, which proves a session was finished but not that history was reviewed.
+
+**Decision.**
+1. `library` verifies `userExercises > 0`: exercises whose id is not one of the deterministic seed ids, using a single `notIn` scalar count. Seeded starters and a backup containing only starters never satisfy it; creating one real exercise does.
+2. `history` no longer auto-completes. A completed session is evidence of training, not of reading history, so this conceptual lesson uses explicit practice confirmation like the other reading lessons. `completedSessions` stays in `LessonCounts` (D-062 named it) but no lesson consumes it.
+3. `createRoutine` (`routines > 0`) and `runSession` (`setLogs > 0`) remain evidence-based: a routine can only exist through an authoring, template or import action, and a set log is exactly the action taught (logging a set). No timestamp or identity joins are introduced.
+4. Reset writes only the `learn_progress_v1` row in `app_settings`, preserving `welcomeDone`; it never touches exercises, routines, sessions, set logs, snapshots, the cursor or any training setting.
+5. Read failures degrade to empty progress, welcome stays hidden on a failed read, and a failed welcome write may re-show the welcome on the next launch but never blocks the app. Corrupt or partial documents already parse to empty (D-061).
+
+**Consequences.**
+
+- `loadLessonCounts` issues five scalar queries instead of four; D-062 is amended, not rewritten.
+- Deleting the created exercise removes the evidence, but a completion already persisted remains: progress is discoverability state, never an achievement or audit record.
+- `scripts/seed-exercises.ts` becomes an explicit dependency of Learn verification; changing the seed list changes evidence automatically with no hard-coded totals to drift.
+
+## D-064 - Interrupted timed exercises are cancelled, never auto-logged (Reliability, 2026-10-31)
+
+**Status:** Accepted (tested)
+
+**Context.** Reliability audit of process-death recovery found that a timed-exercise countdown (`cursor.timer.kind === 'exercise'`) which expired while the app was dead was dispatched as `TIMER_EXPIRE` on remount/resume. That branch completes the set through the normal `COMPLETE_SET` path and writes a `set_logs` row with the prescribed duration. The athlete may have stopped, left, or never performed the hold; the app would silently record it. This also contradicted the Learn recovery lesson, which promises the position is shown and nothing is marked done automatically.
+
+**Decision.** Recovery uses `expiredTimerRecoveryEvent(cursor, now)` in `src/workout/runner.ts`:
+1. Expired `rest`, `auto` and `preparation` timers dispatch `TIMER_EXPIRE`, preserving the existing transition semantics (rest ends, cursor advances, no duplicate effects).
+2. An expired `exercise` timer dispatches `SKIP_TIMER`. `onTimerDone` targets the timer's own current position, so the cursor stays at the same block/step/round/set, the timer clears, and no `LOG_SET` effect is produced. The athlete logs, skips or restarts the hold explicitly.
+3. Mount and AppState-resume paths both use this decision; the live expiry timeout refuses to fire while the app is not active, so a frozen JS timer cannot complete an exercise in the background.
+
+No engine transition was added or changed: the behavior is composed from existing `SKIP_TIMER`. No schema, snapshot, cursor shape or timer authority changes.
+
+**Consequences.**
+
+- A timed set interrupted by force-close/background is no longer present in history unless the athlete logs it; the set is not silently "performed".
+- Rest expiry still advances automatically after process death, so sessions do not stall on an old rest.
+- Live timed sets still auto-complete at expiry while the app is active (the set ran under observation), which is the existing, unchanged behavior.
