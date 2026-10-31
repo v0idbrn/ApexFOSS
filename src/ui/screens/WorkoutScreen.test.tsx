@@ -8,6 +8,7 @@ import { saveSessionNote } from '../../data/notes';
 import {
   applyWorkoutEvent,
   discardWorkout,
+  expiredTimerRecoveryEvent,
   isTimerExpired,
   loadActiveWorkout,
   reconcileTimerNotification,
@@ -49,6 +50,7 @@ jest.mock('../../workout/runner', () => ({
   applyWorkoutEvent: jest.fn(),
   discardWorkout: jest.fn(),
   isTimerExpired: jest.fn(),
+  expiredTimerRecoveryEvent: jest.fn(),
   reconcileTimerNotification: jest.fn(),
 }));
 jest.mock('../../data/history', () => ({ loadSessionDetail: jest.fn() }));
@@ -87,6 +89,9 @@ const mockedDetail = loadSessionDetail as jest.MockedFunction<typeof loadSession
 const mockedNote = saveSessionNote as jest.MockedFunction<typeof saveSessionNote>;
 const mockedReconcile = reconcileTimerNotification as jest.MockedFunction<typeof reconcileTimerNotification>;
 const mockedExpired = isTimerExpired as jest.MockedFunction<typeof isTimerExpired>;
+const mockedRecovery = expiredTimerRecoveryEvent as jest.MockedFunction<
+  typeof expiredTimerRecoveryEvent
+>;
 
 interface NavMock {
   pop: jest.Mock;
@@ -346,6 +351,7 @@ beforeEach(() => {
   });
   mockedStepEvidence.mockReturnValue(null);
   mockedExpired.mockReturnValue(false);
+  mockedRecovery.mockReturnValue(null);
 });
 
 afterEach(async () => {
@@ -1229,6 +1235,18 @@ describe('WorkoutScreen timed exercise timer', () => {
           typeof n.props?.onPress === 'function',
       ),
     ).toHaveLength(0);
+    await unmountWorkout(renderer);
+  });
+
+  it('recovers an expired exercise countdown by cancelling it, never auto-logging', async () => {
+    jest.useFakeTimers();
+    mockedLoad.mockResolvedValue(timedRuntime({ timer: exerciseTimer(Date.now() - 1) }));
+    mockedRecovery.mockReturnValue({ type: 'SKIP_TIMER', now: Date.now() });
+    const renderer = await renderWorkout();
+
+    const events = mockedApply.mock.calls.map((call) => call[2]);
+    expect(events).toContainEqual(expect.objectContaining({ type: 'SKIP_TIMER' }));
+    expect(events).not.toContainEqual(expect.objectContaining({ type: 'TIMER_EXPIRE' }));
     await unmountWorkout(renderer);
   });
 

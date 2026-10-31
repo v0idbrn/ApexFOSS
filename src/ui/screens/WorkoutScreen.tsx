@@ -12,7 +12,7 @@ import { classifySetExecution, OVERRIDE_REASONS } from '../../workout/execution'
 import {
   applyWorkoutEvent,
   discardWorkout,
-  isTimerExpired,
+  expiredTimerRecoveryEvent,
   loadActiveWorkout,
   loadWorkoutRuntime,
   reconcileTimerNotification,
@@ -700,12 +700,18 @@ export function WorkoutScreen() {
     }
     timer.setFromCursor(c.timer);
     if (c.timer.pausedAt != null) return;
-    if (isTimerExpired(c, Date.now())) {
-      applyRef.current({ type: 'TIMER_EXPIRE', now: Date.now() });
+    const recovery = expiredTimerRecoveryEvent(c, Date.now());
+    if (recovery) {
+      // Recovery, not a live expiry: an interrupted exercise countdown is
+      // cancelled instead of auto-logging the set (D-064).
+      applyRef.current(recovery);
       return;
     }
     const remaining = Math.max(0, c.timer.expiresAt - Date.now());
     const expireTimer = setTimeout(() => {
+      // A frozen/backgrounded JS timer must not complete an exercise countdown;
+      // the resume path decides (advance rest, cancel exercise).
+      if (AppState.currentState !== 'active') return;
       applyRef.current({ type: 'TIMER_EXPIRE', now: Date.now() });
     }, remaining);
     const tick = setInterval(() => timer.tick(), 250);
@@ -730,8 +736,9 @@ export function WorkoutScreen() {
         return;
       }
       await reconcileTimerNotification(fresh.sessionId, fresh.cursor.timer, Date.now());
-      if (isTimerExpired(fresh.cursor, Date.now())) {
-        await applyRef.current({ type: 'TIMER_EXPIRE', now: Date.now() });
+      const recovery = expiredTimerRecoveryEvent(fresh.cursor, Date.now());
+      if (recovery) {
+        await applyRef.current(recovery);
       } else if (fresh.cursor.timer) {
         timer.setFromCursor(fresh.cursor.timer);
       }

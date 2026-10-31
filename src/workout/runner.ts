@@ -135,3 +135,19 @@ export function isTimerExpired(cursor: ExecutionCursor, now: number): boolean {
   const t = cursor.timer;
   return t !== null && t.pausedAt == null && t.expiresAt <= now;
 }
+
+/**
+ * Recovery decision for a timer found expired on mount/resume (D-064).
+ * Rest, auto and preparation timers advance exactly as a live expiry would.
+ * An exercise countdown interrupted by process death is cancelled with
+ * SKIP_TIMER: the engine leaves the cursor at the same position and records
+ * nothing, so the set is never silently logged. The athlete logs, skips or
+ * restarts it. Returns null while the timer is absent, paused or unexpired.
+ */
+export function expiredTimerRecoveryEvent(
+  cursor: ExecutionCursor,
+  now: number,
+): EngineEvent | null {
+  if (!isTimerExpired(cursor, now)) return null;
+  return { type: cursor.timer!.kind === 'exercise' ? 'SKIP_TIMER' : 'TIMER_EXPIRE', now };
+}
