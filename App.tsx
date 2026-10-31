@@ -6,6 +6,7 @@ import { runDbSmoke, type SmokeResult } from './src/dev/smokeDb';
 import { database } from './src/data';
 import { makeDbActions } from './src/data/actions';
 import { Navigator, isImmersiveRoute, type Route } from './src/ui/navigation';
+import { ErrorBoundary } from './src/ui/ErrorBoundary';
 import { TabBar } from './src/ui/TabBar';
 import { useLocale } from './src/state/localeStore';
 import { useLocaleStore } from './src/state/localeStore';
@@ -148,14 +149,16 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <View className={`flex-1 ${__DEV__ && smoke && !smoke.ok ? 'bg-danger/10' : 'bg-bg'}`}>
-        <Navigator>
-          {(route) => (
-            <View className="flex-1">
-              <View className="flex-1">{renderRoute(route)}</View>
-              {isImmersiveRoute(route) ? null : <TabBar />}
-            </View>
-          )}
-        </Navigator>
+        <ErrorBoundary>
+          <Navigator>
+            {(route) => (
+              <View className="flex-1">
+                <View className="flex-1">{renderRoute(route)}</View>
+                {isImmersiveRoute(route) ? null : <TabBar />}
+              </View>
+            )}
+          </Navigator>
+        </ErrorBoundary>
       </View>
     </SafeAreaProvider>
   );

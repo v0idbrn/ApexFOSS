@@ -33,6 +33,10 @@ export const en = {
     langEnglish: 'English',
     langSpanish: 'Spanish',
   },
+  crash: {
+    title: 'Something went wrong',
+    body: 'The interface stopped because of an unexpected error. Your training data is safe on this device.',
+  },
   tabs: {
     home: 'Home',
     routines: 'Routines',

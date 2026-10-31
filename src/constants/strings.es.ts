@@ -35,6 +35,10 @@ export const es: Strings = {
     langEnglish: 'Inglés',
     langSpanish: 'Español',
   },
+  crash: {
+    title: 'Algo salió mal',
+    body: 'La interfaz se detuvo por un error inesperado. Tus datos de entrenamiento están seguros en este dispositivo.',
+  },
   tabs: {
     home: 'Inicio',
     routines: 'Rutinas',
