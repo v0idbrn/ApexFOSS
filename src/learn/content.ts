@@ -11,12 +11,17 @@ export type LearnLessonId =
   | 'intro'
   | 'library'
   | 'createRoutine'
+  | 'blocks'
   | 'prescriptions'
+  | 'rir'
+  | 'tempo'
   | 'structures'
   | 'runSession'
   | 'recovery'
   | 'history'
-  | 'export';
+  | 'export'
+  | 'backup'
+  | 'import';
 
 export type LearnGroupId = 'basics' | 'routines' | 'execution' | 'data';
 
@@ -51,7 +56,10 @@ export const LEARN_GROUPS: LearnGroup[] = [
     id: 'routines',
     lessons: [
       { id: 'createRoutine', verifies: (c) => c.routines > 0 },
+      { id: 'blocks' },
       { id: 'prescriptions' },
+      { id: 'rir' },
+      { id: 'tempo' },
       { id: 'structures' },
     ],
   },
@@ -69,6 +77,8 @@ export const LEARN_GROUPS: LearnGroup[] = [
       // this conceptual lesson keeps explicit confirmation (D-063).
       { id: 'history' },
       { id: 'export' },
+      { id: 'backup' },
+      { id: 'import' },
     ],
   },
 ];

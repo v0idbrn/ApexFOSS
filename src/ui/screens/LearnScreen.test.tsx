@@ -122,7 +122,7 @@ describe('LearnScreen center', () => {
     expect(texts).toContain(strings.learn.groupData);
     expect(texts).toContain(strings.learn.lesson.intro.title);
     expect(texts).toContain(strings.learn.lesson.export.summary);
-    expect(texts).toContain(`0 / 9 ${strings.learn.lessonsComplete}`);
+    expect(texts).toContain(`0 / 14 ${strings.learn.lessonsComplete}`);
   });
 
   it('marks persisted and evidence-verified lessons as complete', async () => {
@@ -133,7 +133,7 @@ describe('LearnScreen center', () => {
       .findAll((n) => n.props?.testID === 'learn-lesson-intro' && typeof n.props?.onPress === 'function')[0];
     const libraryRow = renderer.root
       .findAll((n) => n.props?.testID === 'learn-lesson-library' && typeof n.props?.onPress === 'function')[0];
-    expect(textContents(renderer)).toContain(`2 / 9 ${strings.learn.lessonsComplete}`);
+    expect(textContents(renderer)).toContain(`2 / 14 ${strings.learn.lessonsComplete}`);
     expect(flatten(introRow.findAllByType(Text).map((t) => t.props.children))).toContain(
       strings.learn.practice.done,
     );
@@ -184,7 +184,7 @@ describe('LearnScreen center', () => {
       { version: 1, welcomeDone: true, completed: [] },
     );
     expect(textContents(renderer)).toContain(strings.learn.resetDone);
-    expect(textContents(renderer)).toContain(`0 / 9 ${strings.learn.lessonsComplete}`);
+    expect(textContents(renderer)).toContain(`0 / 14 ${strings.learn.lessonsComplete}`);
     alert.mockRestore();
   });
 });
