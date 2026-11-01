@@ -12,6 +12,7 @@ import {
   analyzeStepEvidence,
 } from '../../data/progression';
 import type { ProgressionEvidence } from '../../analytics/progression';
+import { loadAnalyticsSnapshot, type AnalyticsSnapshot } from '../../data/analytics';
 
 jest.mock('../../data', () => ({ database: {} }));
 const mockSetExNote = jest.fn(async () => 'se1');
@@ -30,6 +31,11 @@ jest.mock('../../data/progression', () => ({
   progressionInputFor: jest.fn(),
   latestPrescriptionFor: jest.fn(),
 }));
+jest.mock('../../data/analytics', () => ({
+  loadAnalyticsSnapshot: jest.fn(() => Promise.resolve({ sessions: [], exercises: [] })),
+}));
+
+const mockedSnapshot = loadAnalyticsSnapshot as jest.MockedFunction<typeof loadAnalyticsSnapshot>;
 
 const mockedLoad = loadSessionDetail as jest.MockedFunction<typeof loadSessionDetail>;
 const mockedSave = saveSessionNote as jest.MockedFunction<typeof saveSessionNote>;
@@ -585,5 +591,61 @@ describe('HistoryDetailScreen fidelity (1.1.0)', () => {
     });
     await act(async () => {});
     expect(mockSetExNote).toHaveBeenCalledWith('sess_1', 0, 0, 'Bench Press', 'Tight, warmed up longer');
+  });
+});
+
+describe('HistoryDetailScreen session muscle summary (D-071)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const benchSnapshot = {
+    sessions: [
+      {
+        sessionId: 'sess_1',
+        name: 'Push Day',
+        timestampMs: 1_700_000_600_000,
+        startedAt: 1_700_000_000_000,
+        endedAt: 1_700_000_600_000,
+        exercises: [
+          {
+            exerciseName: 'Barbell Bench Press',
+            contributions: [
+              ['chest', 6000],
+              ['triceps', 2500],
+              ['front_delts', 1500],
+            ],
+            sets: [{ weightGrams: 60_000, reps: 5, durationMs: null, isCompleted: true }],
+          },
+        ],
+      },
+    ],
+    exercises: [],
+  } as unknown as AnalyticsSnapshot;
+
+  it("renders this session's muscle shares in the detail view", async () => {
+    mockedLoad.mockResolvedValue(detail);
+    mockedSnapshot.mockResolvedValue(benchSnapshot);
+    const renderer = await renderDetail();
+    expect(renderer.root.findAllByProps({ testID: 'history-muscles' }).length).toBeGreaterThan(0);
+    expect(textsOf(renderer)).toContain('Chest 60.0% · Triceps 25.0% · Front delts 15.0%');
+  });
+
+  it('stays hidden when no snapshot session matches this id', async () => {
+    mockedLoad.mockResolvedValue(detail);
+    mockedSnapshot.mockResolvedValue({
+      ...benchSnapshot,
+      sessions: benchSnapshot.sessions.map((s) => ({ ...s, sessionId: 'other' })),
+    } as unknown as AnalyticsSnapshot);
+    const renderer = await renderDetail();
+    expect(renderer.root.findAllByProps({ testID: 'history-muscles' })).toHaveLength(0);
+  });
+
+  it('fails soft when the analytics snapshot cannot load', async () => {
+    mockedLoad.mockResolvedValue(detail);
+    mockedSnapshot.mockRejectedValue(new Error('db gone'));
+    const renderer = await renderDetail();
+    expect(renderer.root.findAllByProps({ testID: 'history-muscles' })).toHaveLength(0);
+    expect(textsOf(renderer)).toContain(detail.name);
   });
 });

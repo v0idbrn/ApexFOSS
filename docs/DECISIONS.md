@@ -1583,3 +1583,24 @@ cue matrices are now exported as pure `tempoPulseMs` (complete 35ms · phase 15m
 `src/tempo/feedback.test.ts`; adapter behavior is unchanged. Viability gate to lift the
 deferral: an available device for validation, an accepted audio dependency, and an asset
 licensing review.
+
+## D-071 — Per-session muscle composition in the history detail
+
+Scope: history/session-summary improvement. Audit found the one grounded gap: D-065 made
+`loadAnalyticsSnapshot` resolve per-exercise muscle contributions, and the Muscle tab shows
+date-range aggregates, but no per-session view ever surfaced them — the session summary
+could not answer "what did this session actually hit".
+
+Implementation: `HistoryDetailScreen` loads one batched analytics snapshot (the same
+fail-soft pattern it already uses for the progression snapshot), finds THIS session by id,
+and runs the existing `calculateMuscleHeatmap` over it with a 1ms half-open window at the
+session's own timestamp (so the range filter selects it exclusively — no new aggregation
+logic). A compact card renders the top 5 regions by load share (`shareBp`, one-decimal
+formatting identical to MuscleScreen) plus the unmapped-exercise note when present.
+
+Safety: the card is supplementary and fail-soft — snapshot load failure, a missing session
+row, or a timed-only session (zero resistance load) simply omits it; the detail view never
+degrades. Muscle mapping stays in the data layer (D-025/D-026 vocabulary, unmapped never
+guessed). Tests: shares rendered for a mapped session, hidden when no session matches,
+fail-soft on snapshot error (3 new; 24 in the suite).
+

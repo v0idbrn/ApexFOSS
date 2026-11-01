@@ -16,6 +16,8 @@ import { overrideReasonLabel, sessionEndReasonLabel } from './WorkoutScreen';
 import { formatCount, formatKg, msToSeconds } from '../../utils/units';
 import { calculateSessionLoad, gramRepsToKgReps } from '../../analytics/load';
 import { summarizeAdherence, type AdherenceSummary } from '../../analytics/adherence';
+import { loadAnalyticsSnapshot, type AnalyticsSnapshot } from '../../data/analytics';
+import { calculateMuscleHeatmap, type MuscleHeatmap, type MuscleId } from '../../analytics/muscles';
 import { normalizeExecutionType, normalizeOverrideReason } from '../../workout/execution';
 import { plannedSets } from '../../workout/sessionProgress';
 import { useNav } from '../navigation';
@@ -85,6 +87,16 @@ function actualLine(l: {
 function blockKindLabel(kind: string): string {
   const map = strings.routines.blockKind as Record<string, string>;
   return map[kind] ?? kind.toUpperCase();
+}
+
+/** Localized muscle-group label (D-071); mirrors MuscleScreen's dictionary lookup. */
+function muscleGroupLabel(muscle: MuscleId): string {
+  return strings.muscles.groups[muscle];
+}
+
+/** Share-of-load label (D-071); same formatting as MuscleScreen. */
+function musclePercent(shareBp: number): string {
+  return `${(shareBp / 100).toFixed(1)}%`;
 }
 
 /** Localized block-role badge (1.1.0); null when main/legacy. */
@@ -171,6 +183,36 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
     }
     setExNotes(init);
     setExSaved({});
+  }, [detail]);
+
+  // Per-session muscle composition (D-071): one batched analytics snapshot,
+  // filtered to THIS session; fail-soft — analytics never blocks the detail view.
+  const [muscleHeat, setMuscleHeat] = useState<MuscleHeatmap | null>(null);
+  useEffect(() => {
+    if (!detail) return;
+    let cancelled = false;
+    loadAnalyticsSnapshot(database)
+      .then((snapshot: AnalyticsSnapshot) => {
+        if (cancelled) return;
+        const session = snapshot.sessions.find((s) => s.sessionId === detail.id);
+        if (!session) {
+          setMuscleHeat(null);
+          return;
+        }
+        // Half-open 1ms window at the session's own timestamp selects it exclusively.
+        setMuscleHeat(
+          calculateMuscleHeatmap([session], {
+            startMs: session.timestampMs,
+            endMs: session.timestampMs + 1,
+          }),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setMuscleHeat(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [detail]);
 
   // Progression intelligence (Phase 3B): one batched snapshot → engine per step.
@@ -382,6 +424,26 @@ export function HistoryDetailScreen({ sessionId }: { sessionId: string }) {
                 {strings.history.durationWork}: {msToSeconds(sessionLoad.durationMs)} {strings.load.seconds} ·{' '}
                 {sessionLoad.durationSetCount} {strings.load.sets}
               </Text>
+            </Card>
+          ) : null}
+
+          {muscleHeat && muscleHeat.regions.length > 0 ? (
+            <Card className="mt-3" testID="history-muscles">
+              <Text accessibilityRole="header" className="text-xs font-semibold uppercase tracking-wider text-dim">
+                {strings.muscles.title}
+              </Text>
+              <Text className="mt-2 text-sm text-fg" testID="history-muscles-summary">
+                {muscleHeat.regions
+                  .slice(0, 5)
+                  .map((region) => `${muscleGroupLabel(region.muscle)} ${musclePercent(region.shareBp)}`)
+                  .join(' · ')}
+              </Text>
+              {muscleHeat.unmappedExercises.length > 0 ? (
+                <Text className="mt-0.5 text-sm text-dim" testID="history-muscles-unmapped">
+                  {strings.muscles.unmappedFor}:{' '}
+                  {muscleHeat.unmappedExercises.map((e) => e.exerciseName).join(', ')}
+                </Text>
+              ) : null}
             </Card>
           ) : null}
 
