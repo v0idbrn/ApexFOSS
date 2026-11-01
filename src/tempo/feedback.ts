@@ -17,32 +17,43 @@ function pulse(ms: number): void {
   }
 }
 
-export function pulseTempoHaptic(effect: TempoEffect): void {
-  if (effect.kind === 'TEMPO_COMPLETE') pulse(35);
-  else pulse(15);
+/**
+ * Pure cue matrix (pulse ms). Pinned by tests (D-070) so the deferred-audio
+ * seam cannot drift silently; a future audio adapter swaps this mapping
+ * without touching engine timing.
+ */
+export function tempoPulseMs(effect: TempoEffect): number {
+  return effect.kind === 'TEMPO_COMPLETE' ? 35 : 15;
 }
 
 /**
  * Interval cues (restrained):
  * PREP short · WORK distinct · REST medium · ROUND short · COMPLETE long.
  * Multi-boundary catch-up only emits landed effects (engine already collapses).
+ * Pure; `null` means "no cue for this effect".
  */
-export function pulseIntervalHaptic(effect: IntervalEffect): void {
+export function intervalPulseMs(effect: IntervalEffect): number | null {
   switch (effect.kind) {
     case 'INTERVAL_COMPLETE':
-      pulse(40);
-      break;
+      return 40;
     case 'ROUND_START':
-      pulse(20);
-      break;
+      return 20;
     case 'PHASE_START':
-      if (effect.phase === 'work') pulse(25);
-      else if (effect.phase === 'rest') pulse(18);
-      else pulse(12); // prep
-      break;
+      if (effect.phase === 'work') return 25;
+      if (effect.phase === 'rest') return 18;
+      return 12; // prep
     default:
-      break;
+      return null;
   }
+}
+
+export function pulseTempoHaptic(effect: TempoEffect): void {
+  pulse(tempoPulseMs(effect));
+}
+
+export function pulseIntervalHaptic(effect: IntervalEffect): void {
+  const ms = intervalPulseMs(effect);
+  if (ms !== null) pulse(ms);
 }
 
 import {

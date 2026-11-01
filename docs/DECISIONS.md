@@ -1561,3 +1561,25 @@ No engine transition was added or changed: the behavior is composed from existin
 - An athlete can extend rest repeatedly (each press +30 s from the current expiry); no cap — the athlete owns the pause between sets.
 - The rest card remounts on extension (its `Enter` key includes `expiresAt`, same as resume), giving visible confirmation; countdown shows the new remaining immediately.
 - Tests: canonical write + notification resync, paused extension keeps the freeze, preparation timer never shows the control (3 new; 39 in the workout suite).
+
+## D-070 — Audio/tempo feedback audit: D-011 deferral upheld, cue matrix pinned
+
+Scope: resolves the deferred "audio/tempo feedback" item (D-011 follow-up). Audit of the
+feedback pipeline:
+
+- No audio dependency exists anywhere in the frozen stack (verified by import scan:
+  no expo-audio / expo-av / react-native-sound / expo-haptics). D-011's premise holds.
+- Feedback is fail-soft RN Vibration through a pure seam: the tempo and interval engines
+  emit pure effects; `src/tempo/feedback.ts` is the only side-effecting adapter. Audio could
+  replace that adapter without touching engine timing — D-011's promised consequence holds.
+- The tempo trainer (post-D-011) already follows the same model, but neither the tempo nor
+  the interval cue matrix was pinned by any test — an unpinned deferral drifts silently.
+
+Resolution: audio remains NOT VIABLE in this run. It requires a new native dependency
+(frozen stack, KNOWN_LIMITATIONS #19 and the no-dependency-by-default policy), packaged
+audio assets, a native rebuild, and device validation (DEVICE NOT VALIDATED). Instead the
+cue matrices are now exported as pure `tempoPulseMs` (complete 35ms · phase 15ms) and
+`intervalPulseMs` (prep 12 · work 25 · rest 18 · round 20 · complete 40) functions pinned by
+`src/tempo/feedback.test.ts`; adapter behavior is unchanged. Viability gate to lift the
+deferral: an available device for validation, an accepted audio dependency, and an asset
+licensing review.
