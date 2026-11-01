@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1227%20%2F%2093%20suites-4ade80" alt="1227 pruebas en 93 suites" />
+  <img src="https://img.shields.io/badge/tests-1327%20%2F%20104%20suites-4ade80" alt="1327 pruebas en 104 suites" />
 </p>
 
 <p align="center">
@@ -133,7 +133,7 @@ ApexFOSS **aún no está en ninguna tienda de aplicaciones** (ni Play Store, ni 
 ## Pruebas
 
 ```bash
-npm test                # 1227 pruebas en 93 suites — motor, persistencia,
+npm test                # 1327 pruebas en 104 suites — motor, persistencia,
                         # temporizadores, migraciones, analítica, portabilidad,
                         # exportación, seguridad, interfaz
 npm run typecheck       # TypeScript pasa sin errores
@@ -148,7 +148,7 @@ npm run typecheck       # TypeScript pasa sin errores
 Estado actual, en términos precisos:
 
 - **Implementado:** todo lo listado en [Características](#características).
-- **Probado:** 1227 pruebas Jest en 93 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
+- **Probado:** 1327 pruebas Jest en 104 suites en verde; verificación de tipos TypeScript en verde; la CI ejecuta ambas en cada push.
 - **Compilado para versión final:** los APKs debug y de versión final se generan localmente; el APK de versión final firmado de 1.1.0 está compilado y verificado (paquete `com.apexfoss.app`, versionCode 3, sin permiso INTERNET, no depurable).
 - **Validado en dispositivo:** solo un pase histórico parcial (Fase 2K); **la validación en dispositivo de 1.1.0 y las pruebas con amigos están pendientes**.
 - **Publicado:** no — no se ha enviado nada a ninguna tienda, canal ni GitHub Release.

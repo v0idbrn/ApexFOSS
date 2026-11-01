@@ -55,10 +55,11 @@ Governing decisions: `docs/DECISIONS.md` D-046 … D-049. Honest gaps: `docs/KNO
 
 - Score 0 → dropped; sort by score desc, then name asc, then id asc (fully deterministic); default top 5; self-matches excluded (D-047). Heuristic caveats: KNOWN_LIMITATIONS #23.
 
-### Workout notes (schema v5, `src/data/notes.ts`)
-- Session-level free text (trimmed, blank → `null`, capped at **2000 characters**).
+### Workout notes (`src/data/notes.ts`)
+- **Session-level free text** (trimmed, blank → `null`, capped at **2000 characters**), introduced at schema v5.
 - Written on the post-workout summary (saved best-effort when tapping Done — never blocks navigation) and edited from History → Session with an explicit Save + confirmation.
 - Flows through `loadSessionDetail` → History detail, the history **JSON** export, and `.apexbackup` (`BackupSession.note`, optional — pre-v5 backups restore as `null`). The CSV schema is untouched (D-048).
+- **Per-exercise execution notes** (1.1.0, capped at **500 characters**): a free-text note per planned exercise inside a session, saved with the same explicit Save + confirmation pattern, round-tripped through `.apexbackup` (`BackupSessionExercise.exerciseNote`), and shown in the History session detail. Session notes remain single-column, session-level text (KNOWN_LIMITATIONS #25).
 
 ## Data model additions
 
@@ -71,6 +72,6 @@ Both are additive; old backups (without `equipmentItems` / `note`) still validat
 
 ## Testing and CI
 
-- **1227 Jest tests / 93 suites**, `tsc --noEmit` clean (engine, analytics, data, portability, export, security, UI screens).
+- **1327 Jest tests / 104 suites**, `tsc --noEmit` clean (engine, analytics, data, portability, export, security, UI screens).
 - Light CI (`.github/workflows/ci.yml`, D-049): `npm ci` → typecheck → tests on every push/PR to `main`. No emulator or APK build in CI.
 - **Device/visual validation (spec §28) was not performed in Phase 2J — the phase was executed without ADB per explicit instruction.** All UI claims above rest on component tests; treat visual behavior as needing validation on real hardware (KNOWN_LIMITATIONS #21). *Phase 2K later delivered a partial physical-device pass on a Samsung SM-A045M (Android 14) covering launch/routine/workout/resume flows; the analytics surfaces above (dashboard, training load, muscle distribution, PRs, compare) were **not** exercised on hardware from a real completed session — KNOWN_LIMITATIONS #21 lists the exact matrix.*

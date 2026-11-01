@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/React_Native-0.83-61DAFB?logo=react&logoColor=black" alt="React Native 0.83" />
   <img src="https://img.shields.io/badge/Expo-SDK_55-000020?logo=expo&logoColor=white" alt="Expo SDK 55" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.9" />
-  <img src="https://img.shields.io/badge/tests-1227%20%2F%2093%20suites-4ade80" alt="1227 tests in 93 suites" />
+  <img src="https://img.shields.io/badge/tests-1327%20%2F%20104%20suites-4ade80" alt="1327 tests in 104 suites" />
 </p>
 
 <p align="center">
@@ -133,7 +133,7 @@ ApexFOSS is **not on any app store yet** (no Play Store, no F-Droid). It **is** 
 ## Testing
 
 ```bash
-npm test                # 1227 tests across 93 suites — engine, persistence, timers,
+npm test                # 1327 tests across 104 suites — engine, persistence, timers,
                         # migrations, analytics, portability, export, security, UI
 npm run typecheck       # TypeScript passes with no errors
 ```
@@ -147,7 +147,7 @@ npm run typecheck       # TypeScript passes with no errors
 Current state, in precise terms:
 
 - **Implemented:** everything listed under [Features](#features).
-- **Tested:** 1227 Jest tests / 93 suites pass; TypeScript type-check passes; CI runs both on every push.
+- **Tested:** 1327 Jest tests / 104 suites pass; TypeScript type-check passes; CI runs both on every push.
 - **Release-built:** debug and release APKs build locally; the signed 1.1.0 release APK is built and verified (package `com.apexfoss.app`, versionCode 3, no INTERNET permission, not debuggable).
 - **Physically validated:** partial historical pass only (Phase 2K); **device validation for 1.1.0 and friend testing pending**.
 - **Published:** no — no store, channel, or GitHub Release submission has been made.

@@ -2,6 +2,36 @@
 
 Notable changes to ApexFOSS. Versions follow a simple pre-1.0 convention; a date appears only when a version is actually tagged and released. The project follows nothing beyond this file — planned work lives in `docs/DECISIONS.md` and `docs/DISTRIBUTION.md`, not here.
 
+## 1.1.3 — unreleased
+
+Product-completion run on top of 1.1.2: an in-app learning system, reliability fixes for interrupted timers, a real starter library, and workout/editor/history refinements. Version **1.1.3** (versionCode 6); **no database schema changes** (still schema v13).
+
+### Learning system
+- **Learn tab and lesson viewer** (D-061, D-062): a pure educational layer persisted in `app_settings`, with lesson verification that reads only aggregate counts (never private row data). Lesson completion is proven by the taught action, not adjacent data (D-063) — a conceptual lesson asks for explicit confirmation, an action lesson checks the real action.
+- First-run welcome, re-entry from More, and progress reset that touches only Learn markers (never routines, exercises, sessions, snapshots or the execution cursor).
+
+### Reliability
+- **Interrupted timed exercises are cancelled, never auto-logged** (D-064): when a timed set is cut off (background, process death), the engine cancels cleanly instead of recording a set the athlete never finished.
+
+### Starter content
+- **Expanded exercise library seeded per-launch** (D-065): the built-in library grows to **60 exercises** with deterministic ids and muscle-mapping contributions; a fresh install gets all of them, an existing install receives only starters it has never had, and a user's delete always wins over re-seeding (D-066).
+- **Three prefilled starter routines** (D-066): ready-to-run routines seeded into a fresh install, referencing the starter library.
+
+### Workout and editor UX
+- **Next set prefills from the actuals just logged**, not the prescription (D-067) — the athlete keeps momentum without retyping the weight and reps they just completed.
+- **Reorder blocks and steps in the routine editor** (D-068): move controls reorder blocks and steps within a routine.
+- **Safe rest override** (D-069): a **+30 s** rest extension applied as a canonical-cursor write, so the timer's absolute expiry stays the single source of truth and notifications never drift.
+
+### History and feedback
+- **Per-session muscle composition** (D-071): the history detail shows which muscles a completed session actually loaded, resolved through the existing deterministic mapping and fail-soft when unmapped.
+- **Cue matrices pinned** (D-070): the audio/tempo feedback audit (D-011 follow-up) confirmed audio stays deferred (frozen stack, no device) and pinned the haptic cue matrices as pure functions so the seam cannot drift.
+
+### Portability
+- **Full-library round-trip proven** (D-072): a backup of the entire 60-exercise library and starter routines restores correctly, and muscle mapping survives the transfer through the portable record-key fallback. Seed ids are intentionally absent from `.apexbackup` (clarified, not a defect).
+
+### Tests
+- **1327 Jest tests across 104 suites** plus a clean `tsc --noEmit`; EN/ES i18n parity maintained.
+
 ## 1.1.2 — unreleased
 
 Timed exercises — exercises prescribed by a duration now run fully in-app with an explicit, deterministic timer instead of being left to a wall clock. Version **1.1.2** (versionCode 5); no database schema changes.
