@@ -22,7 +22,7 @@ Governing decisions: `docs/DECISIONS.md` D-046 … D-049. Honest gaps: `docs/KNO
 - Today's planned session, weekly volume/time, streak, recent sessions, shortcuts to athlete tools; empty states when history is too short to summarize.
 
 ### Workout execution UX (`src/ui/screens/WorkoutScreen.tsx`, `src/workout/sessionProgress.ts`)
-- Progress header (done/planned sets, block/round), rest-timer card with pause-aware remaining time, completion flash after a logged set.
+- Progress header (done/planned sets, block/round), rest-timer card with pause-aware remaining time, a +30 s rest override written to the canonical cursor (D-069), completion flash after a logged set.
 - **Post-workout summary**: duration / sets / volume plus the session note field (see *Notes* below).
 
 ### Rolling analytics (`src/analytics/athlete.ts`, LoadScreen)

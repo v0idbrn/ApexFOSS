@@ -1542,3 +1542,22 @@ No engine transition was added or changed: the behavior is composed from existin
 - The Learn copy is now true: arrows exist exactly where both lessons say they do; no lesson text changed.
 - Reordering is undoable only via the existing discard-changes flow (the draft is the edit buffer); saved order affects future sessions only.
 - Tests: move-control presence/absence per position, step swap persisted on save, block swap persisted on save (3 new). RN's test renderer yields composite+host nodes per Text, so assertions use absent-vs-present rather than exact node counts.
+
+## D-069 - Safe session rest override: +30 s as a canonical-cursor write (Checkpoint 8, 2026-10-31)
+
+**Status:** Accepted (tested)
+
+**Context.** The only mid-session rest controls were skip (ends it early) and pause/resume. Athletes routinely need *more* rest than prescribed — the session offered no way to express that, and any naive implementation (a UI-side countdown, a second timer state, an engine event mutating the frozen plan) would violate the timer-authority rules the recovery work just hardened (D-064: absolute `expiresAt` is the only authority).
+
+**Decision.**
+
+1. **`onExtendRest` mirrors `onPauseResume` exactly** (application-layer write, no engine event): `expiresAt += 30_000` on the canonical `cursor.timer`, persisted to `cursor_json` together with the derived `timer_expires_at` cache (kept honest for backup round-trips), then `reconcileTimerNotification` reschedules/cancels the pending notification. Fail-soft on write errors — the next resume reconciles from the persisted cursor.
+2. **`expiresAt += 30_000` is pause-safe by construction**: while running, remaining grows from `expiresAt − now`; while paused, remaining = `expiresAt − pausedAt` grows by the same 30 s and the countdown stays frozen. One arithmetic rule, both states, no second source of truth.
+3. **Rest timers only.** Preparation/exercise countdowns feed their own logged duration semantics (and exercise recovery is deliberately conservative since D-064), so the button (`workout.extendRest` — "Add 30 s" / "Sumar 30 s") renders only when `cursor.timer.kind === 'rest'`. The existing timer effect re-arms its expiry timeout from the new absolute timestamp, so process death and resume behave unchanged.
+4. **Position of the timer never moves**: extension changes only `expiresAt`; block/step/round/set, transitions and the frozen definition are untouched, and UNDO semantics (void last set) do not interact with timers.
+
+**Consequences.**
+
+- An athlete can extend rest repeatedly (each press +30 s from the current expiry); no cap — the athlete owns the pause between sets.
+- The rest card remounts on extension (its `Enter` key includes `expiresAt`, same as resume), giving visible confirmation; countdown shows the new remaining immediately.
+- Tests: canonical write + notification resync, paused extension keeps the freeze, preparation timer never shows the control (3 new; 39 in the workout suite).

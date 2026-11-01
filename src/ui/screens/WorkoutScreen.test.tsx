@@ -676,6 +676,67 @@ describe('WorkoutScreen rest timer', () => {
     expect(buttonByLabel(renderer, strings.workout.pause)).toBeDefined();
     expect(textOf(renderer, 'rest-countdown')).toBe('01:30');
   });
+
+  it('adds 30 s to the rest through a canonical cursor write and resyncs the notification', async () => {
+    jest.useFakeTimers();
+    const session = makeSession();
+    const expiresAt = Date.now() + 90_000;
+    mockedLoad.mockResolvedValue(
+      makeRuntime({ session, cursor: activeCursor({ timer: restTimer(expiresAt) }) }),
+    );
+    const renderer = await renderWorkout();
+    expect(textOf(renderer, 'rest-countdown')).toBe('01:30');
+
+    await pressButton(renderer, strings.workout.extendRest);
+
+    // The canonical cursor carries the new absolute expiry (+ the derived cache).
+    const written = JSON.parse(session.rec.cursorJson) as ExecutionCursor;
+    expect(written.timer?.expiresAt).toBe(expiresAt + 30_000);
+    expect(textOf(renderer, 'rest-countdown')).toBe('02:00');
+    expect(mockedReconcile).toHaveBeenCalledWith(
+      'sess_1',
+      expect.objectContaining({ expiresAt: expiresAt + 30_000 }),
+      expect.any(Number),
+    );
+  });
+
+  it('grows the remaining rest while paused without unfreezing the countdown', async () => {
+    jest.useFakeTimers();
+    const session = makeSession();
+    const expiresAt = Date.now() + 90_000;
+    mockedLoad.mockResolvedValue(
+      makeRuntime({ session, cursor: activeCursor({ timer: restTimer(expiresAt) }) }),
+    );
+    const renderer = await renderWorkout();
+    expect(textOf(renderer, 'rest-countdown')).toBe('01:30');
+
+    await pressButton(renderer, strings.workout.pause);
+    await pressButton(renderer, strings.workout.extendRest);
+
+    // expiresAt += 30 s grows remaining = expiresAt − pausedAt by the same 30 s.
+    const written = JSON.parse(session.rec.cursorJson) as ExecutionCursor;
+    expect(written.timer?.expiresAt).toBe(expiresAt + 30_000);
+    expect(typeof written.timer?.pausedAt).toBe('number');
+    expect(textOf(renderer, 'rest-countdown')).toBe('02:00');
+    expect(nodesWith(renderer, { testID: 'rest-paused' })).toHaveLength(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(10_000);
+    });
+    expect(textOf(renderer, 'rest-countdown')).toBe('02:00'); // still frozen
+  });
+
+  it('never offers the extension on a preparation timer', async () => {
+    jest.useFakeTimers();
+    const expiresAt = Date.now() + 5_000;
+    mockedLoad.mockResolvedValue(
+      makeRuntime({ cursor: activeCursor({ timer: restTimer(expiresAt, { kind: 'preparation' }) }) }),
+    );
+    const renderer = await renderWorkout();
+
+    expect(nodesWith(renderer, { testID: 'rest-card' })).toHaveLength(1);
+    expect(renderer.root.findAll((n) => n.props?.testID === 'extend-rest')).toHaveLength(0);
+  });
 });
 
 describe('WorkoutScreen finish and discard paths', () => {

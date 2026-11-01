@@ -108,6 +108,9 @@ const emptyInputs = (): NumpadInput => ({ weightKg: '', reps: '', durationS: '',
 /** Visual refresh for tempo countdown only — not a second authoritative timer. */
 const TEMPO_UI_TICK_MS = 100;
 
+/** Session rest override (D-069): one press adds 30 s to the canonical expiry. */
+const REST_EXTEND_MS = 30_000;
+
 /** Small prescription tile — training numbers stay scannable at a glance. */
 function TargetTile({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
@@ -976,6 +979,38 @@ export function WorkoutScreen() {
     setRt((prev) => (prev && prev.sessionId === current.sessionId ? { ...prev, cursor } : prev));
   };
 
+  /**
+   * Session rest override (D-069): add 30 s to the rest timer as an
+   * application-layer write to the canonical cursor — the same safety model as
+   * pause/resume. `expiresAt += 30_000` grows the remaining rest identically
+   * while running (expiresAt − now) and while paused (expiresAt − pausedAt),
+   * so no second timer source appears. The derived `timer_expires_at` cache is
+   * rewritten with the cursor (backup round-trip stays honest) and the
+   * notification is resynced; recovery keeps working because the absolute
+   * timestamp remains the only authority. Rest timers only: an exercise or
+   * preparation countdown feeds its own logged duration, so it is never
+   * extended from here.
+   */
+  const onExtendRest = () => {
+    const current = rtRef.current;
+    const t = current?.cursor.timer;
+    if (!current || !t || t.kind !== 'rest' || current.cursor.status !== 'active') return;
+    const now = Date.now();
+    const cursor = { ...current.cursor, timer: { ...t, expiresAt: t.expiresAt + REST_EXTEND_MS } };
+    void current.session
+      .update((rec) => {
+        rec.cursorJson = JSON.stringify(cursor);
+        rec.timerExpiresAt = cursor.timer.expiresAt;
+        rec.updatedAt = now;
+      })
+      .then(() => reconcileTimerNotification(current.sessionId, cursor.timer, now))
+      .catch(() => {
+        // fail-soft: reload on next resume reconciles the canonical cursor
+      });
+    rtRef.current = { ...current, cursor };
+    setRt((prev) => (prev && prev.sessionId === current.sessionId ? { ...prev, cursor } : prev));
+  };
+
   const onUndo = () => {
     void apply({ type: 'UNDO_LAST', now: Date.now() });
   };
@@ -1370,6 +1405,17 @@ export function WorkoutScreen() {
                   className="flex-1"
                 />
               </View>
+              {cursor.timer.kind === 'rest' ? (
+                <View className="mt-2">
+                  <Button
+                    label={strings.workout.extendRest}
+                    variant="ghost"
+                    onPress={onExtendRest}
+                    disabled={busy}
+                    testID="extend-rest"
+                  />
+                </View>
+              ) : null}
             </Card>
           </Enter>
           ) : currentStep ? (

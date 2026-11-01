@@ -480,6 +480,7 @@ more: {
     next: 'SIGUIENTE',
     rest: 'DESCANSO',
     skipRest: 'Omitir descanso',
+    extendRest: 'Sumar 30 s',
     startTimedExercise: 'Iniciar temporizador',
     previous: 'Anterior',
     noPrevious: 'Primera vez',

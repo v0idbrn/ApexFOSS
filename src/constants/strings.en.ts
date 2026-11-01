@@ -478,6 +478,7 @@ more: {
     next: 'NEXT',
     rest: 'REST',
     skipRest: 'Skip rest',
+    extendRest: 'Add 30 s',
     startTimedExercise: 'Start timer',
     previous: 'Previous',
     noPrevious: 'First time',
