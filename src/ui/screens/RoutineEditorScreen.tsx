@@ -31,6 +31,24 @@ const TRANSITIONS: { type: TransitionType; label: string }[] = [
   { type: 'auto_advance', label: strings.routines.transition.auto },
 ];
 
+/**
+ * Reorder control for blocks and steps (D-068): language-neutral glyph with a
+ * localized accessibility label, matching the editor's text-button rows
+ * (48 px touch target). Rendered only where the move is actually possible.
+ */
+function MoveArrow({ glyph, label, onPress }: { glyph: string; label: string; onPress: () => void }) {
+  return (
+    <Text
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      className="h-12 flex-row items-center px-2 text-base text-dim"
+    >
+      {glyph}
+    </Text>
+  );
+}
+
 export function RoutineEditorScreen({ routineId }: { routineId: string | null }) {
   const { pop, push, setBackInterceptor } = useNav();
   const [draft, setDraft] = useState<RoutineDraft>(() => emptyDraft());
@@ -138,6 +156,20 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
       update((d) => ({ ...d, blocks: d.blocks.filter((_, i) => i !== blockIdx) })),
     );
 
+  /**
+   * Reorder blocks (D-068): draft-only swap — `saveRoutineDraft` derives
+   * `sort_order` from array position, so no data-layer change is needed and
+   * past sessions (frozen snapshots) are untouched.
+   */
+  const moveBlock = (from: number, dir: -1 | 1) =>
+    update((d) => {
+      const to = from + dir;
+      if (to < 0 || to >= d.blocks.length) return d;
+      const [moved] = d.blocks.splice(from, 1);
+      d.blocks.splice(to, 0, moved);
+      return d;
+    });
+
   const addStep = (blockIdx: number, exerciseId: string, exerciseName: string) =>
     update((d) => {
       const blocks = [...d.blocks];
@@ -169,6 +201,18 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
         return { ...d, blocks };
       }),
     );
+
+  /** Reorder steps inside a block (D-068); same draft-only swap as blocks. */
+  const moveStep = (blockIdx: number, from: number, dir: -1 | 1) =>
+    update((d) => {
+      const steps = d.blocks[blockIdx]?.steps;
+      if (!steps) return d;
+      const to = from + dir;
+      if (to < 0 || to >= steps.length) return d;
+      const [moved] = steps.splice(from, 1);
+      steps.splice(to, 0, moved);
+      return d;
+    });
 
   const patchStep = (blockIdx: number, stepIdx: number, fn: (s: RoutineDraft['blocks'][number]['steps'][number]) => void) =>
     update((d) => {
@@ -265,14 +309,30 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
                   ? ` · ${block.role === 'warmup' ? strings.routines.blockRoleWarmup : strings.routines.blockRoleCooldown}`
                   : ''}
               </Text>
-              <Text
-                accessibilityRole="button"
-                accessibilityLabel={strings.common.delete}
-                onPress={() => removeBlock(bi)}
-                className="h-12 flex-row items-center px-2 text-sm text-danger"
-              >
-                {strings.common.delete}
-              </Text>
+              <View className="flex-row items-center">
+                {bi > 0 ? (
+                  <MoveArrow
+                    glyph="↑"
+                    label={`${strings.routines.moveUp} ${strings.routines.block} ${bi + 1}`}
+                    onPress={() => moveBlock(bi, -1)}
+                  />
+                ) : null}
+                {bi < draft.blocks.length - 1 ? (
+                  <MoveArrow
+                    glyph="↓"
+                    label={`${strings.routines.moveDown} ${strings.routines.block} ${bi + 1}`}
+                    onPress={() => moveBlock(bi, 1)}
+                  />
+                ) : null}
+                <Text
+                  accessibilityRole="button"
+                  accessibilityLabel={strings.common.delete}
+                  onPress={() => removeBlock(bi)}
+                  className="h-12 flex-row items-center px-2 text-sm text-danger"
+                >
+                  {strings.common.delete}
+                </Text>
+              </View>
             </View>
 
             <TextField
@@ -455,14 +515,30 @@ export function RoutineEditorScreen({ routineId }: { routineId: string | null })
                     <Text className="text-sm font-semibold text-dim">
                       {strings.routines.step} {si + 1}
                     </Text>
-                    <Text
-                      accessibilityRole="button"
-                      accessibilityLabel={`${strings.common.delete} ${strings.routines.step} ${si + 1}`}
-                      onPress={() => removeStep(bi, si)}
-                      className="h-12 flex-row items-center px-2 text-sm text-danger"
-                    >
-                      {strings.common.delete}
-                    </Text>
+                    <View className="flex-row items-center">
+                      {si > 0 ? (
+                        <MoveArrow
+                          glyph="↑"
+                          label={`${strings.routines.moveUp} ${strings.routines.step} ${si + 1}`}
+                          onPress={() => moveStep(bi, si, -1)}
+                        />
+                      ) : null}
+                      {si < block.steps.length - 1 ? (
+                        <MoveArrow
+                          glyph="↓"
+                          label={`${strings.routines.moveDown} ${strings.routines.step} ${si + 1}`}
+                          onPress={() => moveStep(bi, si, 1)}
+                        />
+                      ) : null}
+                      <Text
+                        accessibilityRole="button"
+                        accessibilityLabel={`${strings.common.delete} ${strings.routines.step} ${si + 1}`}
+                        onPress={() => removeStep(bi, si)}
+                        className="h-12 flex-row items-center px-2 text-sm text-danger"
+                      >
+                        {strings.common.delete}
+                      </Text>
+                    </View>
                   </View>
 
                   <PressableRow

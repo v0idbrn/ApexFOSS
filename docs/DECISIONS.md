@@ -1524,3 +1524,21 @@ No engine transition was added or changed: the behavior is composed from existin
 - Deviations are entered once per step instead of once per set; prescription prefill remains the fallback everywhere the athlete has not yet logged an actual.
 - Undo/redo reopens the position with the values that were just voided (convenient for correction), and an extra/drop set becomes the carry source for the next normal set.
 - Tests: carry within a step, prescription fallback on step change, carry across rounds (3 new; 36 in the workout suite).
+
+## D-068 - Blocks and steps reorder with move controls in the routine editor (Checkpoint 7, 2026-10-31)
+
+**Status:** Accepted (tested)
+
+**Context.** The Learn lessons (`createRoutine`, `blocks`) teach "Reorder with the arrows" in both EN and ES, but the routine editor had no reordering at all: block order was creation order and step order was insertion order, permanently. Reordering required deleting and recreating, which destroys prescriptions — a core authoring operation was impossible while the product copy promised it.
+
+**Decision.**
+
+1. **Move controls in both header rows** (`RoutineEditorScreen.tsx`): each block header and each step header gets `↑`/`↓` `MoveArrow` text buttons (48 px rows matching the existing Delete control). Controls render only where the move is possible (no ↑ on the first item, no ↓ on the last), so there are no dead buttons and no disabled states to read.
+2. **Draft-only swap.** `moveBlock`/`moveStep` reorder the in-memory draft; `saveRoutineDraft` already derives `sort_order` from array position, so no data-layer, schema or migration change exists. The existing dirty-tracking/back-interception applies automatically, and sessions keep their frozen snapshots — reordering a routine never touches history.
+3. **Position-qualified accessibility labels**: `Move up Block 2`, `Move down Step 1` (EN/ES keys `routines.moveUp`, `routines.moveDown`, `routines.block`), while the visible glyph is language-neutral. Labels are per-position so TalkBack users can tell block-level from step-level moves within the same card.
+
+**Consequences.**
+
+- The Learn copy is now true: arrows exist exactly where both lessons say they do; no lesson text changed.
+- Reordering is undoable only via the existing discard-changes flow (the draft is the edit buffer); saved order affects future sessions only.
+- Tests: move-control presence/absence per position, step swap persisted on save, block swap persisted on save (3 new). RN's test renderer yields composite+host nodes per Text, so assertions use absent-vs-present rather than exact node counts.
