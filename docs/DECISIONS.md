@@ -1506,3 +1506,21 @@ No engine transition was added or changed: the behavior is composed from existin
 - One deleted starter no longer blocks repair of the remaining seeds — regression-tested for exercises (fresh install minus one deleted id still seeds `length - 1`) and for routines (deleted starter stays deleted, seeding returns 0 and never throws).
 - User edits to a starter survive every launch (seeding skips present ids and never updates children); deleting any starter is permanent.
 - D-065's original consequence text remains in place above; this entry is the authoritative correction, appended rather than rewritten.
+
+## D-067 - The next set prefills from the actuals just logged, not the prescription (Checkpoint 6, 2026-10-31)
+
+**Status:** Accepted (tested)
+
+**Context.** Workout execution already prefilled every set from the prescription, but real training deviates from the plan constantly (adjusted load, different reps, RIR drift). Because the inputs reset to the *prescription* on every position change, an athlete who logged 55 kg × 6 instead of the programmed 60 kg × 5 had to retype the deviation on every remaining set of the step — the opposite of what the execution model intends (actuals are what get recorded; the prescription is frozen and never rewritten).
+
+**Decision.** UI-layer carry only, in `WorkoutScreen.tsx`:
+
+1. `lastLoggedRef` remembers the payload of the last `COMPLETE_SET` (and `LOG_EXTRA_SET`) together with its `sessionId` + block/step. On each position change, if the ref matches the **current session and step**, its actuals prefill weight/reps/duration/RIR; otherwise the prescription prefills as before. Autoreg suggestion > carried actual > prescription, in that order, for the weight field.
+2. Round boundaries carry (same step), step boundaries and session boundaries reset (session end clears the ref). Skipped sets never write the ref — the last *performed* set is what carries.
+3. Pure presentation: payloads are still built from the visible inputs at dispatch time, the engine never reads the ref, and no schema, transition, snapshot or classification changes. First set of a session and post-process-death recovery both fall back to the prescription (ref is in-memory only).
+
+**Consequences.**
+
+- Deviations are entered once per step instead of once per set; prescription prefill remains the fallback everywhere the athlete has not yet logged an actual.
+- Undo/redo reopens the position with the values that were just voided (convenient for correction), and an extra/drop set becomes the carry source for the next normal set.
+- Tests: carry within a step, prescription fallback on step change, carry across rounds (3 new; 36 in the workout suite).

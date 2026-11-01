@@ -1265,3 +1265,71 @@ describe('WorkoutScreen timed exercise timer', () => {
     await unmountWorkout(renderer);
   });
 });
+
+describe('WorkoutScreen set-input carry (D-067)', () => {
+  /** Deviate weight 60 → 55 through the numpad (weight field is active by default). */
+  async function type55(renderer: ReactTestRenderer): Promise<void> {
+    await act(async () => {
+      pressByTestID(renderer, 'key-clear').props.onPress();
+    });
+    await act(async () => {
+      pressByTestID(renderer, 'key-5').props.onPress();
+    });
+    await act(async () => {
+      pressByTestID(renderer, 'key-5').props.onPress();
+    });
+    expect(fieldDisplay(renderer, 'field-weight')).toBe('55');
+  }
+
+  it('prefills the next set from the actuals just logged, not the prescription', async () => {
+    mockedLoad.mockResolvedValue(makeRuntime({ cursor: activeCursor({ setIndex: 1 }) }));
+    mockedApply.mockResolvedValue(makeRuntime({ cursor: activeCursor({ setIndex: 2 }) }));
+    const renderer = await renderWorkout();
+
+    // First observed set starts on the prescription (60 kg).
+    expect(fieldDisplay(renderer, 'field-weight')).toBe('60');
+    await type55(renderer);
+    await pressButton(renderer, strings.workout.completeSet);
+
+    // The logged payload really carried the deviation…
+    expect(mockedApply).toHaveBeenCalledWith(
+      database,
+      expect.anything(),
+      expect.objectContaining({
+        type: 'COMPLETE_SET',
+        set: expect.objectContaining({ weightGrams: 55_000 }),
+      }),
+    );
+    // …and the next set of the SAME step opens on it (60 would be prescription).
+    expect(fieldDisplay(renderer, 'field-weight')).toBe('55');
+    expect(fieldDisplay(renderer, 'field-reps')).toBe('5');
+    expect(fieldDisplay(renderer, 'field-rir')).toBe('2');
+    await unmountWorkout(renderer);
+  });
+
+  it('falls back to the prescription when the step changes', async () => {
+    mockedLoad.mockResolvedValue(makeRuntime({ cursor: activeCursor({ setIndex: 1 }) }));
+    mockedApply.mockResolvedValue(makeRuntime({ cursor: activeCursor({ stepIndex: 1, setIndex: 1 }) }));
+    const renderer = await renderWorkout();
+
+    await type55(renderer);
+    await pressButton(renderer, strings.workout.completeSet);
+
+    // Next step (Overhead Press) opens on ITS prescription, not on step 1's actuals.
+    expect(fieldDisplay(renderer, 'field-weight')).toBe('60');
+    expect(fieldDisplay(renderer, 'field-reps')).toBe('5');
+    await unmountWorkout(renderer);
+  });
+
+  it('carries actuals into the first set of the next round of the same step', async () => {
+    mockedLoad.mockResolvedValue(makeRuntime({ cursor: activeCursor({ round: 1, setIndex: 3 }) }));
+    mockedApply.mockResolvedValue(makeRuntime({ cursor: activeCursor({ round: 2, setIndex: 1 }) }));
+    const renderer = await renderWorkout();
+
+    await type55(renderer);
+    await pressButton(renderer, strings.workout.completeSet);
+
+    expect(fieldDisplay(renderer, 'field-weight')).toBe('55');
+    await unmountWorkout(renderer);
+  });
+});

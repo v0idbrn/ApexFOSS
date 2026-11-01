@@ -306,6 +306,19 @@ export function WorkoutScreen() {
   const [autoregConfig, setAutoregConfig] = useState<AutoregConfig>(DEFAULT_AUTOREG_CONFIG);
   const [autoregSuggestion, setAutoregSuggestion] = useState<AutoregRecommendation | null>(null);
   const pendingAutoregRef = useRef<{ posKey: string; rec: AutoregRecommendation } | null>(null);
+  /**
+   * Last actually-logged set of the current session/step: its actuals prefill
+   * the next set's inputs (actual > prescription — D-067). Pure UI convenience:
+   * payloads are still built from the visible inputs and the engine never reads
+   * this ref. Cleared when the session ends so a later session starts on its own
+   * prescription.
+   */
+  const lastLoggedRef = useRef<{
+    sessionId: string;
+    blockIndex: number;
+    stepIndex: number;
+    payload: SetPayload;
+  } | null>(null);
 
   const timer = useTimerStore();
   const setSession = useActiveSessionStore((s) => s.setSession);
@@ -440,21 +453,52 @@ export function WorkoutScreen() {
       setActiveField(null);
       setAutoregSuggestion(null);
       setOverrideReason(null);
+      lastLoggedRef.current = null; // session over: never leak actuals into the next one
       return;
     }
     const p = step.prescription;
     const pending = pendingAutoregRef.current;
     const suggestionApplies = pending !== null && pending.posKey === posKey;
+    // Carry the actuals just logged in THIS step (D-067): what the athlete did
+    // beats what the plan asked for, so deviations are not retyped every set.
+    // A different step or session falls back to the prescription, and a pending
+    // autoreg suggestion still owns the weight field.
+    const lastLogged = lastLoggedRef.current;
+    const carried =
+      lastLogged !== null &&
+      rt != null &&
+      lastLogged.sessionId === rt.sessionId &&
+      lastLogged.blockIndex === rt.cursor.blockIndex &&
+      lastLogged.stepIndex === rt.cursor.stepIndex
+        ? lastLogged.payload
+        : null;
     setInputs({
       weightKg:
         suggestionApplies && pending.rec.recommendedWeightGrams > 0
           ? String(gramsToKg(pending.rec.recommendedWeightGrams) ?? '')
-          : p.targetWeightGrams !== null
-            ? String(gramsToKg(p.targetWeightGrams) ?? '')
+          : carried !== null && carried.weightGrams !== null && carried.weightGrams > 0
+            ? String(gramsToKg(carried.weightGrams) ?? '')
+            : p.targetWeightGrams !== null
+              ? String(gramsToKg(p.targetWeightGrams) ?? '')
+              : '',
+      reps:
+        carried !== null && carried.reps !== null
+          ? String(carried.reps)
+          : p.targetRepsMin !== null
+            ? String(p.targetRepsMin)
             : '',
-      reps: p.targetRepsMin !== null ? String(p.targetRepsMin) : '',
-      durationS: p.targetDurationMs !== null ? String(Math.round(p.targetDurationMs / 1000)) : '',
-      rir: p.targetRir !== null ? String(p.targetRir) : '',
+      durationS:
+        carried !== null && carried.durationMs !== null
+          ? String(Math.round(carried.durationMs / 1000))
+          : p.targetDurationMs !== null
+            ? String(Math.round(p.targetDurationMs / 1000))
+            : '',
+      rir:
+        carried !== null && carried.rir !== null
+          ? String(carried.rir)
+          : p.targetRir !== null
+            ? String(p.targetRir)
+            : '',
     });
     if (suggestionApplies) {
       setAutoregSuggestion(pending.rec);
@@ -855,7 +899,14 @@ export function WorkoutScreen() {
         rec,
       };
     }
-    void apply({ type: 'COMPLETE_SET', now: Date.now(), set: toPayload(step, inputs, overrideReason) });
+    const payload = toPayload(step, inputs, overrideReason);
+    lastLoggedRef.current = {
+      sessionId: rt.sessionId,
+      blockIndex: rt.cursor.blockIndex,
+      stepIndex: rt.cursor.stepIndex,
+      payload,
+    };
+    void apply({ type: 'COMPLETE_SET', now: Date.now(), set: payload });
   };
 
   const onSkip = () => {
@@ -880,10 +931,18 @@ export function WorkoutScreen() {
    */
   const onExtraSet = (executionType: 'extra' | 'drop') => {
     if (!step || !inputsValid || !rt || busy) return;
+    const payload = toPayload(step, inputs, overrideReason);
+    // The next normal set prefills from the last thing actually lifted.
+    lastLoggedRef.current = {
+      sessionId: rt.sessionId,
+      blockIndex: rt.cursor.blockIndex,
+      stepIndex: rt.cursor.stepIndex,
+      payload,
+    };
     void apply({
       type: 'LOG_EXTRA_SET',
       now: Date.now(),
-      set: toPayload(step, inputs, overrideReason),
+      set: payload,
       executionType,
     });
   };
