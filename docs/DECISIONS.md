@@ -1469,3 +1469,20 @@ No engine transition was added or changed: the behavior is composed from existin
 - A timed set interrupted by force-close/background is no longer present in history unless the athlete logs it; the set is not silently "performed".
 - Rest expiry still advances automatically after process death, so sessions do not stall on an old rest.
 - Live timed sets still auto-complete at expiry while the app is active (the set ran under observation), which is the existing, unchanged behavior.
+
+## D-065 - Starter exercise library seeded per-launch (Checkpoint 4, 2026-10-31)
+
+**Status:** Accepted (tested)
+
+**Context.** The starter library was 20 exercises and could only be created when the table was empty, so every existing install would keep missing any added starter. The product target is a library useful enough to train without authoring everything by hand.
+
+**Decision.**
+1. The seed catalog grows from 20 to 60 exercises covering barbell, dumbbell, machine, bodyweight, plyometrics, isometrics, carries, core and conditioning. Every entry keeps a deterministic `seed_*` id, a non-empty category/equipment, and a validated contribution map (unique muscles, positive integers, exactly 10000 basis points) enforced by `src/analytics/muscles.test.ts`.
+2. `seedExercisesIfEmpty` now inserts only the deterministic seed ids that are missing. Fresh installs seed all 60; existing installs receive the newly shipped starters; user-created rows are never modified, renamed or deleted; ids are never duplicated.
+3. Starters remain app content, not user data: a full local wipe re-seeds them on the next launch (same rule as before), and learn verification continues to exclude seed ids (D-063).
+
+**Consequences.**
+
+- A user who deliberately deleted a starter sees it return on the next launch — the accepted cost of shipping a complete library without a schema change or an install-time migration; the entry can be deleted again the same way.
+- Muscle heatmap mapping keeps working for every starter because contributions ship with the catalog; unmapped custom exercises still degrade to "Muscle data unavailable".
+- Adding a future starter is one catalog entry plus its contribution map; no id registry or migration exists to update.

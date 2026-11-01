@@ -69,8 +69,12 @@ describe('muscle vocabulary and mapping tables', () => {
   });
 
   it('every seeded exercise has a valid contribution map summing to 10000', () => {
-    expect(SEED_EXERCISES.length).toBeGreaterThanOrEqual(20);
+    expect(SEED_EXERCISES.length).toBeGreaterThanOrEqual(60);
+    const names = SEED_EXERCISES.map((s) => s.name);
+    expect(new Set(names).size).toBe(names.length); // no duplicate-by-name entries
     for (const seed of SEED_EXERCISES) {
+      expect(seed.category.length).toBeGreaterThan(0);
+      expect(seed.equipment.length).toBeGreaterThan(0);
       expect(isValidContributions(seed.contributions)).toBe(true);
       const sum = seed.contributions.reduce((acc, [, bp]) => acc + bp, 0);
       expect(sum).toBe(TOTAL_BASIS_POINTS);
@@ -132,7 +136,7 @@ describe('resolveContributions', () => {
   it('leaves custom exercises unmapped', () => {
     const result = resolveContributions(catalog, {
       id: 'custom-1',
-      name: 'Zercher Squat',
+      name: 'Landmine Squat',
       category: 'legs',
       equipment: 'barbell',
       metricFlags: MetricFlag.WEIGHT | MetricFlag.REPS,

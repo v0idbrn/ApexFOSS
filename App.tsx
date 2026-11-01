@@ -107,7 +107,8 @@ export default function App() {
   useLocale();
 
   useEffect(() => {
-    // Starter exercises are intentionally seeded once on first launch (Day 1 design).
+    // Starter exercises are seeded once and repaired on later launches
+    // (only missing deterministic ids are inserted — see D-065).
     makeDbActions(database)
       .seedExercisesIfEmpty()
       .catch(() => {});

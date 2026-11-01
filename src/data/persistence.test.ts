@@ -76,6 +76,28 @@ describe('Persistence — exercises CRUD + seed', () => {
     expect(n2).toBe(0);
   });
 
+  it('repairs missing starters on an existing install without touching custom rows', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const customId = await actions.createExercise({
+      name: 'Homegrown Row',
+      category: 'pull',
+      equipment: 'dumbbell',
+      metricFlags: 3,
+    });
+    // Existing install: only the custom row is present (user deleted starters).
+    const before = await actions.listExercises();
+    expect(before).toHaveLength(1);
+
+    const inserted = await actions.seedExercisesIfEmpty();
+    expect(inserted).toBeGreaterThan(0);
+    const after = await actions.listExercises();
+    expect(after).toHaveLength(inserted + 1);
+    expect(after.find((e: any) => e.id === customId)?.name).toBe('Homegrown Row');
+    // Deterministic ids are never duplicated or reassigned.
+    expect(new Set(after.map((e: any) => e.id)).size).toBe(after.length);
+  });
+
   it('counts routine references before deleting an exercise', async () => {
     const db = makeDb();
     const actions = makeDbActions(db);

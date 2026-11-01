@@ -239,7 +239,7 @@ describe('loadAnalyticsSnapshot', () => {
     const actions = makeDbActions(db);
     await actions.seedExercisesIfEmpty();
     const customId = await actions.createExercise({
-      name: 'Zercher Squat',
+      name: 'Landmine Squat',
       category: 'legs',
       equipment: 'barbell',
       metricFlags: MetricFlag.WEIGHT | MetricFlag.REPS,
@@ -247,7 +247,7 @@ describe('loadAnalyticsSnapshot', () => {
 
     await createCompletedSession(db, {
       stepExerciseId: customId,
-      stepExerciseName: 'Zercher Squat',
+      stepExerciseName: 'Landmine Squat',
       logs: [benchSet],
     });
 

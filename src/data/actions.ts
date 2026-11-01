@@ -217,12 +217,18 @@ export function makeDbActions(db: Database): DbActions {
   const setLogsCol = () => db.get<SetLog>('set_logs');
 
   return {
+    /**
+     * Insert only the missing deterministic seed ids (D-065): a fresh install
+     * gets the full starter library, an existing install receives starters it
+     * has never had, and user-created rows are never touched.
+     */
     async seedExercisesIfEmpty() {
       return db.write(async () => {
-        const count = await exercisesCol().query().fetchCount();
-        if (count > 0) return 0;
+        const existing = await exercisesCol().query().fetch();
+        const present = new Set(existing.map((e) => e.id));
         let inserted = 0;
         for (const seed of SEED_EXERCISES) {
+          if (present.has(seed.id)) continue;
           // Deterministic seed ids: primary key for built-in muscle mapping (Phase 2F).
           const rec = exercisesCol().prepareCreateFromDirtyRaw({
             id: seed.id,
