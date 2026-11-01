@@ -2,8 +2,9 @@ import { Database } from '@nozbe/watermelondb';
 import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
 import { schema } from '../data/schema';
 import { migrations } from '../data/migrations';
-import { modelClasses } from '../data/models';
+import { Exercise, modelClasses } from '../data/models';
 import { makeDbActions } from '../data/actions';
+import { SEED_EXERCISES } from '../../scripts/seed-exercises';
 import { serializeRoutine, definitionOf, cursorOf } from '../data/serialize';
 import { initialCursor } from '../engine/cursor';
 import { dispatch } from '../engine';
@@ -96,6 +97,38 @@ describe('Persistence — exercises CRUD + seed', () => {
     expect(after.find((e: any) => e.id === customId)?.name).toBe('Homegrown Row');
     // Deterministic ids are never duplicated or reassigned.
     expect(new Set(after.map((e: any) => e.id)).size).toBe(after.length);
+  });
+
+  it('a deleted starter never returns and never blocks repair of the rest', async () => {
+    // Regression (D-066): a soft-deleted row keeps its id in the unique index,
+    // so re-inserting that id throws. Previously the loop aborted on the first
+    // occupied id and every subsequent missing starter was silently skipped on
+    // every launch. Now the occupied id is skipped and repair continues.
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    const deleted = SEED_EXERCISES[0];
+    await db.write(async () => {
+      const rec = db.get<Exercise>('exercises').prepareCreateFromDirtyRaw({
+        id: deleted.id,
+        name: deleted.name,
+        category: deleted.category,
+        equipment: deleted.equipment,
+        metric_flags: deleted.metricFlags,
+        created_at: 1,
+        updated_at: 1,
+      });
+      await db.batch(rec);
+    });
+    const row = await db.get<Exercise>('exercises').find(deleted.id);
+    await db.write(() => row.markAsDeleted());
+
+    const inserted = await actions.seedExercisesIfEmpty(); // must not throw
+    expect(inserted).toBe(SEED_EXERCISES.length - 1);
+    const ids = (await actions.listExercises()).map((e: Exercise) => e.id);
+    expect(ids).not.toContain(deleted.id);
+    expect(ids).toHaveLength(SEED_EXERCISES.length - 1);
+    // Idempotent afterwards: nothing left to insert, no throw.
+    expect(await actions.seedExercisesIfEmpty()).toBe(0);
   });
 
   it('counts routine references before deleting an exercise', async () => {

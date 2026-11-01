@@ -5,15 +5,17 @@ import { emptyPrescription, type RoutineDraft } from '../types/draft';
 import type { RoutineTemplate } from './catalog';
 
 /**
- * Creates a routine from a template: resolves each step against local
- * exercises (seed id first, then name), skips missing exercises, and saves
- * a single-block draft with empty prescriptions for the athlete to fill.
+ * Resolves a template's steps against local exercises (seed id first, then
+ * name), skipping missing ones, and builds a single-block draft with empty
+ * prescriptions. Shared by the Templates screen (no id) and the starter
+ * routines (deterministic seed id).
  */
-export async function instantiateTemplate(
+export async function buildTemplateDraft(
   db: Database,
   template: RoutineTemplate,
   displayName: string,
-): Promise<string> {
+  id: string | null = null,
+): Promise<RoutineDraft> {
   const exercises = await db.get<Exercise>('exercises').query().fetch();
   const byId = new Map(exercises.map((e) => [e.id, e]));
   const byName = new Map(exercises.map((e) => [e.name.trim().toLowerCase(), e]));
@@ -27,8 +29,8 @@ export async function instantiateTemplate(
   }
   if (resolved.length === 0) throw new Error('no template exercises available');
 
-  const draft: RoutineDraft = {
-    id: null,
+  return {
+    id,
     name: displayName,
     blocks: [
       {
@@ -46,7 +48,18 @@ export async function instantiateTemplate(
       },
     ],
   };
+}
 
-  const actions = makeDbActions(db);
-  return actions.saveRoutineDraft(draft);
+/**
+ * Creates a routine from a template: resolves each step against local
+ * exercises (seed id first, then name), skips missing exercises, and saves
+ * a single-block draft with empty prescriptions for the athlete to fill.
+ */
+export async function instantiateTemplate(
+  db: Database,
+  template: RoutineTemplate,
+  displayName: string,
+): Promise<string> {
+  const draft = await buildTemplateDraft(db, template, displayName);
+  return makeDbActions(db).saveRoutineDraft(draft);
 }

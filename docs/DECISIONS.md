@@ -1486,3 +1486,23 @@ No engine transition was added or changed: the behavior is composed from existin
 - A user who deliberately deleted a starter sees it return on the next launch — the accepted cost of shipping a complete library without a schema change or an install-time migration; the entry can be deleted again the same way.
 - Muscle heatmap mapping keeps working for every starter because contributions ship with the catalog; unmapped custom exercises still degrade to "Muscle data unavailable".
 - Adding a future starter is one catalog entry plus its contribution map; no id registry or migration exists to update.
+
+## D-066 - Three prefilled starter routines; deletion wins over seeding (Checkpoint 5, 2026-10-31)
+
+**Status:** Accepted (tested)
+
+**Context.** A fresh install still required authoring a routine before any session could run, and the Templates screen (Phase 4F) ships structure-only skeletons with empty prescriptions — useful for planning, useless as a "train in one tap" starting point. While implementing prefilled starters, a defect in the shipped D-065 seeder was reproduced: a soft-deleted row keeps its deterministic id in the unique index, but `seedExercisesIfEmpty` checked only live rows, so re-inserting a deleted starter's id threw `Duplicate key` and aborted the loop — silently, behind App.tsx's `.catch`. D-065's documented consequence ("a deleted starter returns next launch") never actually executed; worse, one deleted starter permanently blocked repair of every seed listed after it.
+
+**Decision.**
+
+1. **Three prefilled starter routines** (`src/templates/starters.ts`) mirror the fullBody/pushDay/legsDay templates with real, editable prescriptions (sets × reps × kg, RIR 2, 90 s rest transitions) as sensible starting points — not personalized programs. Ids are deterministic (`seed_routine_*`). They reuse `buildTemplateDraft` (extracted from `instantiateTemplate`, which keeps its signature and behavior) so template structure stays the single source of exercise resolution.
+2. **Seeding inserts only never-created ids, after locale hydration.** App.tsx sequences `seedStarterRoutinesIfEmpty` after `hydrate()` so routine names follow the persisted language override. The row is pre-created with `prepareCreateFromDirtyRaw` (explicit id) before `saveRoutineDraft`'s update path runs, and the template draft is built before any row exists so a failed resolution cannot leave an empty routine.
+3. **Deletion wins over repair, on every adapter.** A soft-deleted row keeps its id in the unique index (LokiJS and SQLite), so resurrecting it would require hard-deleting user-visible rows. Both seeders now treat an occupied id as "the athlete's delete wins": skip that entry and continue seeding the rest. This amends D-065's first consequence — the documented "deleted starter returns" behavior never worked and is not what the code does; a deleted starter (exercise or routine) stays deleted.
+4. **Learn evidence excludes starter routine ids.** `loadLessonCounts.routines` filters `id NOT IN (STARTER_ROUTINE_IDS)`, so a fresh install with three demo routines does not satisfy the `createRoutine` lesson; duplicating, importing or authoring any routine still counts.
+
+**Consequences.**
+
+- A fresh install opens on three runnable demo routines; Templates remain available for structure-only authoring.
+- One deleted starter no longer blocks repair of the remaining seeds — regression-tested for exercises (fresh install minus one deleted id still seeds `length - 1`) and for routines (deleted starter stays deleted, seeding returns 0 and never throws).
+- User edits to a starter survive every launch (seeding skips present ids and never updates children); deleting any starter is permanent.
+- D-065's original consequence text remains in place above; this entry is the authoritative correction, appended rather than rewritten.

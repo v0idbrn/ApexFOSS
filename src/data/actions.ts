@@ -229,18 +229,25 @@ export function makeDbActions(db: Database): DbActions {
         let inserted = 0;
         for (const seed of SEED_EXERCISES) {
           if (present.has(seed.id)) continue;
-          // Deterministic seed ids: primary key for built-in muscle mapping (Phase 2F).
-          const rec = exercisesCol().prepareCreateFromDirtyRaw({
-            id: seed.id,
-            name: seed.name,
-            category: seed.category,
-            equipment: seed.equipment,
-            metric_flags: seed.metricFlags,
-            created_at: now(),
-            updated_at: now(),
-          });
-          await db.batch(rec);
-          inserted += 1;
+          try {
+            // Deterministic seed ids: primary key for built-in muscle mapping (Phase 2F).
+            const rec = exercisesCol().prepareCreateFromDirtyRaw({
+              id: seed.id,
+              name: seed.name,
+              category: seed.category,
+              equipment: seed.equipment,
+              metric_flags: seed.metricFlags,
+              created_at: now(),
+              updated_at: now(),
+            });
+            await db.batch(rec);
+            inserted += 1;
+          } catch {
+            // A soft-deleted row still owns this id: the athlete's delete wins,
+            // and one occupied id must never abort repair of the remaining
+            // starters (D-065 amended by D-066 — the previous loop threw here,
+            // silently stopping seeding for every subsequent starter).
+          }
         }
         return inserted;
       });

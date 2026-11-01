@@ -36,6 +36,7 @@ import { TrustScreen } from './src/ui/screens/TrustScreen';
 import { ReportScreen } from './src/ui/screens/ReportScreen';
 import { LearnScreen } from './src/ui/screens/LearnScreen';
 import { LessonScreen } from './src/ui/screens/LessonScreen';
+import { seedStarterRoutinesIfEmpty } from './src/templates/starters';
 import { parseImportDeepLink } from './src/portability/encoding';
 import { setPendingDeepLink } from './src/portability/pendingDeepLink';
 import { ingestIncomingUrl } from './src/portability/pendingFileImport';
@@ -112,8 +113,15 @@ export default function App() {
     makeDbActions(database)
       .seedExercisesIfEmpty()
       .catch(() => {});
-    // Apply a persisted language override (device locale until hydrated).
-    void useLocaleStore.getState().hydrate();
+    // Apply a persisted language override (device locale until hydrated), then
+    // seed the three prefilled starter routines so their names follow the final
+    // locale (repair-missing-by-id: user edits/deletions are never overwritten
+    // — see D-066).
+    void useLocaleStore
+      .getState()
+      .hydrate()
+      .then(() => seedStarterRoutinesIfEmpty(database))
+      .catch(() => {});
     // Restore the managed training reminder after process death (recreates
     // only the deterministic reminder id; timer notifications untouched).
     void syncTrainingReminders(database, reminderLabels());

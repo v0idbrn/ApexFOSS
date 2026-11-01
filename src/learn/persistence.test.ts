@@ -4,6 +4,7 @@ import { schema } from '../data/schema';
 import { migrations } from '../data/migrations';
 import { modelClasses } from '../data/models';
 import { makeDbActions } from '../data/actions';
+import { seedStarterRoutinesIfEmpty, STARTER_ROUTINE_IDS } from '../templates/starters';
 import { getSetting, setSetting } from '../data/settings';
 import {
   LEARN_PROGRESS_KEY,
@@ -79,5 +80,19 @@ describe('Learn progress persistence', () => {
       metricFlags: 3,
     });
     expect((await loadLessonCounts(db)).userExercises).toBe(1);
+  });
+
+  it('excludes the three seeded starter routines from createRoutine evidence', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    await seedStarterRoutinesIfEmpty(db);
+
+    // Seeded starters exist but must not satisfy the createRoutine lesson.
+    expect(await db.get('routines').query().fetchCount()).toBe(STARTER_ROUTINE_IDS.length);
+    expect((await loadLessonCounts(db)).routines).toBe(0);
+
+    // An athlete-authored routine does count.
+    await actions.createRoutine('My Own Routine');
+    expect((await loadLessonCounts(db)).routines).toBe(1);
   });
 });

@@ -1,5 +1,6 @@
 import { getSetting, setSetting } from '../data/settings';
 import { SEED_EXERCISES } from '../../scripts/seed-exercises';
+import { STARTER_ROUTINE_IDS } from '../templates/starters';
 import type { Database } from '@nozbe/watermelondb';
 import { Q } from '@nozbe/watermelondb';
 
@@ -64,8 +65,9 @@ const SEED_EXERCISE_IDS = SEED_EXERCISES.map((seed) => seed.id);
 
 /**
  * Aggregate counts for lesson verification (D-062, amended by D-063): scalar
- * queries only, join-free and read-only. `userExercises` excludes the seeded
- * starters, so the library lesson needs a real authoring action instead of a
+ * queries only, join-free and read-only. `userExercises` and `routines` exclude
+ * the seeded starter content (exercises and the three demo routines), so the
+ * library and createRoutine lessons need a real authoring action instead of a
  * hard-coded total that seed deletion or import could fake. `setLogs` counts
  * recorded sets; `completedSessions` is used only where finishing a session is
  * itself the taught action (history no longer auto-completes from it).
@@ -73,6 +75,7 @@ const SEED_EXERCISE_IDS = SEED_EXERCISES.map((seed) => seed.id);
 export interface LessonCounts {
   /** Exercises created by the athlete (seeded starters excluded). */
   userExercises: number;
+  /** Routines created by the athlete (seeded demo starters excluded). */
   routines: number;
   setLogs: number;
   completedSessions: number;
@@ -84,7 +87,10 @@ export async function loadLessonCounts(db: Database): Promise<LessonCounts> {
       .get('exercises')
       .query(Q.where('id', Q.notIn(SEED_EXERCISE_IDS)))
       .fetchCount(),
-    db.get('routines').query().fetchCount(),
+    db
+      .get('routines')
+      .query(Q.where('id', Q.notIn(STARTER_ROUTINE_IDS)))
+      .fetchCount(),
     db.get('set_logs').query().fetchCount(),
     db
       .get('workout_sessions')
