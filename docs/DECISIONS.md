@@ -1627,3 +1627,32 @@ amended. Tests added: full 60-exercise library + 3 starter routines round-trip u
 size cap with muscle mapping still resolving for a seeded exercise, and a mixed library
 (user + seeded) keeps both identities with the custom row unmapped (2 new; 43 in the suite).
 
+## D-073 — Performance and security audit of the 1.1.3 additions (Checkpoint 13)
+
+Scope: audit only of the code this run added (Checkpoints 5–12). No regressions found;
+no behavior change.
+
+**Security / integrity.**
+- No new dependency, no new permission, no schema change (still v13) — the frozen stack
+  and the release manifest's `INTERNET` removal (`tools:node="remove"`) are untouched.
+  No tracked secrets, keystores, `.env`, or build artifacts; working tree clean.
+- D-069 rest-extension is a bounded canonical-cursor write: it guards on
+  `timer.kind === 'rest'` and `cursor.status === 'active'`, adds a constant 30 s to an
+  absolute `expiresAt` (monotonic — cannot go negative or absurd), rewrites the derived
+  `timer_expires_at` cache, and resyncs the notification from the same timestamp. Exercise
+  and preparation countdowns are never extendable (they feed logged duration).
+- D-067 (carry-forward) and D-068 (reorder) touch only in-memory draft/UI state; the only
+  persistence is the existing `saveRoutineDraft`. D-070/D-071/D-072 are read-only.
+- i18n EN/ES parity and the hardcoded-strings guard remain green (full suite).
+
+**Performance.**
+- D-071's per-session muscle card reuses `loadAnalyticsSnapshot`, which is a fixed
+  4-query batch regardless of session count (documented anti-N+1); it is fail-soft and
+  renders nothing when the session is absent or has no resistance load. No per-row query
+  was introduced on the detail screen.
+- No O(n²) or per-set loop was added to the execution path; the run's screens are bounded
+  by their existing flat structures.
+
+**Not claimed:** no device/thermal profiling was run (DEVICE NOT VALIDATED); this is a
+code-level audit backed by the test suite, not a measured benchmark.
+
