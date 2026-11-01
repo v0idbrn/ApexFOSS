@@ -1604,3 +1604,26 @@ degrades. Muscle mapping stays in the data layer (D-025/D-026 vocabulary, unmapp
 guessed). Tests: shares rendered for a mapped session, hidden when no session matches,
 fail-soft on snapshot error (3 new; 24 in the suite).
 
+## D-072 — Portability audit: seed ids are not carried in `.apexbackup`, mapping survives via record key
+
+Scope: hardening audit of portability/backups (Checkpoint 11). Audit result: the subsystem
+is already hardened — SHA-256 semantic checksum, format+version gates, size caps, dangling-
+reference rejection, hostile-value validation, and full compensating rollback on mid-restore
+failure are all implemented and tested (`backup.test.ts` 43 tests).
+
+One finding recorded as clarification (not a defect): restoring a backup re-creates
+exercises with **fresh local ids**. The `.apexbackup` format carries the portable exercise
+key (`name|category|equipment|metricFlags`), not the deterministic seed id, so the raw
+`seed_*` anchor is intentionally absent from backups. This is correct and by design:
+muscle mapping (D-025/D-065) already documents a two-step resolution — stable seed id
+first, exact portable record key as fallback. After a restore the seed id is gone, so
+mapping resolves through the record key; because the format preserves name/category/
+equipment/flags verbatim, contributions still resolve identically. A user exercise with no
+built-in mapping stays unmapped (never guessed) after the round-trip.
+
+Consequence: muscle distribution and analytics survive a backup→restore cycle even though
+seed ids do not. If a future format revision ever carries seed ids, this record should be
+amended. Tests added: full 60-exercise library + 3 starter routines round-trip under the
+size cap with muscle mapping still resolving for a seeded exercise, and a mixed library
+(user + seeded) keeps both identities with the custom row unmapped (2 new; 43 in the suite).
+

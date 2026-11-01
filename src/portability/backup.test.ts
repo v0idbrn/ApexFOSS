@@ -12,8 +12,11 @@ import { importRoutinePackage, previewRoutineImport, uniqueRoutineName } from '.
 import { createBackup, restoreBackup, parseBackup, serializeBackup, backupSummary, validateBackup } from './backup';
 import { replaceEquipmentItems, loadEquipmentItems } from '../data/equipment';
 import { loadSessionNote, saveSessionNote, NOTE_MAX_LENGTH } from '../data/notes';
-import { PortabilityError, BACKUP_FORMAT_VERSION } from './types';
+import { PortabilityError, BACKUP_FORMAT_VERSION, MAX_BACKUP_JSON_BYTES } from './types';
 import { semanticChecksum } from './canonical';
+import { seedStarterRoutinesIfEmpty } from '../templates/starters';
+import { SEED_EXERCISES } from '../../scripts/seed-exercises';
+import { buildMuscleCatalog, resolveContributions, type MuscleMapEntry } from '../analytics/muscles';
 
 function makeDb(): Database {
   const adapter = new LokiJSAdapter({
@@ -1166,6 +1169,95 @@ describe('body metric portability (schema v12)', () => {
     expect(() => parseBackup(JSON.stringify(notArray))).toThrow(
       expect.objectContaining({ code: 'missing_field' }),
     );
+  });
+});
+
+describe('full starter library portability (Checkpoint 11)', () => {
+  it('round-trips the full exercise library and starter routines; muscle mapping still resolves', async () => {
+    const db = makeDb();
+    // A fresh install seeds the full 60-exercise library + 3 starter routines.
+    await seedStarterRoutinesIfEmpty(db); // internally seeds exercises first
+
+    expect(await db.get('exercises').query().fetchCount()).toBe(SEED_EXERCISES.length);
+    expect(await db.get('routines').query().fetchCount()).toBe(3);
+
+    const backup = await createBackup(db);
+    expect(backup.data.exercises).toHaveLength(SEED_EXERCISES.length);
+    // A full-library backup must stay far under the 32 MiB cap.
+    expect(Buffer.byteLength(serializeBackup(backup), 'utf8')).toBeLessThan(MAX_BACKUP_JSON_BYTES);
+
+    // Restore into a fresh, empty DB.
+    const db2 = makeDb();
+    await restoreBackup(db2, serializeBackup(backup));
+    expect(await db2.get('exercises').query().fetchCount()).toBe(SEED_EXERCISES.length);
+    expect(await db2.get('routines').query().fetchCount()).toBe(3);
+
+    // Portable identity (name|category|equipment|flags) survived — this is the
+    // record-key anchor muscle mapping falls back to after a restore (D-025),
+    // because the backup format carries the portable key, not the raw seed id.
+    const restored = (await db2.get('exercises').query().fetch()) as unknown as Array<{
+      name: string;
+      category: string;
+      equipment: string;
+      metricFlags: number;
+    }>;
+    const catalog = buildMuscleCatalog(SEED_EXERCISES.map((s): MuscleMapEntry => ({ ...s, seedId: s.id })));
+    const bench = restored.find((e) => e.name === 'Bench Press');
+    expect(bench).toBeDefined();
+    const contributions = resolveContributions(catalog, {
+      id: null, // after restore the raw seed id is gone; only the record key remains
+      name: bench!.name,
+      category: bench!.category,
+      equipment: bench!.equipment,
+      metricFlags: bench!.metricFlags,
+    });
+    expect(contributions).not.toBeNull();
+    expect(contributions!.map(([m]) => m)).toContain('chest');
+  });
+
+  it('a mixed library (user exercise + seeded) round-trips and keeps both identities', async () => {
+    const db = makeDb();
+    const actions = makeDbActions(db);
+    // Pre-existing user exercise created before the library expansion — a name
+    // with no built-in mapping, so it must stay unmapped after the round-trip.
+    await actions.createExercise({
+      name: 'Custom Hip Thrust Variant',
+      category: 'legs',
+      equipment: 'barbell',
+      metricFlags: 3,
+    });
+    // Repair path: a partially-seeded install receives the remaining starters.
+    const inserted = await actions.seedExercisesIfEmpty();
+    expect(inserted).toBe(SEED_EXERCISES.length); // custom row didn't collide with a seed id
+    expect(await db.get('exercises').query().fetchCount()).toBe(SEED_EXERCISES.length + 1);
+
+    const backup = await createBackup(db);
+    const db2 = makeDb();
+    await restoreBackup(db2, serializeBackup(backup));
+    expect(await db2.get('exercises').query().fetchCount()).toBe(SEED_EXERCISES.length + 1);
+
+    const names = ((await db2.get('exercises').query().fetch()) as unknown as Array<{ name: string }>).map(
+      (e) => e.name,
+    );
+    expect(names).toContain('Custom Hip Thrust Variant'); // user exercise preserved
+    expect(names).toContain('Back Squat'); // seeded starter preserved
+    // The custom exercise stays unmapped (no built-in contributions) after restore.
+    const catalog = buildMuscleCatalog(SEED_EXERCISES.map((s): MuscleMapEntry => ({ ...s, seedId: s.id })));
+    const custom = ((await db2.get('exercises').query().fetch()) as unknown as Array<{
+      name: string;
+      category: string;
+      equipment: string;
+      metricFlags: number;
+    }>).find((e) => e.name === 'Custom Hip Thrust Variant');
+    expect(
+      resolveContributions(catalog, {
+        id: null,
+        name: custom!.name,
+        category: custom!.category,
+        equipment: custom!.equipment,
+        metricFlags: custom!.metricFlags,
+      }),
+    ).toBeNull();
   });
 });
 
