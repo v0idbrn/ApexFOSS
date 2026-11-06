@@ -55,5 +55,5 @@ Builds:
     build:
       - npm ci
       - APEX_SKIP_SIGNING=1 npx expo prebuild -p android --clean
-      - cd android && sh gradlew assembleRelease -PapexFdroid=true
+      - cd android && ORG_GRADLE_TOOLCHAINS_FOOJAY_RESOLVER_CONVENTION_ENABLED=false sh gradlew assembleRelease -PapexFdroid=true
     output: android/app/build/outputs/apk/release/app-release.apk

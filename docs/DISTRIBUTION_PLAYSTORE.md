@@ -18,7 +18,7 @@ Values verified from `app.json`, the generated `android/` project, the Gradle bu
 | minSdk | 24 (Android 7.0) | Expo root-project log, aapt badging |
 | targetSdk | 36 (Android 16) | Expo root-project log, aapt badging |
 | compileSdk / buildTools | 36 / 36.0.0 | Gradle configure log |
-| NDK / Kotlin / Gradle / JDK | 27.1.12297006 / 2.1.20 / 9.0.0 / 17 (Adoptium 17.0.20.1) | Gradle configure log, `gradlew --version` |
+| NDK / Kotlin / Gradle / JDK | 27.1.12297006 / 2.1.20 / 9.0.0 / 17 (local dev: Adoptium 17.0.20.1; build uses system JDK) | Gradle configure log, `gradlew --version` |
 | Node / npm | v24.15.0 / 12.0.2 | local toolchain |
 | Expo / RN | SDK 55 (~55.0.31) / 0.83.10 | `package.json` |
 | ABIs | `arm64-v8a` + `armeabi-v7a` | `app.json` buildArchs, aapt `native-code` (64-bit requirement satisfied) |
