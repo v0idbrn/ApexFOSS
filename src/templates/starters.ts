@@ -88,15 +88,21 @@ export async function seedStarterRoutinesIfEmpty(db: Database): Promise<number> 
   // Ensure the underlying starter exercises exist before resolving references.
   await actions.seedExercisesIfEmpty();
 
+  // A starter with 0 blocks is an incomplete seed (crash between row create
+  // and saveRoutineDraft). Re-seed it instead of skipping forever.
   const existing = await db
     .get('routines')
     .query(Q.where('id', Q.oneOf(STARTER_ROUTINE_IDS)))
     .fetch();
-  const present = new Set(existing.map((r) => r.id));
+  const presentWithBlocks = new Set<string>();
+  for (const r of existing) {
+    const blocks = await db.get('routine_blocks').query(Q.where('routine_id', r.id)).fetch();
+    if (blocks.length > 0) presentWithBlocks.add(r.id);
+  }
 
   let created = 0;
   for (const starter of STARTER_ROUTINES) {
-    if (present.has(starter.id)) continue;
+    if (presentWithBlocks.has(starter.id)) continue;
     const template = templateByKey(starter.templateKey);
     if (!template) continue;
 
