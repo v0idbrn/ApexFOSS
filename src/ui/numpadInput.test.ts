@@ -201,6 +201,30 @@ describe('athlete numpad input', () => {
       expect(isValidNumpadValue('80.5')).toBe(true);
       expect(isValidNumpadValue('')).toBe(true);
     });
+
+    it('enforces per-field upper bounds when a field is given', () => {
+      expect(isValidNumpadValue('500.5', 'weight')).toBe(true);
+      expect(isValidNumpadValue('10001', 'weight')).toBe(false);
+      expect(isValidNumpadValue('9999', 'reps')).toBe(true);
+      expect(isValidNumpadValue('10000', 'reps')).toBe(false);
+      expect(isValidNumpadValue('86400', 'duration')).toBe(true);
+      expect(isValidNumpadValue('86401', 'duration')).toBe(false);
+      expect(isValidNumpadValue('10', 'rir')).toBe(true);
+      expect(isValidNumpadValue('11', 'rir')).toBe(false);
+      // Fat-fingered 12-digit values are flat-out rejected at the commit gate.
+      expect(allNumpadValuesValid({ ...emptyNumpadInput(), reps: '999999999999' })).toBe(false);
+    });
+
+    it('caps keyed entry at the field maximum (further digits are a no-op)', () => {
+      expect(applyNumpadKey('8639', '9', 'duration')).toBe('86399');
+      expect(applyNumpadKey('86399', '9', 'duration')).toBe('86399');
+      expect(applyNumpadKey('999', '9', 'reps')).toBe('9999');
+      expect(applyNumpadKey('9999', '9', 'reps')).toBe('9999');
+      // rir max 10: '1'→'0' reaches 10, anything past it is a no-op
+      expect(applyNumpadKey('1', '0', 'rir')).toBe('10');
+      expect(applyNumpadKey('10', '0', 'rir')).toBe('10');
+      expect(applyNumpadKey('9', '9', 'rir')).toBe('9');
+    });
   });
 
   describe('switching field', () => {

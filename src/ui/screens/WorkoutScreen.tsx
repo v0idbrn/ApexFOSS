@@ -230,7 +230,7 @@ export function sessionEndReasonLabel(reason: SessionEndReason): string {
   }
 }
 
-const validNumber = (s: string): boolean => isValidNumpadValue(s);
+const validNumber = (s: string, field: NumpadFieldKey): boolean => isValidNumpadValue(s, field);
 
 const fireTempoEffects = (effects: TempoEffect[]) => {
   for (const e of effects) pulseTempoHaptic(e);
@@ -861,7 +861,10 @@ export function WorkoutScreen() {
 
   const { weightKg, reps, durationS, rir } = inputs;
   const inputsValid =
-    validNumber(weightKg) && validNumber(reps) && validNumber(durationS) && validNumber(rir);
+    validNumber(weightKg, 'weight') &&
+    validNumber(reps, 'reps') &&
+    validNumber(durationS, 'duration') &&
+    validNumber(rir, 'rir');
   // Phase 3C: show the optional reason row only when the entered actuals differ
   // from the prescription (same pure classifier the persistence layer uses).
   const inputsDiffer =
@@ -969,6 +972,7 @@ export function WorkoutScreen() {
     void current.session
       .update((rec) => {
         rec.cursorJson = JSON.stringify(cursor);
+        rec.timerExpiresAt = cursor.timer.expiresAt;
         rec.updatedAt = now;
       })
       .then(() => reconcileTimerNotification(current.sessionId, cursor.timer, now))
@@ -1721,39 +1725,41 @@ export function WorkoutScreen() {
           onRequestClose={() => setSwapOpen(false)}
         >
           <View className="flex-1 items-center justify-center bg-black/60 px-6">
-            <View className="w-full rounded-xl border border-line bg-surface p-4">
-              <Text className="text-heading text-fg">{strings.workout.substituteTitle}</Text>
-              <Text className="mt-1 text-sm text-dim">
-                {swapPick?.name} · {strings.workout.substituteBody}
-              </Text>
-              <Text className="mb-2 mt-4 text-sm text-dim">{strings.workout.substituteReasonLabel}</Text>
-              <View className="flex-row flex-wrap gap-2">
-                {(['equipment_unavailable', 'pain_discomfort', 'time_constraint', 'fatigue', 'other'] as const).map(
-                  (r) => (
-                    <Chip
-                      key={r}
-                      label={overrideReasonLabel(r)}
-                      active={swapReason === r}
-                      onPress={() => setSwapReason(r)}
-                    />
-                  ),
-                )}
+            <ScrollView className="w-full" style={{ maxHeight: '90%' }}>
+              <View className="w-full rounded-xl border border-line bg-surface p-4">
+                <Text className="text-heading text-fg">{strings.workout.substituteTitle}</Text>
+                <Text className="mt-1 text-sm text-dim">
+                  {swapPick?.name} · {strings.workout.substituteBody}
+                </Text>
+                <Text className="mb-2 mt-4 text-sm text-dim">{strings.workout.substituteReasonLabel}</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {(['equipment_unavailable', 'pain_discomfort', 'time_constraint', 'fatigue', 'other'] as const).map(
+                    (r) => (
+                      <Chip
+                        key={r}
+                        label={overrideReasonLabel(r)}
+                        active={swapReason === r}
+                        onPress={() => setSwapReason(r)}
+                      />
+                    ),
+                  )}
+                </View>
+                <View className="mt-4 flex-row gap-2">
+                  <Button
+                    label={strings.common.cancel}
+                    variant="secondary"
+                    onPress={() => setSwapOpen(false)}
+                    className="flex-1"
+                  />
+                  <Button
+                    label={strings.workout.substitute}
+                    onPress={onConfirmSwap}
+                    disabled={!swapReason}
+                    className="flex-1"
+                  />
+                </View>
               </View>
-              <View className="mt-4 flex-row gap-2">
-                <Button
-                  label={strings.common.cancel}
-                  variant="secondary"
-                  onPress={() => setSwapOpen(false)}
-                  className="flex-1"
-                />
-                <Button
-                  label={strings.workout.substitute}
-                  onPress={onConfirmSwap}
-                  disabled={!swapReason}
-                  className="flex-1"
-                />
-              </View>
-            </View>
+            </ScrollView>
           </View>
         </Modal>
         <Modal
@@ -1763,35 +1769,37 @@ export function WorkoutScreen() {
           onRequestClose={() => setEndReasonOpen(false)}
         >
           <View className="flex-1 items-center justify-center bg-black/60 px-6">
-            <View className="w-full rounded-xl border border-line bg-surface p-4">
-              <Text className="text-heading text-fg">{strings.workout.finishEarlyTitle}</Text>
-              <Text className="mt-1 text-sm text-dim">{strings.workout.finishEarlyBody}</Text>
-              <View className="mt-4 flex-row flex-wrap gap-2">
-                {SESSION_END_REASONS.map((r) => (
-                  <Chip
-                    key={r}
-                    label={sessionEndReasonLabel(r)}
-                    active={endReason === r}
-                    onPress={() => setEndReason(r)}
+            <ScrollView className="w-full" style={{ maxHeight: '90%' }}>
+              <View className="w-full rounded-xl border border-line bg-surface p-4">
+                <Text className="text-heading text-fg">{strings.workout.finishEarlyTitle}</Text>
+                <Text className="mt-1 text-sm text-dim">{strings.workout.finishEarlyBody}</Text>
+                <View className="mt-4 flex-row flex-wrap gap-2">
+                  {SESSION_END_REASONS.map((r) => (
+                    <Chip
+                      key={r}
+                      label={sessionEndReasonLabel(r)}
+                      active={endReason === r}
+                      onPress={() => setEndReason(r)}
+                    />
+                  ))}
+                </View>
+                <View className="mt-4 flex-row gap-2">
+                  <Button
+                    label={strings.common.cancel}
+                    variant="secondary"
+                    onPress={() => setEndReasonOpen(false)}
+                    className="flex-1"
                   />
-                ))}
+                  <Button
+                    label={strings.workout.finishEarly}
+                    variant="danger"
+                    onPress={onConfirmStopEarly}
+                    disabled={!endReason}
+                    className="flex-1"
+                  />
+                </View>
               </View>
-              <View className="mt-4 flex-row gap-2">
-                <Button
-                  label={strings.common.cancel}
-                  variant="secondary"
-                  onPress={() => setEndReasonOpen(false)}
-                  className="flex-1"
-                />
-                <Button
-                  label={strings.workout.finishEarly}
-                  variant="danger"
-                  onPress={onConfirmStopEarly}
-                  disabled={!endReason}
-                  className="flex-1"
-                />
-              </View>
-            </View>
+            </ScrollView>
           </View>
         </Modal>
       </View>

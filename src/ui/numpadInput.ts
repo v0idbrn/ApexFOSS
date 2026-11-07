@@ -56,8 +56,21 @@ export function normalizeNumpadInput(raw: string): string {
   return fracPart === undefined ? `${int}.` : `${int}.${fracPart}`;
 }
 
-/** True when the string is a finite number ≥ 0 (empty allowed → prescription fallback). */
-export function isValidNumpadValue(s: string): boolean {
+/**
+ * Per-field upper bounds in display units. Mirrors the prescription ranges in
+ * src/portability/validate.ts (weight 10,000 kg, reps 0–9999, duration ≤ 24 h,
+ * rir 0–10) so a fat-fingered 12-digit value cannot be committed into set_logs
+ * and poison analytics.
+ */
+export const NUMPAD_FIELD_MAX: Record<NumpadField, number> = {
+  weight: 10_000,
+  reps: 9_999,
+  duration: 86_400,
+  rir: 10,
+};
+
+/** True when the string is a finite number ≥ 0 (and ≤ the field max when a field is given). */
+export function isValidNumpadValue(s: string, field?: NumpadField): boolean {
   const t = s.trim();
   if (t === '' || t === '.') return t === '';
   if (t.endsWith('.')) {
@@ -66,7 +79,7 @@ export function isValidNumpadValue(s: string): boolean {
     return Number.isFinite(Number(head)) && Number(head) >= 0;
   }
   const n = Number(t);
-  return Number.isFinite(n) && n >= 0;
+  return Number.isFinite(n) && n >= 0 && (field === undefined || n <= NUMPAD_FIELD_MAX[field]);
 }
 
 /**
@@ -94,6 +107,9 @@ export function applyNumpadKey(current: string, key: NumpadKey, field: NumpadFie
   // Avoid "00" leading nonsense for integer fields when value is exactly "0"
   if (!cur.includes('.') && cur === '0' && key === '0') return cur;
   next = normalizeNumpadInput(next);
+  // Reject keys that would exceed the field's upper bound (pressing a digit past
+  // the max is a no-op; the athlete must clear/backspace instead).
+  if (Number.isFinite(Number(next)) && Number(next) > NUMPAD_FIELD_MAX[field]) return cur;
   return next;
 }
 
@@ -182,10 +198,10 @@ export function writeNumpadField(input: NumpadInput, field: NumpadField, value: 
 
 export function allNumpadValuesValid(input: NumpadInput): boolean {
   return (
-    isValidNumpadValue(input.weightKg) &&
-    isValidNumpadValue(input.reps) &&
-    isValidNumpadValue(input.durationS) &&
-    isValidNumpadValue(input.rir)
+    isValidNumpadValue(input.weightKg, 'weight') &&
+    isValidNumpadValue(input.reps, 'reps') &&
+    isValidNumpadValue(input.durationS, 'duration') &&
+    isValidNumpadValue(input.rir, 'rir')
   );
 }
 
@@ -193,7 +209,7 @@ export function allNumpadValuesValid(input: NumpadInput): boolean {
 export function weightKgStringToGrams(s: string): number | null {
   const t = s.trim();
   if (!t || t === '.') return null;
-  if (!isValidNumpadValue(t)) return null;
+  if (!isValidNumpadValue(t, 'weight')) return null;
   return Math.round(Number(t) * 1000);
 }
 
@@ -201,7 +217,7 @@ export function weightKgStringToGrams(s: string): number | null {
 export function durationStringToMs(s: string): number | null {
   const t = s.trim();
   if (!t || t === '.') return null;
-  if (!isValidNumpadValue(t)) return null;
+  if (!isValidNumpadValue(t, 'duration')) return null;
   return Math.round(Number(t) * 1000);
 }
 
