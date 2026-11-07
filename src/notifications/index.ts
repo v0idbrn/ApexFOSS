@@ -6,6 +6,9 @@
  */
 
 import { upstreamNotifications, localNotifications, localNotificationAdapter } from './backend';
+import { TRAINING_REMINDER_ID } from './reminders';
+import type { TimerKind } from '../types/engine';
+import { strings } from '../constants/strings';
 
 let permissionRequested = false;
 
@@ -80,7 +83,10 @@ export async function openExactAlarmSettings(): Promise<void> {
   }
 }
 
-export async function scheduleTimerNotification(expiresAt: number, title: string): Promise<string | null> {
+/** Timer kinds for which localized notification copy exists in strings.timers. */
+export type ScheduledTimerKind = Exclude<TimerKind, 'preparation'>;
+
+export async function scheduleTimerNotification(expiresAt: number, timerKind: ScheduledTimerKind): Promise<string | null> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { Platform } = require('react-native');
@@ -91,8 +97,9 @@ export async function scheduleTimerNotification(expiresAt: number, title: string
     if (!Notifications) return null;
     // Date trigger: Android may deliver inexact under OS alarm policies;
     // in-app countdown always uses cursor.expiresAt and remains authoritative.
+    const copy = strings.timers[timerKind];
     const id = await Notifications.scheduleNotificationAsync({
-      content: { title, body: 'Rest is over — next set.', sound: false },
+      content: { title: copy.title, body: copy.body, sound: false },
       trigger: { type: 'date', timestamp: expiresAt } as any,
     });
     return id ?? null;
@@ -109,10 +116,21 @@ export async function cancelTimerNotification(id: string | null): Promise<void> 
       await Notifications.cancelScheduledNotificationAsync(id);
       return;
     }
-    // No known id (process death cleared the in-memory map). This app only ever
-    // schedules one rest timer — clear any leftovers so recovery cannot double-fire.
+    // No known id (process death cleared the in-memory map). Clear leftover
+    // timer notifications so recovery cannot double-fire — but never the managed
+    // daily training reminder (reminders.ts owns it and no cancelAll reaches it).
     if (typeof Notifications.cancelAllScheduledNotificationsAsync === 'function') {
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      const all = await listScheduledNotificationIds();
+      if (!all.includes(TRAINING_REMINDER_ID)) {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+      } else {
+        for (const stale of all) {
+          if (stale !== TRAINING_REMINDER_ID) {
+            await Notifications.cancelScheduledNotificationAsync(stale);
+          }
+        }
+      }
+      return;
     }
   } catch {
     // ignore — engine state is authoritative

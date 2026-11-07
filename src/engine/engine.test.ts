@@ -451,7 +451,7 @@ describe('Workout Execution Engine — timed exercise (Start → prep → exerci
     expect(exercise.timer).toMatchObject({ kind: 'exercise', durationMs: 30_000, expiresAt: T0 + 35_000 });
     expect(effects).toMatchObject([
       { kind: 'START_TIMER', timerKind: 'exercise', durationMs: 30_000, expiresAt: T0 + 35_000 },
-      { kind: 'SCHEDULE_NOTIFICATION', expiresAt: T0 + 35_000, title: 'Exercise complete' },
+      { kind: 'SCHEDULE_NOTIFICATION', expiresAt: T0 + 35_000, timerKind: 'exercise' },
     ]);
 
     // Backgrounded past the prep expiry: the exercise still gets its full duration.

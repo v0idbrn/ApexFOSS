@@ -108,17 +108,6 @@ export interface CursorPosition {
  */
 export type TimerKind = 'rest' | 'auto' | 'preparation' | 'exercise';
 
-/**
- * Local notification title for a timer kind; null = no notification
- * (preparation is always consumed on-screen within seconds).
- */
-export function timerNotificationTitle(kind: TimerKind): string | null {
-  if (kind === 'preparation') return null;
-  if (kind === 'rest') return 'Rest complete';
-  if (kind === 'exercise') return 'Exercise complete';
-  return 'Next';
-}
-
 export interface TimerState {
   kind: TimerKind;
   durationMs: number;
@@ -286,7 +275,7 @@ export type Effect =
   | { kind: 'ADVANCE_ROUND'; blockIndex: number; round: number }
   | { kind: 'ADVANCE_BLOCK'; blockIndex: number }
   | { kind: 'COMPLETE_SESSION' }
-  | { kind: 'SCHEDULE_NOTIFICATION'; expiresAt: number; title: string }
+  | { kind: 'SCHEDULE_NOTIFICATION'; expiresAt: number; timerKind: Exclude<TimerKind, 'preparation'> }
   | { kind: 'CANCEL_NOTIFICATION' };
 
 export interface DispatchResult {

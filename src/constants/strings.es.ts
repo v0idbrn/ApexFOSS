@@ -267,6 +267,11 @@ more: {
     today: 'Hoy',
     channelName: 'Recordatorios de entrenamiento',
   },
+  timers: {
+    rest: { title: 'Descanso completado', body: 'El descanso terminó — próxima serie.' },
+    exercise: { title: 'Ejercicio completado', body: 'El descanso terminó — próxima serie.' },
+    auto: { title: 'Siguiente', body: 'El descanso terminó — próxima serie.' },
+  },
   home: {
     title: 'ApexFOSS',
     tagline: 'Motor de entrenamiento local',

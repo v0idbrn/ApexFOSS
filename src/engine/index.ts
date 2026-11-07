@@ -9,7 +9,6 @@ import {
   CursorPosition,
   ENGINE_DEFAULTS,
   TimerKind,
-  timerNotificationTitle,
 } from '../types/engine';
 
 /** Extra/drop-set counter key inside cursor.extraCounts (position-scoped). */
@@ -162,9 +161,10 @@ function startTimer(
 ): { cursor: ExecutionCursor; effects: Effect[] } {
   const expiresAt = now + durationMs;
   const effects: Effect[] = [{ kind: 'START_TIMER', timerKind, durationMs, expiresAt }];
-  const title = timerNotificationTitle(timerKind);
-  if (title !== null) {
-    effects.push({ kind: 'SCHEDULE_NOTIFICATION', expiresAt, title });
+  // Pure engine: no display text. The scheduling boundary (src/notifications)
+  // translates timerKind into localized notification copy.
+  if (timerKind !== 'preparation') {
+    effects.push({ kind: 'SCHEDULE_NOTIFICATION', expiresAt, timerKind });
   }
   return {
     cursor: { ...cursor, timer: { kind: timerKind, durationMs, expiresAt, target } },

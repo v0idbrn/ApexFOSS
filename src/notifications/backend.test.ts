@@ -142,10 +142,10 @@ describe('index notification routing', () => {
       getAllScheduledNotificationsAsync: jest.fn(async () => []),
     }));
     const index = require('./index');
-    const id = await index.scheduleTimerNotification(1_700_000_000_000, 'Rest done');
+    const id = await index.scheduleTimerNotification(1_700_000_000_000, 'rest');
     expect(id).toBe('timer-1');
     expect(mockSchedule).toHaveBeenCalledWith({
-      content: { title: 'Rest done', body: 'Rest is over — next set.', sound: false },
+      content: { title: 'Rest complete', body: 'Rest is over — next set.', sound: false },
       trigger: { type: 'date', timestamp: 1_700_000_000_000 },
     });
     index.__resetNotificationPermissionLatchForTests();
@@ -159,7 +159,7 @@ describe('index notification routing', () => {
       scheduleNotificationAsync: mockSchedule,
     }));
     const index = require('./index');
-    const id = await index.scheduleTimerNotification(1_700_000_000_000, 'Rest done');
+    const id = await index.scheduleTimerNotification(1_700_000_000_000, 'rest');
     expect(id).toBeNull();
     expect(mockSchedule).not.toHaveBeenCalled();
   });

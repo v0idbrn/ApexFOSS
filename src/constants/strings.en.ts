@@ -76,7 +76,7 @@ export const en = {
         summary: 'Blocks, steps and ordering',
         what: 'A routine is your plan: ordered blocks, each holding one or more steps that reference a library exercise with an exact prescription.',
         why: 'The runner executes the plan one step at a time using exact numbers — vague plans give vague sessions.',
-        how: 'Routines → Nueva / New. Give it a name, add a block, add a step inside it, pick an exercise, set sets/reps/weight, then Save. Reorder with the arrows. Editing a routine never changes past sessions — those keep a frozen copy taken when you started.',
+        how: 'Routines → New routine. Give it a name, add a block, add a step inside it, pick an exercise, set sets/reps/weight, then Save. Reorder with the arrows. Editing a routine never changes past sessions — those keep a frozen copy taken when you started.',
         example: "'Lower A' = block 1 (Back Squat 5×5 @ 80 kg), block 2 (Plank 3×40 s). Save, then it appears in your routine list.",
         practice: 'Create a routine with at least one block, one step and a real prescription (any numbers you would train), and save it.',
       },
@@ -264,6 +264,12 @@ more: {
       'Notifications are disabled. Enable them in system settings, then turn reminders on again.',
     today: 'Today',
     channelName: 'Training reminders',
+  },
+  timers: {
+    /** Local timer-notification copy, translated at the scheduling boundary (src/notifications). */
+    rest: { title: 'Rest complete', body: 'Rest is over — next set.' },
+    exercise: { title: 'Exercise complete', body: 'Rest is over — next set.' },
+    auto: { title: 'Next', body: 'Rest is over — next set.' },
   },
   home: {
     title: 'ApexFOSS',
