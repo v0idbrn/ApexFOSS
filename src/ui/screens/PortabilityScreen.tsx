@@ -19,6 +19,9 @@ import { takePendingFileImport } from '../../portability/pendingFileImport';
 import { pickImportFile } from '../../portability/fileImport';
 import { QrGrid } from '../QrGrid';
 import { makeDbActions } from '../../data/actions';
+import { useTimerStore } from '../../state/timerStore';
+import { useActiveSessionStore } from '../../state/activeSessionStore';
+import { cancelTimerNotification } from '../../notifications';
 
 function exerciseLine(label: string, count: number, names: string[]): string {
   return `${label} (${count})${names.length ? `: ${names.join(', ')}` : ''}`;
@@ -237,6 +240,12 @@ export function PortabilityScreen() {
               void (async () => {
                 try {
                   await restoreBackup(database, text);
+                  // Restore replaces all data — clear runtime mirrors so stale
+                  // active-session state, timer countdowns, and pending rest
+                  // notifications don't survive into the new DB.
+                  await cancelTimerNotification(null);
+                  useTimerStore.getState().clear();
+                  useActiveSessionStore.getState().setSession(null, null);
                   setStatus(strings.portability.restoreDone);
                   setBackupText('');
                 } catch (e) {
