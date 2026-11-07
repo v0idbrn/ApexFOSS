@@ -57,15 +57,15 @@ function targetLine(s: {
   targetDurationMs: number | null;
 }): string {
   const parts: string[] = [];
-  if (s.targetWeightGrams !== null) parts.push(`${formatKg(s.targetWeightGrams)} kg`);
+  if (s.targetWeightGrams !== null) parts.push(`${formatKg(s.targetWeightGrams)} ${strings.units.kg}`);
   if (s.targetRepsMin !== null) {
     parts.push(
       s.targetRepsMax !== null && s.targetRepsMax !== s.targetRepsMin
-        ? `${s.targetRepsMin}–${s.targetRepsMax} reps`
-        : `${s.targetRepsMin} reps`,
+        ? `${s.targetRepsMin}–${s.targetRepsMax} ${strings.workout.reps}`
+        : `${s.targetRepsMin} ${strings.workout.reps}`,
     );
   }
-  if (s.targetDurationMs !== null) parts.push(`${Math.round(s.targetDurationMs / 1000)} s`);
+  if (s.targetDurationMs !== null) parts.push(`${Math.round(s.targetDurationMs / 1000)} ${strings.units.seconds}`);
   return parts.join(' × ');
 }
 
@@ -76,10 +76,10 @@ function actualLine(l: {
   rir: number | null;
 }): string {
   const parts: string[] = [];
-  if (l.weightGrams !== null) parts.push(`${formatKg(l.weightGrams)} kg`);
-  if (l.reps !== null) parts.push(`${l.reps} reps`);
-  if (l.durationMs !== null) parts.push(`${Math.round(l.durationMs / 1000)} s`);
-  if (l.rir !== null) parts.push(`RIR ${l.rir}`);
+  if (l.weightGrams !== null) parts.push(`${formatKg(l.weightGrams)} ${strings.units.kg}`);
+  if (l.reps !== null) parts.push(`${l.reps} ${strings.workout.reps}`);
+  if (l.durationMs !== null) parts.push(`${Math.round(l.durationMs / 1000)} ${strings.units.seconds}`);
+  if (l.rir !== null) parts.push(`${strings.workout.rir} ${l.rir}`);
   return parts.length > 0 ? parts.join(' × ') : strings.history.notLogged;
 }
 
