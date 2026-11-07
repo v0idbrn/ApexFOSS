@@ -4,8 +4,8 @@ import { ROUTINE_FORMAT, ROUTINE_FORMAT_VERSION, PortabilityError } from './type
 import { semanticChecksum, canonicalJson } from './canonical';
 import { validateIntervalConfig } from '../interval/intervalEngine';
 
-const BLOCK_KINDS: readonly string[] = ['normal', 'superset', 'contrast', 'circuit', 'interval'];
-const TRANSITIONS: readonly string[] = ['immediate', 'rest', 'auto_advance'];
+export const BLOCK_KINDS: readonly string[] = ['normal', 'superset', 'contrast', 'circuit', 'interval'];
+export const TRANSITIONS: readonly string[] = ['immediate', 'rest', 'auto_advance'];
 const MAX_BLOCKS = 500;
 const MAX_STEPS_PER_BLOCK = 500;
 const MAX_EXERCISES = 5000;
@@ -50,7 +50,7 @@ function validateTempo(raw: unknown, path: string): TempoSpec {
   };
 }
 
-function validatePrescription(raw: unknown, path: string) {
+export function validatePrescription(raw: unknown, path: string) {
   if (!isObj(raw)) throw new PortabilityError('invalid_prescription', path);
   const targetSets = optIntOrNull(raw, 'targetSets', path, 1, 999);
   const targetRepsMin = optIntOrNull(raw, 'targetRepsMin', path, 0, 9999);
@@ -110,7 +110,7 @@ function validateExercise(raw: unknown, path: string): PortableExercise {
   };
 }
 
-function validateStep(raw: unknown, path: string, exerciseKeys: Set<string>): PortableStep {
+export function validateStep(raw: unknown, path: string, exerciseKeys: Set<string>): PortableStep {
   if (!isObj(raw)) throw new PortabilityError('missing_field', path);
   const role = raw.role;
   if (role !== 'work' && role !== 'rest') throw new PortabilityError('missing_field', `${path}.role`);
@@ -145,7 +145,7 @@ function validateStep(raw: unknown, path: string, exerciseKeys: Set<string>): Po
   };
 }
 
-function validateBlock(raw: unknown, path: string, exerciseKeys: Set<string>): PortableBlock {
+export function validateBlock(raw: unknown, path: string, exerciseKeys: Set<string>): PortableBlock {
   if (!isObj(raw)) throw new PortabilityError('missing_field', path);
   const name = reqStr(raw, 'name', path);
   const kind = raw.kind as BlockKind;
@@ -169,7 +169,7 @@ function validateBlock(raw: unknown, path: string, exerciseKeys: Set<string>): P
   return { name, kind, role: (role as PortableBlock['role']) ?? null, rounds, steps, interval };
 }
 
-function validatePortableRoutine(raw: unknown, exerciseKeys: Set<string>): {
+export function validatePortableRoutine(raw: unknown, exerciseKeys: Set<string>): {
   name: string;
   blocks: PortableBlock[];
 } {

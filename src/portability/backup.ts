@@ -22,6 +22,12 @@ import { normalizeBlockRole, normalizeMesocycleStage } from '../types/engine';
 import { normalizeBodyEntries } from '../analytics/body';
 import { schemaVersion } from '../data/schema';
 import { EXERCISE_NOTE_MAX_LENGTH, NOTE_MAX_LENGTH } from '../data/notes';
+import {
+  validateBlock as validateBlockStrict,
+  validatePrescription as validatePrescriptionStrict,
+  BLOCK_KINDS,
+  TRANSITIONS,
+} from './validate';
 
 export interface RestoreHooks {
   onRowCreated?: (table: string, count: number) => void;
@@ -494,12 +500,12 @@ export function validateBackup(raw: unknown): ApexBackup {
     }
   }
 
-  // Validate each routine's structure (reuse portable block/step rules without package checksum).
+  // Validate each routine's structure (strict: reuse portable block/step rules
+  // without package checksum). Catches prescription ranges, transition vocab,
+  // block kinds, rounds, step roles, dangling exercise keys.
   for (const [i, r] of routines.entries()) {
     if (typeof r !== 'object' || r === null) throw new PortabilityError('missing_field', `routines[${i}]`);
     const rr = r as Record<string, unknown>;
-    if (!Array.isArray(rr.blocks)) throw new PortabilityError('missing_field', `routines[${i}].blocks`);
-    // Empty blocks allowed in backup (routine may be unconfigured); non-empty must be valid.
     if (typeof rr.name !== 'string' || !rr.name) throw new PortabilityError('invalid_string', `routines[${i}].name`);
     if (rr.programIndex !== undefined && rr.programIndex !== null) {
       const idx = rr.programIndex;
@@ -520,26 +526,11 @@ export function validateBackup(raw: unknown): ApexBackup {
         throw new PortabilityError('invalid_reference', `routines[${i}].mesocycleIndex`);
       }
     }
+    // Validate blocks/steps via strict shared validators (minimal difference from
+    // package validation: empty blocks allowed, no checksum).
+    if (!Array.isArray(rr.blocks)) throw new PortabilityError('missing_field', `routines[${i}].blocks`);
     for (const [j, block] of (rr.blocks as unknown[]).entries()) {
-      if (typeof block !== 'object' || block === null) throw new PortabilityError('missing_field', `routines[${i}].blocks[${j}]`);
-      const b = block as Record<string, unknown>;
-      if (b.role !== undefined && b.role !== null && b.role !== 'main' && b.role !== 'warmup' && b.role !== 'cooldown') {
-        throw new PortabilityError('invalid_string', `routines[${i}].blocks[${j}].role`);
-      }
-      if (!Array.isArray(b.steps) || b.steps.length === 0) throw new PortabilityError('empty_routine', 'blocks.steps');
-      for (const [k, step] of (b.steps as unknown[]).entries()) {
-        if (typeof step !== 'object' || step === null) throw new PortabilityError('missing_field', 'step');
-        const s = step as Record<string, unknown>;
-        if (s.exerciseKey != null && !exerciseKeys.has(s.exerciseKey as string)) {
-          throw new PortabilityError('dangling_exercise', `routines[${i}].blocks[${j}].steps[${k}]`);
-        }
-        if (typeof s.prescription !== 'object' || s.prescription === null) {
-          throw new PortabilityError('invalid_prescription', 'step.prescription');
-        }
-        if (typeof s.transition !== 'object' || s.transition === null) {
-          throw new PortabilityError('invalid_transition', 'step.transition');
-        }
-      }
+      validateBlockStrict(block, `routines[${i}].blocks[${j}]`, exerciseKeys);
     }
   }
 
@@ -1081,6 +1072,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
             rec.name = raw.name;
             rec.programId = idMap.get(raw.program_id) ?? raw.program_id;
             rec.sortOrder = raw.sort_order;
+            rec.stage = raw.stage ?? null;
             rec.createdAt = raw.created_at ?? Date.now();
             rec.updatedAt = raw.updated_at ?? Date.now();
           });
@@ -1103,6 +1095,7 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
             rec.routineId = routineIdOf(raw.routine_id);
             rec.name = raw.name;
             rec.blockKind = raw.block_kind;
+            rec.blockRole = raw.block_role ?? null;
             rec.sortOrder = raw.sort_order;
             rec.rounds = raw.rounds;
             rec.intervalJson = raw.interval_json ?? null;
@@ -1182,6 +1175,10 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
             rec.exerciseName = raw.exercise_name;
             rec.blockIndex = raw.block_index;
             rec.orderIndex = raw.order_index;
+            rec.exerciseNote = raw.exercise_note ?? null;
+            rec.actualExerciseId = raw.actual_exercise_id ? idMap.get(raw.actual_exercise_id) ?? null : null;
+            rec.actualExerciseName = raw.actual_exercise_name ?? null;
+            rec.substitutionReason = raw.substitution_reason ?? null;
             rec.createdAt = raw.created_at ?? Date.now();
             rec.updatedAt = raw.updated_at ?? Date.now();
           });
@@ -1200,6 +1197,8 @@ export async function restoreBackup(db: Database, raw: unknown | string, hooks: 
             rec.durationMs = raw.duration_ms;
             rec.distanceMm = raw.distance_mm;
             rec.rir = raw.rir;
+            rec.executionType = raw.execution_type ?? null;
+            rec.overrideReason = raw.override_reason ?? null;
             rec.isCompleted = raw.is_completed;
             rec.completedAt = raw.completed_at;
             rec.createdAt = raw.created_at ?? Date.now();
