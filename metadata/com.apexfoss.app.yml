@@ -55,5 +55,11 @@ Builds:
     build:
       - npm ci
       - APEX_SKIP_SIGNING=1 npx expo prebuild -p android --clean
-      - cd android && ORG_GRADLE_TOOLCHAINS_FOOJAY_RESOLVER_CONVENTION_ENABLED=false sh gradlew assembleRelease -PapexFdroid=true
+      # RN's gradle-plugin applies org.gradle.toolchains.foojay-resolver-convention
+      # (Temurin/Adoptium via toolchain provisioning); the documented Gradle gate
+      # org.gradle.java.installations.auto-download=false disables auto-provisioning,
+      # so the build uses the sudo-installed openjdk-17-jdk-headless and fails loudly
+      # instead of downloading a JDK. (The toolchains.foojay-resolver-convention.enabled
+      # property is never read by the plugin — do not use it.)
+      - cd android && ORG_GRADLE_JAVA_INSTALLATIONS_AUTO_DOWNLOAD=false sh gradlew assembleRelease -PapexFdroid=true
     output: android/app/build/outputs/apk/release/app-release.apk

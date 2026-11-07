@@ -23,7 +23,7 @@ Related: `docs/DISTRIBUTION.md` (channel overview), `docs/DISTRIBUTION_MATRIX.md
 |---|---|
 | Build system | Gradle (AGP via Expo version catalog) + Node/npm for JS bundle. `android/` is **generated, not committed** (`git ls-files android` → 0 files): F-Droid must run `npm install` + `expo prebuild` (CNG) before Gradle. |
 | Gradle | 9.0.0 (wrapper pinned in `android/gradle/wrapper/gradle-wrapper.properties`) |
-| JDK | 17 (F-Droid builder: Debian `openjdk-17-jdk-headless` package; local dev: any JDK 17) |
+| JDK | 17 (F-Droid builder: Debian `openjdk-17-jdk-headless` package; local dev: any JDK 17). Toolchain auto-provisioning is **disabled** in the build recipe via the documented Gradle gate `org.gradle.java.installations.auto-download=false` (env `ORG_GRADLE_JAVA_INSTALLATIONS_AUTO_DOWNLOAD=false`): if no local JDK 17 is detected, the build fails loudly instead of downloading Temurin/Adoptium. Note: `org.gradle.toolchains.foojay-resolver-convention.enabled` (used earlier) is read by nothing — RN's gradle-plugin applies the foojay resolver unconditionally and that property is a no-op. |
 | Android SDK | compileSdk 36, targetSdk 36, minSdk 24, buildTools 36.0.0 (verified in Gradle configure log) |
 | NDK | 27.1.12297006 (verified in Gradle configure log; compiles WatermelonDB JSI from C++ source) |
 | Node / npm | v24.15.0 / 12.0.2 locally; F-Droid recipe must pin working versions |
