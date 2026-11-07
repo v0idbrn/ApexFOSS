@@ -42,7 +42,7 @@ CurrentVersionCode: 6
 Builds:
   - versionName: 1.1.3
     versionCode: 6
-    commit: ab75dd0f7df774fdf020d9dfeaadfe9ef721a00
+    commit: 5e4d9b2aa8582b5f047d0beb57864da85b18e8af
     ndk: 27.1.12297006
     sudo:
       - apt-get update

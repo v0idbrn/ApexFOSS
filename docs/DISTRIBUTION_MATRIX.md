@@ -1,13 +1,13 @@
 # Distribution Matrix — Channels & Requirements
 
-**Status: GitHub Release v1.1.0 published (pre-release); no store presence. Last updated: 2026-09-30.**
+**Status: GitHub Release v1.1.3 published; no store presence. Last updated: 2026-11-07.**
 **Channel states:** published · submitted · ready · blocked · deferred.
 
 ## Channels
 
 | Canal | Estado | Requisitos | Próximo paso | Bloqueador |
 |---|---|---|---|---|
-| GitHub Releases | published (v1.1.0 pre-release + APK + SHA-256) | tag + notes + asset | Done — maintain per release | none |
+| GitHub Releases | published (v1.1.3 + APK + SHA-256) | tag + notes + asset | Done — maintain per release | none |
 | Obtainium | ready (tracks the published release) | nothing in-app | Done (user path documented) | none |
 | F-Droid | blocked (submission pack prepared) | `fdroiddata` MR + trial build + screenshots + Firebase flavour | Resolve Firebase flavour, capture screenshots, owner files MR (GitLab) | Firebase/GMS policy (flavour required); screenshots; reviewer process |
 | IzzyOnDroid | ready (pack prepared) | GitHub Release + fastlane complete + issue filed | Publish release, capture screenshots, file Codeberg suggestion issue | Screenshots; ~41 MB vs 30 MB guideline; maintainer-filed issue |
@@ -26,7 +26,7 @@
 |---|---|---|---|---|
 | Package ID `com.apexfoss.app` | PASS | PASS | PASS | `app.json`, `build.gradle`, aapt/AAB checks |
 | License GPL-3.0-or-later | n/a (Play accepts any) | PASS | PASS | `LICENSE`, SPDX field, `docs/THIRD_PARTY_LICENSES.md` |
-| Version 1.1.0 / code 3 | READY | READY | READY | Pinned; release tags intentionally not created yet |
+| Version 1.1.3 / code 6 | READY | READY | READY | Pinned; release tags intentionally not created yet |
 | Target SDK 36 | PASS (floor since 31 Aug 2026) | n/a | PASS | Verified Sept 2026 policy + local build |
 | Release APK build | READY (upload AAB instead) | READY | READY | `assembleRelease` verified, SHA recorded |
 | Release AAB build | PASS (validated this pass) | n/a | PASS | `bundleRelease` OK; `jarsigner` verified; manifest/ABIs checked |
@@ -54,9 +54,9 @@
 | No INTERNET in release | PASS (verified APK + AAB) | Consistent | PASS | aapt + manifest checks |
 | No self-updater / OTA | PASS (`ENABLED=false`) | PASS | PASS | Manifest meta-data |
 | Reproducible build | NEEDS VERIFICATION | NEEDS VERIFICATION | NEEDS VERIFICATION | Not established |
-| Git tag `v1.1.0` | READY (created for release) | READY (F-Droid builds from tags) | DONE | tag `v1.1.0` → release commit |
+| Git tag `v1.1.3` | READY (created for release) | READY (F-Droid builds from tags) | DONE | tag `v1.1.3` → release commit |
 | Changelog / release notes | READY (`CHANGELOG.md` + fastlane `2.txt`/`3.txt`) | READY | READY | — |
-| GitHub Release published | PUBLISHED (v1.1.0 pre-release + APK + notes) | n/a | DONE | https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.0 |
+| GitHub Release published | PUBLISHED (v1.1.3 + APK + notes) | n/a | DONE | https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.3 |
 | Submission (upload / MR) | **NOT DONE (out of scope)** | **NOT DONE (out of scope)** | MANUAL ACTION | Internal/closed testing first |
 
 **Bottom line:** GitHub Release v1.1.0 is published (pre-release, device validation pending). F-Droid has one named blocker (Firebase flavour, requires separate implementation + device validation) plus the usual manual externals (MR, screenshots, review). IzzyOnDroid needs screenshots + filed issue + the 30 MB discussion. Play/Uptodown/Aptoide/Huawei/Samsung assessed in `docs/DISTRIBUTION_CHANNELS.md`. No other technical blocker remains on the repository side.

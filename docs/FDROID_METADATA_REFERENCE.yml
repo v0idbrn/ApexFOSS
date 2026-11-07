@@ -8,9 +8,9 @@
 packageId: com.apexfoss.app
 sourceRepo: https://github.com/v0idbrn/ApexFOSS.git
 license: GPL-3.0-or-later
-versionName: 1.1.0
-versionCode: 3
-# Tag strategy: v1.1.0 (created for the GitHub release; F-Droid UpdateCheckMode Tags tracks it).
+versionName: 1.1.3
+versionCode: 6
+# Tag strategy: v1.1.3 (created for the GitHub release; F-Droid UpdateCheckMode Tags tracks it).
 
 build:
   system: gradle + nodejs (Expo CNG prebuild required)
@@ -40,10 +40,11 @@ flavours: false   # no store-specific runtime behavior exists by design.
 openItems:
   - Trial recipe proving CNG + Metro/Hermes build in F-Droid infra.
   - Reviewer judgment on firebase-messaging (dead code, no INTERNET).
-  - Tag v1.1.0 exists (GitHub release); keep tags per release for UpdateCheckMode.
+  - Tag v1.1.3 exists (GitHub release); keep tags per release for UpdateCheckMode.
   - Re-verify Gradle-artifact licenses at submission time.
 
 links:
   readinessDoc: docs/DISTRIBUTION_FDROID.md
   matrixDoc: docs/DISTRIBUTION_MATRIX.md
   fastlaneMetadata: fastlane/metadata/android/
+  fdroidRecipe: metadata/com.apexfoss.app.yml

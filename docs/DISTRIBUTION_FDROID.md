@@ -1,7 +1,7 @@
 # F-Droid — Distribution Readiness
 
 **Status: preparation only — NO submission, NO merge request to `fdroiddata`, NO tag has been made. Nothing here is a claim of acceptance.**
-**Last verified: 2026-09-29 (distribution-readiness pass).**
+**Last verified: 2026-11-07 (F-Droid template compliance pass).**
 **F-Droid builds from source** — everything below is about whether this repository can be built by F-Droid's infrastructure, not about the APK the maintainer builds locally.
 
 Related: `docs/DISTRIBUTION.md` (channel overview), `docs/DISTRIBUTION_MATRIX.md` (cross-channel status), `docs/FDROID_METADATA_REFERENCE.yml` (draft submission reference), `docs/THIRD_PARTY_LICENSES.md` (npm license inventory).
@@ -12,10 +12,10 @@ Related: `docs/DISTRIBUTION.md` (channel overview), `docs/DISTRIBUTION_MATRIX.md
 |---|---|
 | App name | ApexFOSS |
 | Package ID | `com.apexfoss.app` |
-| Current version | 1.0.0 (`versionCode` 2) |
+| Current version | 1.1.3 (`versionCode` 6) |
 | License | GPL-3.0-or-later (`LICENSE` at repo root, SPDX in `package.json`) |
 | Source repository | https://github.com/v0idbrn/ApexFOSS.git (public) |
-| Tag strategy (intended) | `v1.0.0` per release — **not created yet** (created only after RC validation) |
+| Tag strategy (intended) | `v1.1.3` per release — created for GitHub release |
 
 ## 2. Build
 
@@ -85,7 +85,7 @@ Full transitive inventory method: `docs/THIRD_PARTY_LICENSES.md` (pinned by `pac
 
 - The maintainer's release keystore lives **outside the repo** (`~/.apexfoss/`, injected by `plugins/withApexSigning.js`); F-Droid never needs it and must never receive it.
 - **Sign-less recipe (validated this pass, D-055):** `APEX_SKIP_SIGNING=1` makes the signing plugin warn and skip, so `expo prebuild` succeeds with zero keystore material (the variable is checked before the config file is even read, so a missing file is equally fine). The default path is unchanged — missing config without the variable still throws.
-- F-Droid recipe proven locally: `npm install` → `APEX_SKIP_SIGNING=1 npx expo prebuild -p android --clean` → `gradlew assembleDebug` → `BUILD SUCCESSFUL`; debug APK verified (`com.apexfoss.app`, 1.0.0/2, both ABIs; INTERNET present in debug is by design for Metro — D-033). Release variant in the same sign-less state falls back to debug signing with the release manifest (no INTERNET) for F-Droid to re-sign.
+- F-Droid recipe proven locally: `npm install` → `APEX_SKIP_SIGNING=1 npx expo prebuild -p android --clean` → `gradlew assembleDebug` → `BUILD SUCCESSFUL`; debug APK verified (`com.apexfoss.app`, 1.1.3/6, both ABIs; INTERNET present in debug is by design for Metro - D-033). Release variant in the same sign-less state falls back to debug signing with the release manifest (no INTERNET) for F-Droid to re-sign.
 - No committed keystores, passwords, `.env`, or local paths (verified every pass; `src/security/distribution.test.ts` guards it).
 
 ## 6. AntiFeatures (assessment, F-Droid decides)
