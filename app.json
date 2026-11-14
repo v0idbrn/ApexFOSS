@@ -29,6 +29,7 @@
       "./plugins/withNetworkHardening",
       "./plugins/withFileIntentFilters",
       "./plugins/withFdroidNotificationFlavor",
+      "./plugins/withFdroidTestSuffix",
       [
         "expo-build-properties",
         {
