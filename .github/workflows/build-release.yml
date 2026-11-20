@@ -59,7 +59,7 @@ jobs:
         working-directory: .
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease -PapexFdroid=false
+        run: APEX_SKIP_SIGNING=1 NODE_ENV=production ./gradlew assembleRelease -PapexFdroid=false
         working-directory: ./android
 
       - name: Upload APK
