@@ -37,6 +37,8 @@ jobs:
 
       - name: Setup Android SDK
         run: |
+          # Add cmdline-tools to PATH
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           # Install required SDK packages
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.1.12297006" "platform-tools" "cmake;3.22.1"
           # Accept licenses
