@@ -2,7 +2,30 @@
 
 Notable changes to ApexFOSS. Versions follow a simple pre-1.0 convention; a date appears only when a version is actually tagged and released. The project follows nothing beyond this file — planned work lives in `docs/DECISIONS.md` and `docs/DISTRIBUTION.md`, not here.
 
-## 1.1.3 — unreleased
+## 1.1.4 — 2026-11-19
+
+Stability release on top of 1.1.3: data-integrity fixes for backup and restore, stricter input validation, and notification reliability. Version **1.1.4** (versionCode 7); **no database schema changes** (still schema v13).
+
+### Data integrity
+- **Backups are validated with the strict shared validators** (block kinds, prescriptions, transition vocabulary, rounds, step roles): a hand-edited or corrupt `.apexbackup` is rejected instead of restoring values that would poison later analytics.
+- **Restore rollback keeps every column**: if a restore fails and rolls back, previously dropped fields (block role, mesocycle stage, session-exercise notes/substitutions, set-log execution type/override reason) come back intact instead of being silently lost.
+- **Restore clears stale runtime state**: pending rest notifications, timer state and the active-session mirror are cleared, so a previous session never survives into the restored database.
+- **Starter routine seeding race fixed**: a starter left with zero blocks (process death between row creation and save) is re-seeded instead of staying permanently empty, while a starter the user deleted still stays deleted.
+
+### Input validation
+- **Per-field upper bounds in the number pad**: weight, reps, duration and RIR are capped at their prescription limits, so an out-of-range value can no longer reach the session log.
+
+### Notifications
+- **Timer notifications localized** (EN/ES) and translated at the scheduling boundary; the pure engine layer no longer carries display text.
+- **Cancelling a timer no longer wipes training reminders**: only the stale timer notification is cancelled.
+
+### History
+- **Localized units and labels** in the history detail (kg, reps, seconds, RIR).
+
+### Tests
+- Jest suite green (1329 tests across 104 suites) plus a clean `tsc --noEmit`; EN/ES parity maintained.
+
+## 1.1.3 — 2026-11-06
 
 Product-completion run on top of 1.1.2: an in-app learning system, reliability fixes for interrupted timers, a real starter library, and workout/editor/history refinements. Version **1.1.3** (versionCode 6); **no database schema changes** (still schema v13).
 

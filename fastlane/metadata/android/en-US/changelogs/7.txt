@@ -1,0 +1,1 @@
+v1.1.4: Stability release — backups are validated strictly and a failed restore no longer drops fields, restoring clears stale timers and notifications, the number pad enforces per-field limits, timer notifications and history units are localized, and starter routines can no longer stay empty after a crash.

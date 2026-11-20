@@ -1,15 +1,15 @@
 # Distribution Matrix — Channels & Requirements
 
-**Status: GitHub Release v1.1.3 published; no store presence. Last updated: 2026-11-07.**
+**Status: GitHub Release v1.1.4 published; no store presence (F-Droid MR open). Last updated: 2026-11-19.**
 **Channel states:** published · submitted · ready · blocked · deferred.
 
 ## Channels
 
 | Canal | Estado | Requisitos | Próximo paso | Bloqueador |
 |---|---|---|---|---|
-| GitHub Releases | published (v1.1.3 + APK + SHA-256) | tag + notes + asset | Done — maintain per release | none |
+| GitHub Releases | published (v1.1.4 + APK + SHA-256) | tag + notes + asset | Done — maintain per release | none |
 | Obtainium | ready (tracks the published release) | nothing in-app | Done (user path documented) | none |
-| F-Droid | blocked (submission pack prepared) | `fdroiddata` MR + trial build + screenshots + Firebase flavour | Resolve Firebase flavour, capture screenshots, owner files MR (GitLab) | Firebase/GMS policy (flavour required); screenshots; reviewer process |
+| F-Droid | submitted (`!51203`, updated to 1.1.4; awaiting review) | `fdroiddata` MR + reviewer sign-off | Respond to review; no further packaging work known | Reviewer process only |
 | IzzyOnDroid | ready (pack prepared) | GitHub Release + fastlane complete + issue filed | Publish release, capture screenshots, file Codeberg suggestion issue | Screenshots; ~41 MB vs 30 MB guideline; maintainer-filed issue |
 | Uptodown | deferred (prepared) | free account + APK upload by owner | Owner registers + uploads | Owner account action |
 | Aptoide | deferred | Manual path needs subscription (not on Play) | Revisit once on Google Play (then automatic) | Subscription cost; not on Play |
@@ -26,7 +26,7 @@
 |---|---|---|---|---|
 | Package ID `com.apexfoss.app` | PASS | PASS | PASS | `app.json`, `build.gradle`, aapt/AAB checks |
 | License GPL-3.0-or-later | n/a (Play accepts any) | PASS | PASS | `LICENSE`, SPDX field, `docs/THIRD_PARTY_LICENSES.md` |
-| Version 1.1.3 / code 6 | READY | READY | READY | Pinned; release tags intentionally not created yet |
+| Version 1.1.4 / code 7 | READY | READY | READY | Tagged per release (`v1.1.4`); F-Droid builds the tag commit |
 | Target SDK 36 | PASS (floor since 31 Aug 2026) | n/a | PASS | Verified Sept 2026 policy + local build |
 | Release APK build | READY (upload AAB instead) | READY | READY | `assembleRelease` verified, SHA recorded |
 | Release AAB build | PASS (validated this pass) | n/a | PASS | `bundleRelease` OK; `jarsigner` verified; manifest/ABIs checked |
@@ -54,9 +54,9 @@
 | No INTERNET in release | PASS (verified APK + AAB) | Consistent | PASS | aapt + manifest checks |
 | No self-updater / OTA | PASS (`ENABLED=false`) | PASS | PASS | Manifest meta-data |
 | Reproducible build | NEEDS VERIFICATION | NEEDS VERIFICATION | NEEDS VERIFICATION | Not established |
-| Git tag `v1.1.3` | READY (created for release) | READY (F-Droid builds from tags) | DONE | tag `v1.1.3` → release commit |
-| Changelog / release notes | READY (`CHANGELOG.md` + fastlane `2.txt`/`3.txt`) | READY | READY | — |
-| GitHub Release published | PUBLISHED (v1.1.3 + APK + notes) | n/a | DONE | https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.3 |
-| Submission (upload / MR) | **NOT DONE (out of scope)** | **NOT DONE (out of scope)** | MANUAL ACTION | Internal/closed testing first |
+| Git tag `v1.1.4` | READY (created for release) | READY (F-Droid builds from tags) | DONE | tag `v1.1.4` → release commit |
+| Changelog / release notes | READY (`CHANGELOG.md` + fastlane `7.txt`) | READY | READY | — |
+| GitHub Release published | PUBLISHED (v1.1.4 + APK + notes) | n/a | DONE | https://github.com/v0idbrn/ApexFOSS/releases/tag/v1.1.4 |
+| Submission (upload / MR) | **MR `!51203` OPEN** | **NOT DONE** | IN PROGRESS | fdroiddata review in progress |
 
 **Bottom line:** GitHub Release v1.1.0 is published (pre-release, device validation pending). F-Droid has one named blocker (Firebase flavour, requires separate implementation + device validation) plus the usual manual externals (MR, screenshots, review). IzzyOnDroid needs screenshots + filed issue + the 30 MB discussion. Play/Uptodown/Aptoide/Huawei/Samsung assessed in `docs/DISTRIBUTION_CHANNELS.md`. No other technical blocker remains on the repository side.

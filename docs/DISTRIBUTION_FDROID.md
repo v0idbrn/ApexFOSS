@@ -1,7 +1,7 @@
 # F-Droid — Distribution Readiness
 
-**Status: preparation only — NO submission, NO merge request to `fdroiddata`, NO tag has been made. Nothing here is a claim of acceptance.**
-**Last verified: 2026-11-07 (F-Droid template compliance pass).**
+**Status: `fdroiddata` merge request `!51203` open since 2026-10-05 (reviewer: linsui); not merged, not published. Nothing here is a claim of acceptance.**
+**Last verified: 2026-11-19 (release 1.1.4 metadata update).**
 **F-Droid builds from source** — everything below is about whether this repository can be built by F-Droid's infrastructure, not about the APK the maintainer builds locally.
 
 Related: `docs/DISTRIBUTION.md` (channel overview), `docs/DISTRIBUTION_MATRIX.md` (cross-channel status), `docs/FDROID_METADATA_REFERENCE.yml` (draft submission reference), `docs/THIRD_PARTY_LICENSES.md` (npm license inventory).
@@ -12,18 +12,18 @@ Related: `docs/DISTRIBUTION.md` (channel overview), `docs/DISTRIBUTION_MATRIX.md
 |---|---|
 | App name | ApexFOSS |
 | Package ID | `com.apexfoss.app` |
-| Current version | 1.1.3 (`versionCode` 6) |
+| Current version | 1.1.4 (`versionCode` 7) |
 | License | GPL-3.0-or-later (`LICENSE` at repo root, SPDX in `package.json`) |
 | Source repository | https://github.com/v0idbrn/ApexFOSS.git (public) |
-| Tag strategy (intended) | `v1.1.3` per release — created for GitHub release |
+| Tag strategy (intended) | `v1.1.4` per release — created for GitHub release |
 
 ## 2. Build
 
 | Item | Requirement / finding |
 |---|---|
-| Build system | Gradle (AGP via Expo version catalog) + Node/npm for JS bundle. `android/` is **generated, not committed** (`git ls-files android` → 0 files): F-Droid must run `npm install` + `expo prebuild` (CNG) before Gradle. |
+| Build system | Gradle (AGP via Expo version catalog) + Node/npm for JS bundle. `android/` is **generated, not committed** (`/android/` is gitignored; one stale generated `android/app/build.gradle` from an early prebuild is still tracked, and `expo prebuild --clean` replaces it during the build): F-Droid must run `npm ci` + `expo prebuild` (CNG) before Gradle. |
 | Gradle | 9.0.0 (wrapper pinned in `android/gradle/wrapper/gradle-wrapper.properties`) |
-| JDK | 17 (F-Droid builder: Debian `openjdk-17-jdk-headless` package; local dev: any JDK 17). Toolchain auto-provisioning is **disabled** in the build recipe via the documented Gradle gate `org.gradle.java.installations.auto-download=false` (env `ORG_GRADLE_JAVA_INSTALLATIONS_AUTO_DOWNLOAD=false`): if no local JDK 17 is detected, the build fails loudly instead of downloading Temurin/Adoptium. Note: `org.gradle.toolchains.foojay-resolver-convention.enabled` (used earlier) is read by nothing — RN's gradle-plugin applies the foojay resolver unconditionally and that property is a no-op. |
+| JDK | Trixie ships JDK 21 (`openjdk-21-jdk-headless`), but RN's Gradle plugin hardcodes `jvmToolchain(17)`, so the recipe also installs `temurin-17-jdk` from the Adoptium apt repo (Debian Trixie does **not** ship `openjdk-17-jdk-headless`; that package exists in Bookworm and unstable only). Gradle's `org.gradle.java.installations.auto-download` is a Gradle property: only `-P` / `gradle.properties` affect it — the `ORG_GRADLE_JAVA_INSTALLATIONS_AUTO_DOWNLOAD` env var and the `-D` form are **not** read by Gradle (measured 2026-11-19). The recipe needs no gate because JDK 17 is installed explicitly. |
 | Android SDK | compileSdk 36, targetSdk 36, minSdk 24, buildTools 36.0.0 (verified in Gradle configure log) |
 | NDK | 27.1.12297006 (verified in Gradle configure log; compiles WatermelonDB JSI from C++ source) |
 | Node / npm | v24.15.0 / 12.0.2 locally; F-Droid recipe must pin working versions |
@@ -101,8 +101,9 @@ Full transitive inventory method: `docs/THIRD_PARTY_LICENSES.md` (pinned by `pac
 
 ## 7. Remaining manual actions / blockers
 
-1. **F-Droid infrastructure trial run** (remaining half): prove the recipe inside F-Droid's environment (Node availability, hermesc handling); public-repo half is proven (§5).
-2. **Firebase flavour (BLOCKER, separate implementation):** policy explicitly forbids Firebase/GMS — build the notifications-module flavour without `firebase-messaging` and device-validate rest-timer alerts before filing the MR (§4).
-3. **Create tag per release** (v1.1.0 exists; F-Droid builds from tags).
-4. **Submit `fdroiddata` merge request** — explicitly out of scope for this pass.
+1. **F-Droid infrastructure trial run:** proven — fdroiddata CI ran `fdroid build` (image `fdroidserver:buildserver-trixie`) plus `fdroid lint`, `fdroid rewritemeta` and `check apk` on the 1.1.1 recipe and all jobs passed (2026-10-05). The recipe for 1.1.4 keeps that proven configuration.
+2. **Firebase-free notifications:** implemented as an invocation-scoped flavour (`-PapexFdroid=true` excludes `expo-notifications` and links `modules/apex-notifications`, AlarmManager + NotificationManager only). Verified in the built APK: no Firebase/FCM, no c2dm permission, no INTERNET, no `installreferrer`.
+3. **Create tag per release** — `v1.1.4` created with this release (F-Droid `UpdateCheckMode: Tags` tracks them).
+4. **Merge request** — `!51203` submitted 2026-10-05, updated to 1.1.4; awaiting review, not merged.
+5. **Device validation of local notifications** on physical hardware is still pending (no USB access).
 5. Re-verify time-sensitive items (licenses of Gradle artifacts, fdroiddata build practices) on submission day.
